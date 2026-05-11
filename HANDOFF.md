@@ -1,14 +1,15 @@
 # Biashara AI Project Handoff Document
 
 ## Current Project State
-- **Last Completed Prompt:** Prompt P1 — POS Database Migrations (v5→v7 + v3→v5 bridge)
+- **Last Completed Prompt:** Prompt P2 — Cart Data Layer (in-memory cart + totals)
 - **Prior narrative (for continuity):** Earlier revisions of this file listed Phase 1 / U0–U1; the product track treats **Prompt U10 — Final Upgrade Review (Phase 2 Complete)** as the completed Phase 2 milestone before POS work.
-- **Next Expected Prompt:** Prompt P2 — Cart Data Layer
+- **Next Expected Prompt:** Prompt P3 — POS Main Screen
 - **Phase:** POS Module
 - **Key Decisions / Notes:**
   - **`AppDatabase` is version 7** with explicit **`Migration` objects only** — **`fallbackToDestructiveMigration()` removed** from `AppModule`. See `DatabaseMigrations.kt`: **3→5** (Phase 2 auxiliary tables `customers`, `debts`, `alerts`), **5→6** (`sale_line_items` + POS columns on `transactions`), **6→7** (`app_settings` singleton row). Ships that were still on **v3** upgrade cleanly to v7.
   - **POS entities / DAOs:** `SaleLineItem`, `SaleLineItemDao`, `AppSettings`, `AppSettingsDao`. **`Transaction`** extended with `paymentMethod`, mobile-money fields, tendered/change, receipt / sale group IDs, `taxRate`, `taxAmount` (see `Transaction.kt`).
-  - **`SalesFragment`** remains a placeholder — **`PosFragment`** in a later prompt.
+  - **In-memory cart (P2):** `CartItem`, `CartManager` (`@Singleton`), `CartRepository` (`@Singleton`) — cart is **not** written to Room until payment confirm; partial carts discarded on clear / back. `CartRepository` combines cart lines with `AppSettings` (`taxRate` as **percent**) for `subtotal`, `taxAmount`, `grandTotal` via `StateFlow`. Injected into **`PosViewModel`** / **`PaymentViewModel`** next prompt.
+  - **`SalesFragment`** remains a placeholder — **`PosFragment`** in Prompt P3.
   - **Instrumented tests:** `AppDatabaseMigrationTest` — v3→v7 data preservation; v5→v7 path using Prompt P1 SQL only.
   - **Reuses (design / upcoming UI):** `Customer`, `Debt`, `CustomerSuggestionEngine`, `BarcodeAnalyzer` (CameraX + ML Kit).
   - **ESC/POS printing:** `com.github.DantSu:ESCPOS-ThermalPrinter-Android:3.3.0` (MIT) via JitPack — Prompt P0.
@@ -117,6 +118,8 @@
 ## Hilt Dependency Graph (AppModule)
 ```
 AppDatabase → ProductDao, TransactionDao, SaleLineItemDao, AppSettingsDao
+CartManager (singleton, constructor-injected)
+CartRepository (singleton, deps: CartManager, AppSettingsDao)
 TransactionRepository (singleton, dep: TransactionDao)
 CapabilityResult → CapabilityTier
 ModelDownloadManager (singleton)
@@ -175,7 +178,7 @@ CashFlowAnalyzer (singleton, dep: GemmaService)
 | Field | Value |
 |-------|-------|
 | **Last Completed** | Prompt P0: HANDOFF.md update + ESC/POS printer library + JitPack + Bluetooth permissions |
-| **Next Prompt** | Prompt P2: Cart Data Layer |
+| **Next Prompt** | Prompt P3: POS Main Screen |
 | **Dependencies added** | `com.github.DantSu:ESCPOS-ThermalPrinter-Android:3.3.0` (JitPack) |
 | **Repositories** | `maven("https://jitpack.io")` in `settings.gradle.kts` (`dependencyResolutionManagement`) |
 | **Manifest** | `BLUETOOTH` / `BLUETOOTH_ADMIN` (maxSdkVersion 30), `BLUETOOTH_CONNECT`, `BLUETOOTH_SCAN` (neverForLocation) |
@@ -192,3 +195,12 @@ CashFlowAnalyzer (singleton, dep: GemmaService)
 | **Files created** | `SaleLineItem.kt`, `SaleLineItemDao.kt`, `AppSettings.kt`, `AppSettingsDao.kt`, `DatabaseMigrations.kt`, `AppDatabaseMigrationTest.kt` |
 | **Files modified** | `AppDatabase.kt`, `Transaction.kt`, `AppModule.kt`, `HANDOFF.md` |
 | **Tests** | `AppDatabaseMigrationTest` (instrumented) — v3→v7 and v5→v7 validation |
+
+## POS Module — Prompt P2 (Cart data layer)
+
+| Field | Value |
+|-------|-------|
+| **Last Completed** | Prompt P2: Cart Data Layer |
+| **Next Prompt** | Prompt P3: POS Main Screen |
+| **Files created** | `CartItem.kt`, `CartManager.kt`, `CartRepository.kt` under `com.biasharaai.pos.cart` |
+| **Key note** | `CartManager` is `@Singleton` — holds `StateFlow` of cart lines; `CartRepository` combines with `AppSettingsDao` for tax / totals. No Room writes for cart until sale commit. |
