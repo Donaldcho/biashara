@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BiasharaAI</string>
+
+    <string name="nav_home">Nyumbani</string>
+    <string name="nav_inventory">Hifadhi</string>
+    <string name="nav_chat">Mazungumzo</string>
+    <string name="nav_insights">Uchambuzi</string>
+    <string name="nav_settings">Mipangilio</string>
+
+    <string name="home_welcome_title">Karibu kwenye Biashara AI</string>
+    <string name="home_welcome_subtitle">Msaidizi wako wa duka — stoo, mauzo, na uchambuzi mahali pamoja.</string>
+    <string name="home_card_daily_summary_title">Muhtasari wa leo</string>
+    <string name="home_card_daily_summary_placeholder">Jumla za kila siku na vipengele muhimu vitaonekana hapa.</string>
+    <string name="home_card_low_stock_title">Tahadhari za stoo ndogo</string>
+    <string name="home_card_low_stock_placeholder">Bidhaa zinazokwisha zitaorodheshwa hapa.</string>
+
+    <string name="placeholder_screen_body">Ukurasa huu ni nafasi ya vipengele vijavyo.</string>
+
+    <string name="language_selection_title">Chagua lugha yako</string>
+    <string name="language_selection_subtitle">Kila chaguo linaonyeshwa kwa herufi za asili za lugha hiyo.</string>
+
+    <!-- Inventory Management (Prompt 4) -->
+    <string name="inventory_action_scan">Changanua msimbo</string>
+    <string name="inventory_fab_add_desc">Ongeza bidhaa mpya</string>
+    <string name="inventory_empty">Hakuna bidhaa bado.\nGusa + kuongeza bidhaa yako ya kwanza.</string>
+    <string name="inventory_stock_format">Stoo: %1$d</string>
+    <string name="inventory_barcode_icon_desc">Ina msimbo</string>
+    <string name="inventory_add_edit_title">Bidhaa</string>
+    <string name="inventory_scanner_title">Changanua</string>
+
+    <!-- Barcode Scanner (Prompt 4b) -->
+    <string name="scanner_hint">Weka msimbo ndani ya fremu</string>
+    <string name="scanner_permission_denied">Ruhusa ya kamera inahitajika ili kuchanganua misimbo.</string>
+    <string name="scanner_grant_permission">Toa ruhusa</string>
+    <string name="scanner_close">Funga kichanganuzi</string>
+    <string name="scanner_product_not_found">Bidhaa haijapatikana. Iongeze?</string>
+    <string name="scanner_add_it">Ongeza</string>
+
+    <!-- Product Entry (Prompt 5) -->
+    <string name="product_title_new">Bidhaa mpya</string>
+    <string name="product_title_edit">Hariri bidhaa</string>
+    <string name="product_hint_name">Jina la bidhaa</string>
+    <string name="product_hint_description">Maelezo (hiari)</string>
+    <string name="product_hint_price">Bei ya kuuza</string>
+    <string name="product_hint_cost">Bei ya kununua</string>
+    <string name="product_hint_stock">Kiasi cha stoo</string>
+    <string name="product_hint_category">Kategoria (hiari)</string>
+    <string name="product_hint_barcode">Msimbo</string>
+    <string name="product_btn_save">Hifadhi</string>
+    <string name="product_btn_saving">Inahifadhi…</string>
+    <string name="product_saved">Bidhaa imehifadhiwa</string>
+    <string name="product_voice_input_desc">Ingizo la sauti</string>
+    <string name="product_voice_prompt">Sema jina la bidhaa</string>
+    <string name="product_voice_unavailable">Ingizo la sauti halipatikani kwenye kifaa hiki.</string>
+    <string name="product_scan_barcode_desc">Changanua msimbo</string>
+
+    <!-- Settings / AI Model (Prompt 6) -->
+    <string name="settings_section_ai_model">Mfano wa AI</string>
+    <string name="settings_device_capability">Uwezo wa kifaa</string>
+    <string name="settings_capability_detail">%1$s (%2$d MB RAM, API %3$d)</string>
+    <string name="settings_tier_full_ai">AI kamili</string>
+    <string name="settings_tier_partial_ai">AI nusu</string>
+    <string name="settings_tier_rules_based">Kanuni tu</string>
+    <string name="settings_model_status">Hali ya mfano</string>
+    <string name="settings_model_not_downloaded">Haijapakuliwa</string>
+    <string name="settings_model_downloading">Inapakua…</string>
+    <string name="settings_model_downloaded">Imepakuliwa (%1$d MB)</string>
+    <string name="settings_model_failed">Upakuaji umeshindikana</string>
+    <string name="settings_model_not_supported">Kifaa hakitimizi mahitaji ya AI.</string>
+    <string name="settings_download_data_warning">⚠ Upakuaji huu unatumia takriban GB 2.5 za data. Unganisha Wi-Fi ikiwezekana.</string>
+    <string name="settings_btn_download">Pakua mfano</string>
+    <string name="settings_btn_redownload">Pakua tena</string>
+    <string name="settings_btn_delete">Futa</string>
+    <string name="settings_btn_retry">Jaribu tena</string>
+    <string name="settings_download_confirm_title">Pakua mfano wa AI?</string>
+    <string name="settings_download_confirm_message">Mfano wa AI wa Gemma ni takriban MB %1$d. Hakikisha una hifadhi ya kutosha na muunganisho thabiti.</string>
+    <string name="settings_redownload_title">Pakua tena mfano?</string>
+    <string name="settings_redownload_message">Mfano uliopo utafutwa na kupakuliwa tena.</string>
+    <string name="settings_delete_confirm_title">Futa mfano?</string>
+    <string name="settings_delete_confirm_message">Vipengele vya AI havitapatikana hadi mfano upakuliwe tena.</string>
+    <string name="settings_download_complete">Mfano umepakuliwa kwa mafanikio</string>
+    <string name="settings_download_failed">Upakuaji umeshindikana: %1$s</string>
+    <string name="settings_section_about">Kuhusu</string>
+    <string name="settings_app_version">Toleo %1$s</string>
+
+    <!-- Demand Forecasting (Prompt 7) -->
+    <string name="inventory_forecast_badge">📈 %1$s</string>
+
+    <!-- Voice Input (Prompt 8) -->
+    <string name="voice_recording">Inarekodia… Sema sasa.</string>
+    <string name="voice_transcription_failed">Haikuweza kunakili sauti. Tafadhali jaribu tena.</string>
+    <string name="voice_permission_denied">Ruhusa ya maikrofoni inahitajika kwa ingizo la sauti.</string>
+
+    <!-- Cash Flow Insights (Prompt 9) -->
+    <string name="insights_title">Mtiririko wa Fedha</string>
+    <string name="insights_chart_title">Mapato dhidi ya Matumizi</string>
+    <string name="insights_label_income">Mapato</string>
+    <string name="insights_label_expenses">Matumizi</string>
+    <string name="insights_net_positive">✅ Jumla: +%1$s</string>
+    <string name="insights_net_negative">⚠ Jumla: -%1$s</string>
+    <string name="insights_narrative_title">Mshauri wa Biashara (AI)</string>
+    <string name="insights_refresh">Onyesha upya</string>
+    <!-- Chat -->
+    <string name="chat_empty_title">Msaidizi wako wa Biashara wa AI</string>
+    <string name="chat_empty_subtitle">Uliza chochote kuhusu hifadhi yako, mauzo, matumizi, au utendaji wa biashara</string>
+    <string name="chat_input_hint">Uliza kuhusu biashara yako…</string>
+    <string name="chat_send">Tuma</string>
+    <string name="chat_thinking">Biashara AI inafikiria…</string>
+    <string name="chat_fallback_no_products">Bado hujaja ongeza bidhaa. Fungua Hifadhi kuongeza bidhaa yako ya kwanza.</string>
+    <string name="chat_fallback_inventory_summary">Una bidhaa %1$d. Jumla ya thamani ya hifadhi: %2$s.</string>
+    <string name="chat_fallback_profit">Jumla ya mapato: %1$s. Matumizi: %2$s. Salio: %3$s.</string>
+    <string name="chat_fallback_expenses">Jumla ya matumizi: %1$s. Kategoria kubwa: %2$s.</string>
+    <string name="chat_fallback_low_stock">Hifadhi ndogo: %1$s</string>
+    <string name="chat_fallback_all_stocked">Bidhaa zote zina hifadhi ya kutosha.</string>
+    <string name="chat_fallback_generic">Ninaweza kusaidia kuhusu hifadhi, faida/hasara, matumizi na bidhaa zenye hifadhi ndogo. Jaribu kuuliza kuhusu moja ya hizi.</string>
+    <string name="chat_error_generic">Samahani, hitilafu imetokea. Tafadhali jaribu tena.</string>
+    <string name="chat_ai_timeout_with_summary">Mfano wa ndani ulichukua muda mrefu. Jibu la haraka kutoka data yako:\n\n%1$s</string>
+
+</resources>

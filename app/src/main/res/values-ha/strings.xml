@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BiasharaAI</string>
+
+    <string name="nav_home">Gida</string>
+    <string name="nav_inventory">Ajiya</string>
+    <string name="nav_chat">Hira</string>
+    <string name="nav_insights">Hasashe</string>
+    <string name="nav_settings">Saituna</string>
+
+    <string name="home_welcome_title">Barka da zuwa Biashara AI</string>
+    <string name="home_welcome_subtitle">Mataimakin shagon ku — ajiya, sayarwa, da hasashe a wuri ɗaya.</string>
+    <string name="home_card_daily_summary_title">Taƙaitaccen yau</string>
+    <string name="home_card_daily_summary_placeholder">Jimlar kowace rana da abubuwan da suka fi ɗaukar hankali za su bayyana a nan.</string>
+    <string name="home_card_low_stock_title">Faɗakarwar ajiya ƙasa</string>
+    <string name="home_card_low_stock_placeholder">Abubuwan da ajiyarsu ta ƙasa za a jera su a nan.</string>
+
+    <string name="placeholder_screen_body">Wannan shafin wuri ne don fasali masu zuwa.</string>
+
+    <string name="language_selection_title">Zaɓi harshen ku</string>
+    <string name="language_selection_subtitle">Kowane zaɓi yana da suna a rubutun asalin harshen.</string>
+
+    <!-- Inventory Management (Prompt 4) -->
+    <string name="inventory_action_scan">Duba lambar tsallakawa</string>
+    <string name="inventory_fab_add_desc">Ƙara sabuwar kaya</string>
+    <string name="inventory_empty">Babu kayayyaki tukuna.\nTaɓa + don ƙara kaya ta farko.</string>
+    <string name="inventory_stock_format">Ajiya: %1$d</string>
+    <string name="inventory_barcode_icon_desc">Tana da lambar tsallakawa</string>
+    <string name="inventory_add_edit_title">Kaya</string>
+    <string name="inventory_scanner_title">Duba</string>
+
+    <!-- Barcode Scanner (Prompt 4b) -->
+    <string name="scanner_hint">Sanya lambar tsallakawa a cikin firam</string>
+    <string name="scanner_permission_denied">Ana buƙatar izinin kyamara don duba lambobin tsallakawa.</string>
+    <string name="scanner_grant_permission">Ba da izini</string>
+    <string name="scanner_close">Rufe mai dubawa</string>
+    <string name="scanner_product_not_found">Ba a sami kaya ba. Ƙara ta?</string>
+    <string name="scanner_add_it">Ƙara</string>
+
+    <!-- Product Entry (Prompt 5) -->
+    <string name="product_title_new">Sabuwar kaya</string>
+    <string name="product_title_edit">Gyara kaya</string>
+    <string name="product_hint_name">Sunan kaya</string>
+    <string name="product_hint_description">Bayani (zaɓi)</string>
+    <string name="product_hint_price">Farashin sayarwa</string>
+    <string name="product_hint_cost">Farashin saya</string>
+    <string name="product_hint_stock">Adadin ajiya</string>
+    <string name="product_hint_category">Rukunin (zaɓi)</string>
+    <string name="product_hint_barcode">Lambar tsallakawa</string>
+    <string name="product_btn_save">Ajiye</string>
+    <string name="product_btn_saving">Ana ajiyewa…</string>
+    <string name="product_saved">An ajiye kaya</string>
+    <string name="product_voice_input_desc">Shigar murya</string>
+    <string name="product_voice_prompt">Faɗi sunan kaya</string>
+    <string name="product_voice_unavailable">Ba a samu shigar murya a wannan na\'ura ba.</string>
+    <string name="product_scan_barcode_desc">Duba lambar tsallakawa</string>
+
+    <!-- Settings / AI Model (Prompt 6) -->
+    <string name="settings_section_ai_model">Tsarin AI</string>
+    <string name="settings_device_capability">Ƙarfin na\'ura</string>
+    <string name="settings_capability_detail">%1$s (%2$d MB RAM, API %3$d)</string>
+    <string name="settings_tier_full_ai">AI cikakke</string>
+    <string name="settings_tier_partial_ai">AI rabi</string>
+    <string name="settings_tier_rules_based">Tsarin dokoki kaɗai</string>
+    <string name="settings_model_status">Halin tsari</string>
+    <string name="settings_model_not_downloaded">Ba a sauke ba</string>
+    <string name="settings_model_downloading">Ana saukewa…</string>
+    <string name="settings_model_downloaded">An sauke (%1$d MB)</string>
+    <string name="settings_model_failed">Saukar ta gaza</string>
+    <string name="settings_model_not_supported">Na\'ura ba ta cika buƙatun AI ba.</string>
+    <string name="settings_download_data_warning">⚠ Wannan saukar na amfani da kusan GB 2.5 na data. Haɗa Wi-Fi idan zai yiwu.</string>
+    <string name="settings_btn_download">Sauke tsari</string>
+    <string name="settings_btn_redownload">Sake saukewa</string>
+    <string name="settings_btn_delete">Goge</string>
+    <string name="settings_btn_retry">Sake gwadawa</string>
+    <string name="settings_download_confirm_title">Sauke tsarin AI?</string>
+    <string name="settings_download_confirm_message">Tsarin AI na Gemma kusan MB %1$d ne. Tabbata kuna da isasshen wurin ajiya da haɗin yanar gizo mai ƙarfi.</string>
+    <string name="settings_redownload_title">Sake sauke tsari?</string>
+    <string name="settings_redownload_message">Za a goge tsarin da ke akwai sannan a sake saukewa.</string>
+    <string name="settings_delete_confirm_title">Goge tsari?</string>
+    <string name="settings_delete_confirm_message">Fasalolin AI ba za su samu ba har sai an sake sauke tsari.</string>
+    <string name="settings_download_complete">An sauke tsari cikin nasara</string>
+    <string name="settings_download_failed">Saukar ta gaza: %1$s</string>
+    <string name="settings_section_about">Game da</string>
+    <string name="settings_app_version">Sigar %1$s</string>
+
+    <!-- Demand Forecasting (Prompt 7) -->
+    <string name="inventory_forecast_badge">📈 %1$s</string>
+
+    <!-- Voice Input (Prompt 8) -->
+    <string name="voice_recording">Ana ɗaukar sauti… Yi magana yanzu.</string>
+    <string name="voice_transcription_failed">Ba a iya rubuta sauti ba. Da fatan za a sake gwadawa.</string>
+    <string name="voice_permission_denied">Ana buƙatar izinin maikrofon don shigar murya.</string>
+
+    <!-- Cash Flow Insights (Prompt 9) -->
+    <string name="insights_title">Kwararar Kuɗi</string>
+    <string name="insights_chart_title">Kudin Shiga da Kashewa</string>
+    <string name="insights_label_income">Kudin Shiga</string>
+    <string name="insights_label_expenses">Kashewa</string>
+    <string name="insights_net_positive">✅ Jimla: +%1$s</string>
+    <string name="insights_net_negative">⚠ Jimla: -%1$s</string>
+    <string name="insights_narrative_title">Mai Ba da Shawara (AI)</string>
+    <string name="insights_refresh">Sabunta</string>
+    <!-- Chat -->
+    <string name="chat_empty_title">Mataimakinka na AI na Kasuwanci</string>
+    <string name="chat_empty_subtitle">Tambayi komai game da kayayyaki, sayarwa, kashe kuɗi, ko aikin kasuwanci</string>
+    <string name="chat_input_hint">Tambayi game da kasuwancinka…</string>
+    <string name="chat_send">Aika</string>
+    <string name="chat_thinking">Biashara AI yana tunani…</string>
+    <string name="chat_fallback_no_products">Ba ka ƙara kayayyaki ba tukuna. Buɗe Ajiya don ƙara kayan farko.</string>
+    <string name="chat_fallback_inventory_summary">Kana da kayayyaki %1$d. Jimlar darajar ajiya: %2$s.</string>
+    <string name="chat_fallback_profit">Jimlar kudin shiga: %1$s. Kashe kudi: %2$s. Ragowar kudi: %3$s.</string>
+    <string name="chat_fallback_expenses">Jimlar kashe kudi: %1$s. Babban bangare: %2$s.</string>
+    <string name="chat_fallback_low_stock">Ajiya ta ƙasa: %1$s</string>
+    <string name="chat_fallback_all_stocked">Duk kayayyakin suna da isassun ajiya.</string>
+    <string name="chat_fallback_generic">Ina iya taimaka da ajiya, riba/asara, kashe kudi, da kayayyakin da ajiya ta ƙasa. Gwada tambaya game da ɗaya daga cikin waɗannan.</string>
+    <string name="chat_error_generic">Yi haƙuri, wani abu ya yi kuskure. Sake gwadawa.</string>
+    <string name="chat_ai_timeout_with_summary">Samfurin AI ya ɗauki lokaci mai tsawo. Taƙaitaccen amsa daga bayanan ku:\n\n%1$s</string>
+
+</resources>

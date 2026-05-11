@@ -1,0 +1,37 @@
+# Gradle / Android
+.gradle/
+build/
+**/build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# IDE
+.idea/
+*.iml
+
+# OS / misc
+.DS_Store
+Thumbs.db
+
+# Local diagnostics
+build-environment.log
+gradle-stacktrace.txt
+ksp_error.log
+*.log
+
+# Signing material — never commit
+*.jks
+*.keystore
+keystore.properties
+
+# Large on-device model assets — model is downloaded at runtime, not bundled
+*.litertlm
+*.task
+*.tflite
+*.bin
+*.onnx
+
+# Personal documents that happen to live in this folder
+Donald_Cho_Resume.pdf

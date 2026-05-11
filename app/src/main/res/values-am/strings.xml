@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">BiasharaAI</string>
+
+    <string name="nav_home">መነሻ</string>
+    <string name="nav_inventory">ክምችት</string>
+    <string name="nav_chat">ውይይት</string>
+    <string name="nav_insights">ግንዛቤዎች</string>
+    <string name="nav_settings">ቅንብሮች</string>
+
+    <string name="home_welcome_title">ወደ Biashara AI እንኳን በደህና መጡ</string>
+    <string name="home_welcome_subtitle">የሱቅዎ ረዳት — ክምችት፣ ሽያጮች እና ግንዛቤዎች በአንድ ቦታ።</string>
+    <string name="home_card_daily_summary_title">የዛሬ ማጠቃለያ</string>
+    <string name="home_card_daily_summary_placeholder">የቀን ጠቅላላዎች እና ዋና ዋና ነጥቦች እዚህ ይታያሉ።</string>
+    <string name="home_card_low_stock_title">ዝቅተኛ ክምችት ማስጠንቀቂያዎች</string>
+    <string name="home_card_low_stock_placeholder">ዝቅተኛ ክምችት ያላቸው እቃዎች እዚህ ይዘረዘራሉ።</string>
+
+    <string name="placeholder_screen_body">ይህ ማያ ገጽ ለወደፊት ባህሪያት ቦታ ያስቀምጣል።</string>
+
+    <string name="language_selection_title">ቋንቋዎን ይምረጡ</string>
+    <string name="language_selection_subtitle">እያንዳንዱ ምርጫ በዚያ ቋንቋ የፊደል ስርዓት ይታያል።</string>
+
+    <!-- Inventory Management (Prompt 4) -->
+    <string name="inventory_action_scan">ባርኮድ ቃኝ</string>
+    <string name="inventory_fab_add_desc">አዲስ ምርት ጨምር</string>
+    <string name="inventory_empty">ምርቶች ገና የሉም።\n+ ን ተጫን የመጀመሪያ እቃዎን ለማስገባት።</string>
+    <string name="inventory_stock_format">ክምችት: %1$d</string>
+    <string name="inventory_barcode_icon_desc">ባርኮድ አለው</string>
+    <string name="inventory_add_edit_title">ምርት</string>
+    <string name="inventory_scanner_title">ቃኝ</string>
+
+    <!-- Barcode Scanner (Prompt 4b) -->
+    <string name="scanner_hint">ባርኮዱን በፍሬም ውስጥ ያስገቡ</string>
+    <string name="scanner_permission_denied">ባርኮዶችን ለመቃኘት የካሜራ ፈቃድ ያስፈልጋል።</string>
+    <string name="scanner_grant_permission">ፈቃድ ስጥ</string>
+    <string name="scanner_close">ቃኚውን ዝጋ</string>
+    <string name="scanner_product_not_found">ምርት አልተገኘም። ይጨመር?</string>
+    <string name="scanner_add_it">ጨምር</string>
+
+    <!-- Product Entry (Prompt 5) -->
+    <string name="product_title_new">አዲስ ምርት</string>
+    <string name="product_title_edit">ምርት አስተካክል</string>
+    <string name="product_hint_name">የምርት ስም</string>
+    <string name="product_hint_description">መግለጫ (አማራጭ)</string>
+    <string name="product_hint_price">የሽያጭ ዋጋ</string>
+    <string name="product_hint_cost">የግዢ ዋጋ</string>
+    <string name="product_hint_stock">የክምችት መጠን</string>
+    <string name="product_hint_category">ምድብ (አማራጭ)</string>
+    <string name="product_hint_barcode">ባርኮድ</string>
+    <string name="product_btn_save">አስቀምጥ</string>
+    <string name="product_btn_saving">በማስቀመጥ ላይ…</string>
+    <string name="product_saved">ምርት ተቀምጧል</string>
+    <string name="product_voice_input_desc">የድምፅ ግብዓት</string>
+    <string name="product_voice_prompt">የምርቱን ስም ይናገሩ</string>
+    <string name="product_voice_unavailable">በዚህ መሣሪያ ላይ የድምፅ ግብዓት አይገኝም።</string>
+    <string name="product_scan_barcode_desc">ባርኮድ ቃኝ</string>
+
+    <!-- Settings / AI Model (Prompt 6) -->
+    <string name="settings_section_ai_model">የ AI ሞዴል</string>
+    <string name="settings_device_capability">የመሣሪያ አቅም</string>
+    <string name="settings_capability_detail">%1$s (%2$d MB RAM, API %3$d)</string>
+    <string name="settings_tier_full_ai">ሙሉ AI</string>
+    <string name="settings_tier_partial_ai">ከፊል AI</string>
+    <string name="settings_tier_rules_based">ደንብ ላይ ብቻ</string>
+    <string name="settings_model_status">የሞዴል ሁኔታ</string>
+    <string name="settings_model_not_downloaded">አልወረደም</string>
+    <string name="settings_model_downloading">በማውረድ ላይ…</string>
+    <string name="settings_model_downloaded">ወርዷል (%1$d MB)</string>
+    <string name="settings_model_failed">ማውረድ አልተሳካም</string>
+    <string name="settings_model_not_supported">መሣሪያው የ AI መስፈርቶችን አያሟላም።</string>
+    <string name="settings_download_data_warning">⚠ ይህ ማውረድ ወደ 2.5 GB ያህል ዳታ ይጠቀማል። ከተቻለ Wi-Fi ይጠቀሙ።</string>
+    <string name="settings_btn_download">ሞዴል አውርድ</string>
+    <string name="settings_btn_redownload">እንደገና አውርድ</string>
+    <string name="settings_btn_delete">ሰርዝ</string>
+    <string name="settings_btn_retry">ደግመህ ሞክር</string>
+    <string name="settings_download_confirm_title">የ AI ሞዴል ይወርድ?</string>
+    <string name="settings_download_confirm_message">የ Gemma AI ሞዴል ወደ %1$d MB ገደማ ነው። በቂ ማከማቻ እና ጠንካራ ግንኙነት እንዳለዎ ያረጋግጡ።</string>
+    <string name="settings_redownload_title">ሞዴሉን ዳግም ያውርዱ?</string>
+    <string name="settings_redownload_message">ያለው ሞዴል ይሰረዛል እና ዳግም ይወርዳል።</string>
+    <string name="settings_delete_confirm_title">ሞዴሉን ይሰርዙ?</string>
+    <string name="settings_delete_confirm_message">ሞዴሉ ዳግም እስኪወርድ ድረስ የ AI ባህሪያት አይገኙም።</string>
+    <string name="settings_download_complete">ሞዴል በተሳካ ሁኔታ ወርዷል</string>
+    <string name="settings_download_failed">ማውረድ አልተሳካም: %1$s</string>
+    <string name="settings_section_about">ስለ</string>
+    <string name="settings_app_version">ስሪት %1$s</string>
+
+    <!-- Demand Forecasting (Prompt 7) -->
+    <string name="inventory_forecast_badge">📈 %1$s</string>
+
+    <!-- Voice Input (Prompt 8) -->
+    <string name="voice_recording">በመቅዳት ላይ… አሁን ይናገሩ።</string>
+    <string name="voice_transcription_failed">ድምፁን መቅዳት አልተቻለም። እባክዎ ደግመው ይሞክሩ።</string>
+    <string name="voice_permission_denied">ለድምፅ ግብዓት የማይክሮፎን ፈቃድ ያስፈልጋል።</string>
+
+    <!-- Cash Flow Insights (Prompt 9) -->
+    <string name="insights_title">የገንዘብ ፍሰት ግንዛቤዎች</string>
+    <string name="insights_chart_title">ገቢ እና ወጪ</string>
+    <string name="insights_label_income">ገቢ</string>
+    <string name="insights_label_expenses">ወጪ</string>
+    <string name="insights_net_positive">✅ ጠቅላላ: +%1$s</string>
+    <string name="insights_net_negative">⚠ ጠቅላላ: -%1$s</string>
+    <string name="insights_narrative_title">የAI ንግድ አማካሪ</string>
+    <string name="insights_refresh">አድስ</string>
+    <!-- Chat -->
+    <string name="chat_empty_title">የ AI ንግድ ረዳትዎ</string>
+    <string name="chat_empty_subtitle">ስለ ክምችትዎ፣ ሽያጮች፣ ወጪዎች፣ ወይም የንግድ አፈጻጸም ማንኛውንም ይጠይቁ</string>
+    <string name="chat_input_hint">ስለ ንግድዎ ይጠይቁ…</string>
+    <string name="chat_send">ላክ</string>
+    <string name="chat_thinking">Biashara AI እያሰበ ነው…</string>
+    <string name="chat_fallback_no_products">እስካሁን ምርት አላከሉም። የመጀመሪያዎን ምርት ለመጨመር ክምችትን ይክፈቱ።</string>
+    <string name="chat_fallback_inventory_summary">%1$d ምርቶች አሉዎት። የክምችት ድምር ዋጋ፦ %2$s።</string>
+    <string name="chat_fallback_profit">ጠቅላላ ገቢ፦ %1$s። ወጪዎች፦ %2$s። ቀሪ፦ %3$s።</string>
+    <string name="chat_fallback_expenses">ጠቅላላ ወጪዎች፦ %1$s። ትልቁ ምድብ፦ %2$s።</string>
+    <string name="chat_fallback_low_stock">ዝቅተኛ ክምችት፦ %1$s</string>
+    <string name="chat_fallback_all_stocked">ሁሉም ምርቶች በቂ ክምችት አላቸው።</string>
+    <string name="chat_fallback_generic">በክምችት፣ ትርፍ/መጐዳት፣ ወጪ እና ዝቅተኛ ክምችት ላይ ልረዳዎ። ስለነዚህ ውስጥ አንዱ ይጠይቁ።</string>
+    <string name="chat_error_generic">ይቅርታ፣ ስህተት ተፈጥሯል። እባክዎ እንደገና ይሞክሩ።</string>
+    <string name="chat_ai_timeout_with_summary">መሣሪያው ረጅም ጊዜ ወሰደ። ከመዝገቦችዎ ፈጣን መልስ፦\n\n%1$s</string>
+
+</resources>

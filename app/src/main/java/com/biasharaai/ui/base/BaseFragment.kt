@@ -1,0 +1,5 @@
+package com.biasharaai.ui.base
+
+import androidx.fragment.app.Fragment
+
+abstract class BaseFragment : Fragment()
