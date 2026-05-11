@@ -48,6 +48,35 @@ data class Transaction(
      */
     @ColumnInfo(name = "date")
     val date: Long,
+
+    // ── POS (Prompt P1) — persisted on `transactions` from migration 5→6 ─────
+
+    @ColumnInfo(name = "payment_method", defaultValue = "CASH")
+    val paymentMethod: String = "CASH",
+
+    @ColumnInfo(name = "mobile_money_network")
+    val mobileMoneyNetwork: String? = null,
+
+    @ColumnInfo(name = "mobile_money_ref")
+    val mobileMoneyRef: String? = null,
+
+    @ColumnInfo(name = "amount_tendered")
+    val amountTendered: Double? = null,
+
+    @ColumnInfo(name = "change_due")
+    val changeDue: Double? = null,
+
+    @ColumnInfo(name = "receipt_number")
+    val receiptNumber: String? = null,
+
+    @ColumnInfo(name = "sale_group_id")
+    val saleGroupId: String? = null,
+
+    @ColumnInfo(name = "tax_rate", defaultValue = "0.0")
+    val taxRate: Double = 0.0,
+
+    @ColumnInfo(name = "tax_amount", defaultValue = "0.0")
+    val taxAmount: Double = 0.0,
 )
 
 /** Transaction direction. */

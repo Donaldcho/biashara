@@ -1,16 +1,17 @@
 # Biashara AI Project Handoff Document
 
 ## Current Project State
-- **Last Completed Prompt:** Prompt P0 — HANDOFF POS baseline + ESC/POS dependency
-- **Prior narrative (for continuity):** Earlier revisions of this file listed Phase 1 / U0–U1; the product track now treats **Prompt U10 — Final Upgrade Review (Phase 2 Complete)** as the completed Phase 2 milestone before POS work.
-- **Next Expected Prompt:** Prompt P1 — POS Database Migrations
+- **Last Completed Prompt:** Prompt P1 — POS Database Migrations (v5→v7 + v3→v5 bridge)
+- **Prior narrative (for continuity):** Earlier revisions of this file listed Phase 1 / U0–U1; the product track treats **Prompt U10 — Final Upgrade Review (Phase 2 Complete)** as the completed Phase 2 milestone before POS work.
+- **Next Expected Prompt:** Prompt P2 — Cart Data Layer
 - **Phase:** POS Module
 - **Key Decisions / Notes:**
-  - **`AppDatabase` baseline for POS:** design handoff assumes **version 5** (Phase 2 entities in place per Upgrade Design v3.0). **Prompt P1** aligns Room schema to POS design (`SaleLineItem`, extended `Transaction`, `app_settings`) — see `docs/POS_DESIGN_v1.0.md`.
-  - **`SalesFragment`** is a placeholder — replaced by **`PosFragment`** in upcoming POS prompts.
-  - **POS adds:** `SaleLineItem` entity; **`Transaction`** extended with payment / receipt / tax fields (migrations v5→v6→v7 per POS design).
-  - **Reuses:** `Customer`, `Debt`, `CustomerSuggestionEngine`, `BarcodeAnalyzer` (CameraX + ML Kit).
-  - **ESC/POS printing:** `com.github.DantSu:ESCPOS-ThermalPrinter-Android:3.3.0` (MIT) via JitPack — added in Prompt P0.
+  - **`AppDatabase` is version 7** with explicit **`Migration` objects only** — **`fallbackToDestructiveMigration()` removed** from `AppModule`. See `DatabaseMigrations.kt`: **3→5** (Phase 2 auxiliary tables `customers`, `debts`, `alerts`), **5→6** (`sale_line_items` + POS columns on `transactions`), **6→7** (`app_settings` singleton row). Ships that were still on **v3** upgrade cleanly to v7.
+  - **POS entities / DAOs:** `SaleLineItem`, `SaleLineItemDao`, `AppSettings`, `AppSettingsDao`. **`Transaction`** extended with `paymentMethod`, mobile-money fields, tendered/change, receipt / sale group IDs, `taxRate`, `taxAmount` (see `Transaction.kt`).
+  - **`SalesFragment`** remains a placeholder — **`PosFragment`** in a later prompt.
+  - **Instrumented tests:** `AppDatabaseMigrationTest` — v3→v7 data preservation; v5→v7 path using Prompt P1 SQL only.
+  - **Reuses (design / upcoming UI):** `Customer`, `Debt`, `CustomerSuggestionEngine`, `BarcodeAnalyzer` (CameraX + ML Kit).
+  - **ESC/POS printing:** `com.github.DantSu:ESCPOS-ThermalPrinter-Android:3.3.0` (MIT) via JitPack — Prompt P0.
 
 ## Prerequisites Before Any Gradle / IDE Build
 1. Run `.\scripts\preflight-build.ps1` from the repo root. It writes `build-environment.log` (gitignored).
@@ -22,11 +23,14 @@
 - **First launch:** `LanguageSelectionFragment` → choose locale → `homeFragment`.
 - **Bottom navigation:** Hidden on `languageSelectionFragment`, `barcodeScannerFragment`, `addEditProductFragment`.
 
-## Room Database (Prompt 3 + 9 — done)
-- **Version 2** (`fallbackToDestructiveMigration`).
+## Room Database (Prompt 3 + 9 — done; Prompt P1 — v7 + migrations)
+- **Version 7** — migrations in `DatabaseMigrations.kt`; **no** destructive fallback in `AppModule`.
 - **`Product` entity**: `id`, `name`, `description?`, `price`, `cost`, `stockQuantity`, `category?`, `barcodeValue?`, `imageUrl?`.
-- **`Transaction` entity** (Prompt 9): `id`, `type` (`TransactionType.INCOME`/`EXPENSE`), `amount`, `description`, `date` (epoch millis).
+- **`Transaction` entity**: legacy fields `id`, `type`, `amount`, `description`, `date`; **POS (P1):** `paymentMethod`, `mobileMoneyNetwork`, `mobileMoneyRef`, `amountTendered`, `changeDue`, `receiptNumber`, `saleGroupId`, `taxRate`, `taxAmount`.
+- **`SaleLineItem`**, **`AppSettings`** (singleton row `id = 1`) — Prompt P1.
+- **Phase 2 SQL tables (P1 migration 3→5):** `customers`, `debts`, `alerts` — reserved for upcoming Kotlin `@Entity` / DAO wiring; **no Kotlin entities yet**, data preserved across upgrades.
 - **`ProductDao`**: CRUD + Flow queries. **`TransactionDao`**: `insertTransaction`, `getAllTransactions()`, `getTransactionsByPeriod(start, end)`.
+- **`SaleLineItemDao`**, **`AppSettingsDao`** — Prompt P1 (Hilt-provided from `AppModule`).
 - **`TransactionRepository`**: Hilt `@Singleton` wrapper around `TransactionDao`.
 
 ## Inventory Management UI (Prompt 4 — done)
@@ -112,7 +116,7 @@
 
 ## Hilt Dependency Graph (AppModule)
 ```
-AppDatabase → ProductDao, TransactionDao
+AppDatabase → ProductDao, TransactionDao, SaleLineItemDao, AppSettingsDao
 TransactionRepository (singleton, dep: TransactionDao)
 CapabilityResult → CapabilityTier
 ModelDownloadManager (singleton)
@@ -171,8 +175,20 @@ CashFlowAnalyzer (singleton, dep: GemmaService)
 | Field | Value |
 |-------|-------|
 | **Last Completed** | Prompt P0: HANDOFF.md update + ESC/POS printer library + JitPack + Bluetooth permissions |
-| **Next Prompt** | Prompt P1: POS Database Migrations |
+| **Next Prompt** | Prompt P2: Cart Data Layer |
 | **Dependencies added** | `com.github.DantSu:ESCPOS-ThermalPrinter-Android:3.3.0` (JitPack) |
 | **Repositories** | `maven("https://jitpack.io")` in `settings.gradle.kts` (`dependencyResolutionManagement`) |
 | **Manifest** | `BLUETOOTH` / `BLUETOOTH_ADMIN` (maxSdkVersion 30), `BLUETOOTH_CONNECT`, `BLUETOOTH_SCAN` (neverForLocation) |
 | **Files modified** | `HANDOFF.md`, `app/build.gradle.kts`, `settings.gradle.kts`, `app/src/main/AndroidManifest.xml` |
+
+## POS Module — Prompt P1 (Database migrations v5→v7)
+
+| Field | Value |
+|-------|-------|
+| **Last Completed** | Prompt P1: Database migrations v5→v7 (+ v3→v5 bridge for shipped installs) |
+| **Next Prompt** | Prompt P2: Cart Data Layer |
+| **DB version** | 7 |
+| **New entities** | `SaleLineItem`, `AppSettings` (+ SQL tables `customers`, `debts`, `alerts` on migration 3→5) |
+| **Files created** | `SaleLineItem.kt`, `SaleLineItemDao.kt`, `AppSettings.kt`, `AppSettingsDao.kt`, `DatabaseMigrations.kt`, `AppDatabaseMigrationTest.kt` |
+| **Files modified** | `AppDatabase.kt`, `Transaction.kt`, `AppModule.kt`, `HANDOFF.md` |
+| **Tests** | `AppDatabaseMigrationTest` (instrumented) — v3→v7 and v5→v7 validation |

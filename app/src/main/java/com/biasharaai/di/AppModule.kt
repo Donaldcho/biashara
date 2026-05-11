@@ -2,6 +2,8 @@ package com.biasharaai.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.RoomDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.biasharaai.ai.CapabilityResult
 import com.biasharaai.ai.CapabilityTier
 import com.biasharaai.ai.DeviceCapabilityChecker
@@ -9,7 +11,10 @@ import com.biasharaai.ai.GemmaService
 import com.biasharaai.ai.InferenceSettingsStore
 import com.biasharaai.ai.ModelDownloadManager
 import com.biasharaai.data.local.db.AppDatabase
+import com.biasharaai.data.local.db.AppSettingsDao
+import com.biasharaai.data.local.db.DatabaseMigrations
 import com.biasharaai.data.local.db.ProductDao
+import com.biasharaai.data.local.db.SaleLineItemDao
 import com.biasharaai.data.local.db.TransactionDao
 import dagger.Module
 import dagger.Provides
@@ -28,7 +33,15 @@ object AppModule {
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.NAME)
-            .fallbackToDestructiveMigration()
+            .addMigrations(*DatabaseMigrations.ALL)
+            .addCallback(
+                object : RoomDatabase.Callback() {
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        // Fresh install: Room creates `app_settings` empty; seed the singleton row.
+                        db.execSQL("INSERT OR IGNORE INTO app_settings (id) VALUES (1)")
+                    }
+                },
+            )
             .build()
 
     @Provides
@@ -36,6 +49,12 @@ object AppModule {
 
     @Provides
     fun provideTransactionDao(database: AppDatabase): TransactionDao = database.transactionDao()
+
+    @Provides
+    fun provideSaleLineItemDao(database: AppDatabase): SaleLineItemDao = database.saleLineItemDao()
+
+    @Provides
+    fun provideAppSettingsDao(database: AppDatabase): AppSettingsDao = database.appSettingsDao()
 
     // ── AI / Device Capability ──────────────────────────────────────────
 
