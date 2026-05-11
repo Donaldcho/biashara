@@ -97,6 +97,9 @@ dependencies {
     implementation("com.google.mlkit:text-recognition:16.0.1")
     // WorkManager (Loss Prevention Alerts — F6)
     implementation("androidx.work:work-runtime-ktx:2.9.0")
+
+    // ESC/POS Bluetooth thermal printer (MIT) — POS / receipt printing (see docs/POS_DESIGN_v1.0.md)
+    implementation("com.github.DantSu:ESCPOS-ThermalPrinter-Android:3.3.0")
     // Room migration testing (U9): already `androidx.room:room-testing` in instrumented block below (2.6.1)
     // Turbine (Flow testing): already `app.cash.turbine:turbine:1.2.0` in unit + instrumented blocks (≥ 1.1.0)
 

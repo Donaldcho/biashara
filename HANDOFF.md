@@ -1,14 +1,16 @@
 # Biashara AI Project Handoff Document
 
 ## Current Project State
-- **Last Completed Prompt:** Prompt 11 — Final Review (Phase 1 complete)
-- **Next Expected Prompt:** Prompt U1 — Database Migrations
-- **Phase:** 2 — Intelligence Layer Upgrade
+- **Last Completed Prompt:** Prompt P0 — HANDOFF POS baseline + ESC/POS dependency
+- **Prior narrative (for continuity):** Earlier revisions of this file listed Phase 1 / U0–U1; the product track now treats **Prompt U10 — Final Upgrade Review (Phase 2 Complete)** as the completed Phase 2 milestone before POS work.
+- **Next Expected Prompt:** Prompt P1 — POS Database Migrations
+- **Phase:** POS Module
 - **Key Decisions / Notes:**
-  - All Phase 1 features confirmed working
-  - Phase 2 adds 7 new AI features — see Upgrade Design Document v3.0
-  - No existing code will be deleted; all changes are additive
-  - `AppDatabase` will be migrated from v1 to v5 across Prompt U1
+  - **`AppDatabase` baseline for POS:** design handoff assumes **version 5** (Phase 2 entities in place per Upgrade Design v3.0). **Prompt P1** aligns Room schema to POS design (`SaleLineItem`, extended `Transaction`, `app_settings`) — see `docs/POS_DESIGN_v1.0.md`.
+  - **`SalesFragment`** is a placeholder — replaced by **`PosFragment`** in upcoming POS prompts.
+  - **POS adds:** `SaleLineItem` entity; **`Transaction`** extended with payment / receipt / tax fields (migrations v5→v6→v7 per POS design).
+  - **Reuses:** `Customer`, `Debt`, `CustomerSuggestionEngine`, `BarcodeAnalyzer` (CameraX + ML Kit).
+  - **ESC/POS printing:** `com.github.DantSu:ESCPOS-ThermalPrinter-Android:3.3.0` (MIT) via JitPack — added in Prompt P0.
 
 ## Prerequisites Before Any Gradle / IDE Build
 1. Run `.\scripts\preflight-build.ps1` from the repo root. It writes `build-environment.log` (gitignored).
@@ -41,10 +43,10 @@
 - `ModelDownloadManager` → `getFilesDir()/models/gemma3-1b.litertlm`.
 - Settings screen with download/delete/retry.
 
-## LiteRT-LM Integration and Gemma Inference (Prompt 7 — done)
-- `GemmaService`: Lazy `LlmInference` init with `Mutex`. GPU backend. Audio model options for FULL_AI.
+## LiteRT-LM Integration and Gemma Inference (Prompt 7 — done; runtime updated post–1.0)
+- `GemmaService`: LiteRT-LM `Engine` + `Conversation`, single-thread executor + `Mutex`, streaming via `MessageCallback`.
 - `DemandForecaster`: AI prediction with rules-based fallback.
-- API: `LlmInference.LlmInferenceOptions` (nested), `LlmInference.Backend` (nested).
+- API: `com.google.ai.edge.litertlm` (`Engine`, `Conversation`, `SamplerConfig`, `Backend`).
 
 ## Local Language Voice Input (Prompt 8 — done)
 - `AudioCaptureHelper`: PCM capture (16kHz, mono, 16-bit).
@@ -123,7 +125,7 @@ CashFlowAnalyzer (singleton, dep: GemmaService)
 ## Key Decisions / Architecture Notes
 - Target platform: Android (Kotlin)
 - Single-Activity, MVVM, Hilt, Room, Navigation Component
-- On-device AI: Gemma 4 E2B via LiteRT-LM (`com.google.mediapipe:tasks-genai:0.10.33`)
+- On-device AI: Gemma 4 E2B via LiteRT-LM (`com.google.ai.edge.litertlm:litertlm-android:0.11.0`)
 - Barcode: CameraX + ML Kit (on-device, fully offline)
 - Navigation: `bundleOf()`, no Safe Args.
 - **Model download**: Gemma 4 E2B (text-only, ~2.58GB) from HuggingFace litert-community (no auth). URL: `https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm`. File saved as `getFilesDir()/models/gemma-4-E2B-it.litertlm`. Min free storage: 3.5GB.
@@ -163,3 +165,14 @@ CashFlowAnalyzer (singleton, dep: GemmaService)
 | **Dependencies added** | `com.google.mlkit:text-recognition:16.0.1`, `androidx.work:work-runtime-ktx:2.9.0` |
 | **Already satisfied (no duplicate lines)** | `androidx.room:room-testing:2.6.1` (instrumented tests), `app.cash.turbine:turbine:1.2.0` (unit + instrumented, ≥ 1.1.0) |
 | **Files modified** | `HANDOFF.md`, `app/build.gradle.kts` |
+
+## POS Module — Prompt P0 (HANDOFF + ESC/POS + JitPack + Bluetooth)
+
+| Field | Value |
+|-------|-------|
+| **Last Completed** | Prompt P0: HANDOFF.md update + ESC/POS printer library + JitPack + Bluetooth permissions |
+| **Next Prompt** | Prompt P1: POS Database Migrations |
+| **Dependencies added** | `com.github.DantSu:ESCPOS-ThermalPrinter-Android:3.3.0` (JitPack) |
+| **Repositories** | `maven("https://jitpack.io")` in `settings.gradle.kts` (`dependencyResolutionManagement`) |
+| **Manifest** | `BLUETOOTH` / `BLUETOOTH_ADMIN` (maxSdkVersion 30), `BLUETOOTH_CONNECT`, `BLUETOOTH_SCAN` (neverForLocation) |
+| **Files modified** | `HANDOFF.md`, `app/build.gradle.kts`, `settings.gradle.kts`, `app/src/main/AndroidManifest.xml` |
