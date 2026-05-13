@@ -29,6 +29,7 @@
         android:id="@+id/recycler_chat"
         android:layout_width="0dp"
         android:layout_height="0dp"
+        android:background="?android:attr/colorBackground"
         android:clipToPadding="false"
         android:padding="12dp"
         app:layout_constraintBottom_toTopOf="@id/layout_input"
@@ -41,6 +42,7 @@
         android:id="@+id/layout_empty_state"
         android:layout_width="0dp"
         android:layout_height="0dp"
+        android:background="?android:attr/colorBackground"
         android:fillViewport="true"
         android:visibility="visible"
         app:layout_constraintBottom_toTopOf="@id/layout_input"
@@ -122,11 +124,14 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_margin="8dp"
-        app:cardCornerRadius="24dp"
+        android:background="@drawable/bg_forest_hero_gradient"
+        app:cardBackgroundColor="@android:color/transparent"
+        app:cardCornerRadius="@dimen/biashara_corner_hero"
         app:cardElevation="4dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent">
+        app:layout_constraintStart_toStartOf="parent"
+        app:strokeWidth="0dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -138,12 +143,25 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_mic"
-                style="@style/Widget.Material3.Button.IconButton"
+                style="@style/Widget.Material3.Button.IconButton.Filled"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:contentDescription="@string/chat_mic_description"
+                app:backgroundTint="@color/biashara_emerald"
                 app:icon="@drawable/ic_mic"
-                app:iconSize="20dp" />
+                app:iconSize="20dp"
+                app:iconTint="@color/biashara_surface_bright" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_attach"
+                style="@style/Widget.Material3.Button.IconButton.Filled"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:contentDescription="@string/chat_attach_image"
+                app:backgroundTint="@color/biashara_emerald"
+                app:icon="@android:drawable/ic_menu_gallery"
+                app:iconSize="20dp"
+                app:iconTint="@color/biashara_surface_bright" />
 
             <EditText
                 android:id="@+id/edit_message"
@@ -159,7 +177,9 @@
                 android:minHeight="48dp"
                 android:paddingTop="12dp"
                 android:paddingBottom="12dp"
-                android:textAppearance="?attr/textAppearanceBodyMedium" />
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:textColor="@color/biashara_surface_bright"
+                android:textColorHint="#99FFFFFF" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_send"
@@ -167,8 +187,10 @@
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:contentDescription="@string/chat_send"
+                app:backgroundTint="@color/biashara_mint"
                 app:icon="@android:drawable/ic_menu_send"
-                app:iconSize="20dp" />
+                app:iconSize="20dp"
+                app:iconTint="@color/biashara_forest" />
 
         </LinearLayout>
 

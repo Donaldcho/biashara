@@ -13,8 +13,8 @@ android {
         applicationId = "com.biasharaai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 16
-        versionName = "1.2.1"
+        versionCode = 19
+        versionName = "1.2.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -90,18 +90,23 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:$camerax")
     implementation("androidx.camera:camera-view:$camerax")
 
+    implementation("com.google.code.gson:gson:2.11.0")
+    implementation("io.coil-kt:coil:2.7.0")
+
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
 
-    // Phase 2 — Prompt U0 (see HANDOFF.md)
+    // Phase 2 — Prompt U0 (see HANDOFF.md; do not remove)
     // ML Kit Text Recognition (Receipt OCR — F2)
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    // Chat — Ask Image: on-device labels + OCR for text-only Gemma (Gallery-style multimodal UX)
+    implementation("com.google.mlkit:image-labeling:17.0.9")
     // WorkManager (Loss Prevention Alerts — F6)
     implementation("androidx.work:work-runtime-ktx:2.9.0")
 
     // ESC/POS Bluetooth thermal printer (MIT) — POS / receipt printing (see docs/POS_DESIGN_v1.0.md)
     implementation("com.github.DantSu:ESCPOS-ThermalPrinter-Android:3.3.0")
-    // Room migration testing (U9): already `androidx.room:room-testing` in instrumented block below (2.6.1)
-    // Turbine (Flow testing): already `app.cash.turbine:turbine:1.2.0` in unit + instrumented blocks (≥ 1.1.0)
+    // Room migration testing (U9): `androidx.room:room-testing` in instrumented block below (same major line as `room`, ≥ 2.6.1)
+    // Turbine (Flow testing — Phase 1+): `app.cash.turbine:turbine:1.2.0` in unit + instrumented blocks (≥ 1.1.0)
 
     // ── Unit tests ───────────────────────────────────────────────────────
     testImplementation("junit:junit:4.13.2")

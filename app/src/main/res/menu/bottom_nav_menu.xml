@@ -17,9 +17,9 @@
         android:title="@string/nav_chat" />
 
     <item
-        android:id="@+id/insightsFragment"
-        android:icon="@drawable/ic_nav_insights"
-        android:title="@string/nav_insights" />
+        android:id="@+id/posFragment"
+        android:icon="@drawable/ic_nav_sales"
+        android:title="@string/nav_sales" />
 
     <item
         android:id="@+id/settingsFragment"

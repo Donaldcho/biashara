@@ -2,6 +2,8 @@ package com.biasharaai.ui.inventory
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
+import com.biasharaai.ai.PricingAdvisor
+import com.biasharaai.media.ProductPhotoStore
 import com.biasharaai.data.local.db.Product
 import com.biasharaai.data.local.db.ProductDao
 import com.biasharaai.ui.base.BaseViewModel
@@ -25,6 +27,8 @@ import javax.inject.Inject
 @HiltViewModel
 class AddEditProductViewModel @Inject constructor(
     private val productDao: ProductDao,
+    private val pricingAdvisor: PricingAdvisor,
+    private val productPhotoStore: ProductPhotoStore,
     savedStateHandle: SavedStateHandle,
 ) : BaseViewModel() {
 
@@ -48,6 +52,9 @@ class AddEditProductViewModel @Inject constructor(
 
     /** Whether we are editing an existing product vs creating a new one. */
     val isEditing: Boolean get() = productId != 0L
+
+    /** Room id when editing; `0L` for new products (used for category-average exclude). */
+    val editingProductId: Long get() = productId
 
     init {
         if (isEditing) {
@@ -78,6 +85,7 @@ class AddEditProductViewModel @Inject constructor(
         stockText: String,
         category: String,
         barcodeValue: String,
+        imageUrl: String?,
     ) {
         // ── Validation ──────────────────────────────────────────────────
         val errors = mutableMapOf<String, String>()
@@ -111,6 +119,7 @@ class AddEditProductViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
+                val previousImage = if (isEditing) _existingProduct.value?.imageUrl else null
                 val product = Product(
                     id = if (isEditing) productId else 0L,
                     name = name.trim(),
@@ -120,10 +129,14 @@ class AddEditProductViewModel @Inject constructor(
                     stockQuantity = stock!!,
                     category = category.trim().ifBlank { null },
                     barcodeValue = barcodeValue.trim().ifBlank { null },
+                    imageUrl = imageUrl,
                 )
 
                 if (isEditing) {
                     productDao.updateProduct(product)
+                    if (previousImage != imageUrl) {
+                        productPhotoStore.deleteIfAppStored(previousImage)
+                    }
                 } else {
                     productDao.insertProduct(product)
                 }
@@ -136,6 +149,10 @@ class AddEditProductViewModel @Inject constructor(
             }
         }
     }
+
+    /** Smart pricing (Gemma on PARTIAL_AI+ when model available; else rules). Prompt U3. */
+    suspend fun suggestSellingPrice(product: Product): String =
+        pricingAdvisor.suggestPrice(product)
 
     /** One-shot UI events. */
     sealed class Event {

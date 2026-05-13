@@ -25,4 +25,17 @@ class TransactionRepository @Inject constructor(
     /** Transactions within [startDate]..[endDate] (epoch millis, inclusive). */
     fun getByPeriod(startDate: Long, endDate: Long): Flow<List<Transaction>> =
         transactionDao.getTransactionsByPeriod(startDate, endDate)
+
+    /** POS sales ([TransactionType.INCOME] with positive sale lines), newest first. */
+    fun observeCompletedPosSales(): Flow<List<Transaction>> =
+        transactionDao.observeCompletedPosSales()
+
+    suspend fun getTransactionById(id: Long): Transaction? =
+        transactionDao.getTransactionById(id)
+
+    fun observeTransactionById(id: Long): Flow<Transaction?> =
+        transactionDao.observeTransactionById(id)
+
+    suspend fun getTransactionsBetween(startDate: Long, endDate: Long): List<Transaction> =
+        transactionDao.getTransactionsBetween(startDate, endDate)
 }

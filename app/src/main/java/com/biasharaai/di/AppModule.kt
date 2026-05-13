@@ -11,7 +11,13 @@ import com.biasharaai.ai.GemmaService
 import com.biasharaai.ai.InferenceSettingsStore
 import com.biasharaai.ai.ModelDownloadManager
 import com.biasharaai.data.local.db.AppDatabase
+import com.biasharaai.data.local.db.AlertDao
+import com.biasharaai.data.local.db.LossAlertDao
 import com.biasharaai.data.local.db.AppSettingsDao
+import com.biasharaai.data.local.db.ChatMemoryDao
+import com.biasharaai.data.local.db.ChatSessionDao
+import com.biasharaai.data.local.db.CustomerDao
+import com.biasharaai.data.local.db.DebtDao
 import com.biasharaai.data.local.db.DatabaseMigrations
 import com.biasharaai.data.local.db.ProductDao
 import com.biasharaai.data.local.db.SaleLineItemDao
@@ -55,6 +61,26 @@ object AppModule {
 
     @Provides
     fun provideAppSettingsDao(database: AppDatabase): AppSettingsDao = database.appSettingsDao()
+
+    @Provides
+    fun provideCustomerDao(database: AppDatabase): CustomerDao = database.customerDao()
+
+    @Provides
+    fun provideDebtDao(database: AppDatabase): DebtDao = database.debtDao()
+
+    @Provides
+    fun provideAlertDao(database: AppDatabase): AlertDao = database.alertDao()
+
+    @Provides
+    fun provideLossAlertDao(database: AppDatabase): LossAlertDao = database.lossAlertDao()
+
+    @Provides
+    fun provideChatMemoryDao(database: AppDatabase): ChatMemoryDao = database.chatMemoryDao()
+
+    @Provides
+    fun provideChatSessionDao(database: AppDatabase): ChatSessionDao = database.chatSessionDao()
+
+    // Prompt U5: 24h periodic loss scan is scheduled from [BiasharaApp] via [com.biasharaai.loss.LossAlertScheduler].
 
     // ── AI / Device Capability ──────────────────────────────────────────
 

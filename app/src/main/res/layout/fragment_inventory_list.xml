@@ -10,14 +10,17 @@
         android:id="@+id/app_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:background="@color/biashara_charcoal"
         android:fitsSystemWindows="true">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
+            android:theme="@style/ThemeOverlay.Biashara.Toolbar.Dark"
+            app:menu="@menu/menu_inventory_list"
             app:title="@string/nav_inventory"
-            app:menu="@menu/menu_inventory_list" />
+            app:titleTextColor="@color/biashara_surface_bright" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -25,9 +28,10 @@
         android:id="@+id/recycler_products"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:background="?android:attr/colorBackground"
         android:clipToPadding="false"
         android:paddingTop="8dp"
-        android:paddingBottom="80dp"
+        android:paddingBottom="240dp"
         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
         tools:listitem="@layout/item_product" />
@@ -44,14 +48,56 @@
         android:visibility="gone"
         tools:visibility="visible" />
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fab_add_product"
+    <LinearLayout
+        android:id="@+id/fab_speed_dial_host"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
         android:layout_marginEnd="@dimen/screen_edge_padding"
         android:layout_marginBottom="@dimen/screen_edge_padding"
-        android:contentDescription="@string/inventory_fab_add_desc"
-        app:srcCompat="@drawable/ic_add" />
+        android:gravity="end"
+        android:orientation="vertical">
+
+        <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+            android:id="@+id/fab_scan_receipt"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="@string/inventory_fab_scan_receipt"
+            android:visibility="gone"
+            app:icon="@drawable/ic_receipt"
+            app:iconTint="@android:color/white"
+            tools:visibility="visible" />
+
+        <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+            android:id="@+id/fab_scan_barcode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="@string/inventory_fab_scan_barcode"
+            android:visibility="gone"
+            app:icon="@drawable/ic_barcode_scan"
+            app:iconTint="@android:color/white"
+            tools:visibility="visible" />
+
+        <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+            android:id="@+id/fab_add_manual"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="@string/inventory_fab_add_manual"
+            android:visibility="gone"
+            app:icon="@drawable/ic_add"
+            app:iconTint="@android:color/white"
+            tools:visibility="visible" />
+
+        <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+            android:id="@+id/fab_main"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/inventory_fab_expand_desc"
+            app:icon="@drawable/ic_add"
+            app:iconTint="@android:color/white" />
+    </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

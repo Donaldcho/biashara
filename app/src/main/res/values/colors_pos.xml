@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="pos_customer_selected">@color/biashara_forest</color>
+    <color name="pos_price_override">@color/biashara_amber</color>
+    <color name="pos_swipe_delete_bg">@color/biashara_red</color>
+</resources>

@@ -82,7 +82,7 @@ class CashFlowInsightsViewModel @Inject constructor(
 
             // Calculate totals
             val totalIncome = transactions
-                .filter { it.type == TransactionType.INCOME }
+                .filter { it.type == TransactionType.INCOME || it.type == TransactionType.RETURN }
                 .sumOf { it.amount }
 
             val totalExpenses = transactions

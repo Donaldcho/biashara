@@ -6,9 +6,11 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import coil.load
 import com.biasharaai.R
 import com.biasharaai.data.local.db.Product
 import com.biasharaai.databinding.ItemProductBinding
+import java.io.File
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -19,9 +21,11 @@ import java.util.Locale
  * when the underlying [Product] list changes.
  *
  * @param onItemClick callback invoked when a product item is tapped (for edit navigation).
+ * @param onItemLongClick callback for overflow actions (remove stock, delete); return true to consume.
  */
 class ProductAdapter(
     private val onItemClick: (Product) -> Unit,
+    private val onItemLongClick: (Product, View) -> Boolean,
 ) : ListAdapter<Product, ProductAdapter.ProductViewHolder>(ProductDiffCallback) {
 
     /** Map of product ID → forecast string. Updated externally by the fragment. */
@@ -70,6 +74,8 @@ class ProductAdapter(
                 View.GONE
             }
 
+            bindProductThumb(product)
+
             // Forecast badge
             if (!forecast.isNullOrBlank()) {
                 binding.textForecast.text = context.getString(
@@ -82,6 +88,33 @@ class ProductAdapter(
             }
 
             binding.root.setOnClickListener { onItemClick(product) }
+            binding.root.setOnLongClickListener { onItemLongClick(product, it) }
+        }
+
+        private fun bindProductThumb(product: Product) {
+            val url = product.imageUrl
+            val hasLocal = !url.isNullOrBlank() &&
+                !url.startsWith("http", ignoreCase = true) &&
+                File(url).isFile
+            val hasRemote = !url.isNullOrBlank() && url.startsWith("http", ignoreCase = true)
+            if (hasLocal) {
+                binding.imageThumb.background = null
+                binding.imageThumb.load(File(url!!)) {
+                    crossfade(true)
+                    placeholder(R.drawable.bg_product_thumb)
+                    error(R.drawable.bg_product_thumb)
+                }
+            } else if (hasRemote) {
+                binding.imageThumb.background = null
+                binding.imageThumb.load(url!!) {
+                    crossfade(true)
+                    placeholder(R.drawable.bg_product_thumb)
+                    error(R.drawable.bg_product_thumb)
+                }
+            } else {
+                binding.imageThumb.setImageDrawable(null)
+                binding.imageThumb.setBackgroundResource(R.drawable.bg_product_thumb)
+            }
         }
     }
 

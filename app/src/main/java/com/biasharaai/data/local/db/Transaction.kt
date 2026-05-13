@@ -9,7 +9,8 @@ import androidx.room.PrimaryKey
  * Represents a financial transaction (income or expense).
  *
  * Each transaction has a [type] indicating whether it is money coming in
- * ([TransactionType.INCOME]) or going out ([TransactionType.EXPENSE]),
+ * ([TransactionType.INCOME]), going out ([TransactionType.EXPENSE]),
+ * or a POS return ([TransactionType.RETURN], negative [amount]),
  * an [amount], a [description] that doubles as a category label for
  * expense grouping, and a [date] stored as epoch milliseconds.
  */
@@ -24,7 +25,7 @@ data class Transaction(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
 
-    /** INCOME or EXPENSE. */
+    /** INCOME, EXPENSE, or RETURN (POS refund). */
     @ColumnInfo(name = "type")
     val type: TransactionType,
 
@@ -77,10 +78,25 @@ data class Transaction(
 
     @ColumnInfo(name = "tax_amount", defaultValue = "0.0")
     val taxAmount: Double = 0.0,
+
+    /** Set on credit sales (Prompt P6 / returns). */
+    @ColumnInfo(name = "customer_id")
+    val customerId: Long? = null,
+
+    /** For [TransactionType.RETURN] rows — original POS sale transaction. */
+    @ColumnInfo(name = "related_sale_transaction_id")
+    val relatedSaleTransactionId: Long? = null,
+
+    /** Prompt U1 / Phase 2A — credit notes, adjustments (`STANDARD` default). */
+    @ColumnInfo(name = "note_type", defaultValue = "STANDARD")
+    val noteType: String = "STANDARD",
 )
 
 /** Transaction direction. */
 enum class TransactionType {
     INCOME,
     EXPENSE,
+
+    /** Stock-return / refund — [Transaction.amount] is negative line total(s). */
+    RETURN,
 }

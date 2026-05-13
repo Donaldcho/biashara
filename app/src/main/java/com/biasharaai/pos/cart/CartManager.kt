@@ -58,6 +58,12 @@ class CartManager @Inject constructor() {
         }
     }
 
+    fun clearOverridePrice(productId: Long) {
+        _items.value = _items.value.map {
+            if (it.product.id == productId) it.copy(overridePrice = null) else it
+        }
+    }
+
     fun clear() {
         _items.value = emptyList()
     }

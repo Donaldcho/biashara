@@ -20,6 +20,7 @@ import com.biasharaai.data.local.db.ProductDao
 import com.biasharaai.databinding.FragmentBarcodeScannerBinding
 import com.biasharaai.ui.base.BaseFragment
 import com.biasharaai.ui.inventory.InventoryListFragment
+import com.biasharaai.ui.pos.PosFragment
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.firstOrNull
@@ -184,7 +185,13 @@ class BarcodeScannerFragment : BaseFragment() {
     private fun handleBarcodeResult(rawValue: String) {
         when (scanMode) {
             ScanMode.SCAN_FOR_LOOKUP -> lookupProduct(rawValue)
-            ScanMode.SCAN_TO_ADD -> navigateToAddWithBarcode(rawValue)
+            ScanMode.SCAN_TO_ADD -> {
+                if (arguments?.getBoolean(ARG_RETURN_BARCODE_TO_POS, false) == true) {
+                    returnBarcodeToPos(rawValue)
+                } else {
+                    navigateToAddWithBarcode(rawValue)
+                }
+            }
             ScanMode.SCAN_TO_RECORD_SALE -> navigateToSaleWithBarcode(rawValue)
         }
     }
@@ -223,6 +230,18 @@ class BarcodeScannerFragment : BaseFragment() {
     }
 
     /**
+     * POS scan slot: return the raw barcode to [PosFragment] via the previous entry’s
+     * [androidx.lifecycle.SavedStateHandle], then pop the scanner.
+     */
+    private fun returnBarcodeToPos(barcodeValue: String) {
+        findNavController().previousBackStackEntry?.savedStateHandle?.set(
+            PosFragment.RESULT_KEY_SCANNED_BARCODE,
+            barcodeValue,
+        )
+        findNavController().navigateUp()
+    }
+
+    /**
      * SCAN_TO_ADD: navigate straight to the new-product form pre-filled with the barcode.
      */
     private fun navigateToAddWithBarcode(barcodeValue: String) {
@@ -253,5 +272,12 @@ class BarcodeScannerFragment : BaseFragment() {
 
         /** Navigation argument key: barcode value passed to the next destination. */
         const val ARG_BARCODE_VALUE = "barcode_value"
+
+        /**
+         * When `true` with [ScanMode.SCAN_TO_ADD], the scanned value is posted to
+         * [PosFragment]’s SavedStateHandle ([PosFragment.RESULT_KEY_SCANNED_BARCODE]) and the
+         * scanner pops — instead of opening [com.biasharaai.ui.inventory.AddEditProductFragment].
+         */
+        const val ARG_RETURN_BARCODE_TO_POS = "return_barcode_to_pos"
     }
 }

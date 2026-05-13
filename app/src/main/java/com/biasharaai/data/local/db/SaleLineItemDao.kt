@@ -1,10 +1,24 @@
 package com.biasharaai.data.local.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
+
+/** Row for analytics: POS line + parent transaction fields (Prompt: conversational query layer). */
+data class PosSaleLineFact(
+    @ColumnInfo(name = "transaction_id") val transactionId: Long,
+    @ColumnInfo(name = "product_id") val productId: Long,
+    @ColumnInfo(name = "product_name") val productName: String,
+    @ColumnInfo(name = "unit_price") val unitPrice: Double,
+    val quantity: Int,
+    @ColumnInfo(name = "line_total") val lineTotal: Double,
+    @ColumnInfo(name = "tx_date") val transactionDate: Long,
+    @ColumnInfo(name = "payment_method") val paymentMethod: String,
+    @ColumnInfo(name = "customer_id") val customerId: Long?,
+)
 
 @Dao
 interface SaleLineItemDao {
@@ -17,6 +31,62 @@ interface SaleLineItemDao {
 
     @Query("SELECT * FROM sale_line_items WHERE transaction_id = :transactionId ORDER BY id ASC")
     fun getLineItemsByTransaction(transactionId: Long): Flow<List<SaleLineItem>>
+
+    @Query("SELECT * FROM sale_line_items WHERE transaction_id = :transactionId ORDER BY id ASC")
+    suspend fun getLineItemsForTransactionOnce(transactionId: Long): List<SaleLineItem>
+
+    /**
+     * Products this customer bought on **more than one** distinct sale (INCOME receipt),
+     * ordered by total units, top [limit]. Prompt U2.
+     */
+    @Query(
+        """
+        SELECT sl.product_id FROM sale_line_items sl
+        INNER JOIN transactions t ON t.id = sl.transaction_id
+        WHERE t.customer_id = :customerId AND t.type = 'INCOME' AND sl.quantity > 0
+        GROUP BY sl.product_id
+        HAVING COUNT(DISTINCT sl.transaction_id) > 1
+        ORDER BY SUM(sl.quantity) DESC
+        LIMIT :limit
+        """,
+    )
+    suspend fun topProductIdsForCustomer(customerId: Long, limit: Int): List<Long>
+
+    @Query(
+        """
+        SELECT * FROM sale_line_items sl
+        INNER JOIN transactions t ON t.id = sl.transaction_id
+        WHERE t.type = 'INCOME' AND sl.quantity > 0 AND t.date >= :startMillis AND t.date <= :endMillis
+        """,
+    )
+    suspend fun saleLinesInPeriod(startMillis: Long, endMillis: Long): List<SaleLineItem>
+
+    /**
+     * Positive POS lines since [sinceMillis] with transaction date and payment method for analytics.
+     */
+    @Query(
+        """
+        SELECT sl.transaction_id AS transaction_id, sl.product_id AS product_id,
+            sl.product_name AS product_name, sl.unit_price AS unit_price, sl.quantity AS quantity,
+            sl.line_total AS line_total, t.date AS tx_date, t.payment_method AS payment_method,
+            t.customer_id AS customer_id
+        FROM sale_line_items sl
+        INNER JOIN transactions t ON t.id = sl.transaction_id
+        WHERE t.type = 'INCOME' AND sl.quantity > 0 AND t.date >= :sinceMillis
+        """,
+    )
+    suspend fun posSaleLineFactsSince(sinceMillis: Long): List<PosSaleLineFact>
+
+    /**
+     * Return rows use negative [SaleLineItem.quantity] and set [SaleLineItem.sourceSaleLineItemId].
+     */
+    @Query(
+        """
+        SELECT IFNULL(ABS(SUM(quantity)), 0) FROM sale_line_items
+        WHERE source_sale_line_item_id = :originalLineItemId
+        """,
+    )
+    suspend fun sumReturnedQuantityForOriginalLine(originalLineItemId: Long): Int
 
     @Query("DELETE FROM sale_line_items WHERE transaction_id = :transactionId")
     suspend fun deleteByTransaction(transactionId: Long)

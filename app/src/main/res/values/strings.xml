@@ -6,14 +6,19 @@
     <string name="nav_inventory">Inventory</string>
     <string name="nav_chat">Chat</string>
     <string name="nav_insights">Insights</string>
+    <string name="nav_sales">Sales</string>
     <string name="nav_settings">Settings</string>
 
     <string name="home_welcome_title">Welcome to Biashara AI</string>
     <string name="home_welcome_subtitle">Your shop assistant — stock, sales, and insights in one place.</string>
     <string name="home_card_daily_summary_title">Today\'s summary</string>
-    <string name="home_card_daily_summary_placeholder">Daily totals and highlights will appear here.</string>
+    <string name="home_card_daily_summary_placeholder">See today\'s POS total at the top of Transactions (Insights → Transactions or Sales → history). For a full close-day summary, use Sales → menu → Close day.</string>
     <string name="home_card_low_stock_title">Low-stock alerts</string>
     <string name="home_card_low_stock_placeholder">Items running low will be listed here.</string>
+    <string name="home_loss_alerts_title">Loss prevention</string>
+    <string name="loss_alert_review">Review</string>
+    <string name="loss_alert_dismiss">Dismiss</string>
+    <string name="loss_alert_icon_cd">Loss alert</string>
 
     <string name="placeholder_screen_body">This screen is a placeholder for upcoming features.</string>
 
@@ -23,11 +28,29 @@
     <!-- Inventory Management (Prompt 4) -->
     <string name="inventory_action_scan">Scan barcode</string>
     <string name="inventory_fab_add_desc">Add new product</string>
-    <string name="inventory_empty">No products yet.\nTap + to add your first item.</string>
+    <string name="inventory_fab_expand_desc">Add or scan</string>
+    <string name="inventory_fab_close_desc">Close menu</string>
+    <string name="inventory_fab_add_manual">Add manually</string>
+    <string name="inventory_fab_scan_barcode">Scan barcode</string>
+    <string name="inventory_fab_scan_receipt">Scan receipt</string>
+    <string name="inventory_empty">No products yet.\nTap + to add, scan a barcode, or scan a receipt.</string>
     <string name="inventory_stock_format">Stock: %1$d</string>
+    <string name="inventory_product_thumb_cd">Product image</string>
     <string name="inventory_barcode_icon_desc">Has barcode</string>
     <string name="inventory_add_edit_title">Product</string>
     <string name="inventory_scanner_title">Scan</string>
+    <string name="inventory_menu_edit">Edit</string>
+    <string name="inventory_menu_remove_stock">Remove from stock…</string>
+    <string name="inventory_menu_delete">Delete product…</string>
+    <string name="inventory_remove_stock_title">Remove units — %1$s</string>
+    <string name="inventory_remove_stock_hint">How many units to remove?</string>
+    <string name="inventory_remove_stock_apply">Remove</string>
+    <string name="inventory_removed_stock_snackbar">Stock updated.</string>
+    <string name="inventory_delete_product_title">Delete product?</string>
+    <string name="inventory_delete_product_message">Delete \"%1$s\"? This cannot be undone. Past receipts still show the name stored on those sales.</string>
+    <string name="inventory_delete_confirm">Delete</string>
+    <string name="inventory_deleted_product_snackbar">Product deleted.</string>
+    <string name="inventory_action_failed">%1$s</string>
 
     <!-- Barcode Scanner (Prompt 4b) -->
     <string name="scanner_hint">Align barcode inside the frame</string>
@@ -46,6 +69,35 @@
     <string name="product_hint_cost">Cost price</string>
     <string name="product_hint_stock">Stock quantity</string>
     <string name="product_hint_category">Category (optional)</string>
+    <string name="product_photo_section_title">Product photo</string>
+    <string name="product_photo_preview_cd">Product photo preview</string>
+    <string name="product_photo_take">Take photo</string>
+    <string name="product_photo_choose">Choose from gallery</string>
+    <string name="product_photo_remove">Remove photo</string>
+    <string name="product_photo_permission_camera">Camera permission is needed to take a product photo.</string>
+    <string name="product_photo_failed">Could not save that image. Try another photo.</string>
+    <string name="product_suggest_price">Suggest price</string>
+    <string name="pricing_suggestion_title">Price suggestion</string>
+    <string name="pricing_suggestion_use">Use this price</string>
+    <string name="pricing_suggestion_keep">Keep my price</string>
+    <string name="pricing_suggestion_manual_hint">We could not read a numeric price from the first line. Review the text below and enter a price manually.</string>
+    <string name="pricing_suggestion_unparsed_title">Review suggestion</string>
+    <string name="pricing_suggestion_failed">Could not get a suggestion: %1$s</string>
+
+    <!-- Receipt OCR — Prompt U4 -->
+    <string name="receipt_scan_title">Scan receipt</string>
+    <string name="receipt_capture_button">Capture receipt</string>
+    <string name="receipt_camera_bind_failed">Could not start the camera.</string>
+    <string name="receipt_review_title">Review items</string>
+    <string name="receipt_review_fallback_message">Could not read the receipt automatically. Please enter items below.</string>
+    <string name="receipt_review_line_title">Line item</string>
+    <string name="receipt_review_qty_hint">Quantity</string>
+    <string name="receipt_review_delete_line">Remove line</string>
+    <string name="receipt_review_commit">Add %1$d items to inventory</string>
+    <string name="receipt_review_success">Added %1$d product(s).</string>
+    <string name="receipt_review_no_valid_lines">No valid lines to add. Check name, quantity, and cost.</string>
+    <string name="receipt_review_commit_failed">Could not save products.</string>
+    <string name="receipt_review_cannot_delete_last">Keep at least one row.</string>
     <string name="product_hint_barcode">Barcode</string>
     <string name="product_btn_save">Save</string>
     <string name="product_btn_saving">Saving…</string>
@@ -145,6 +197,10 @@
     <string name="chat_fallback_product_not_found">I don\'t see anything matching \"%1$s\" in your inventory.\n\nYour products: %2$s</string>
     <string name="chat_fallback_no_sales">You haven\'t recorded any sales yet.</string>
     <string name="chat_fallback_sales_summary">%1$d sales recorded, totalling %2$s.</string>
+    <string name="chat_fallback_today_sales">On %1$s (local date), recorded sales total %2$s (%3$d income sale(s)).</string>
+    <string name="chat_fallback_today_sales_none">On %1$s (local date), no sales have been recorded yet.</string>
+    <string name="chat_fallback_today_items_none">On %1$s (local date), no itemized POS sale lines were recorded (or all lines were returns).</string>
+    <string name="chat_fallback_today_items_intro">Items sold (name × units, line total):</string>
     <string name="chat_fallback_no_data">You haven\'t added any products or recorded any transactions yet. Open Inventory or Sales to get started.</string>
     <string name="chat_error_generic">Sorry, something went wrong. Please try again.</string>
     <string name="chat_ai_timeout_with_summary">The on-device model took too long. Here is a quick answer from your records:\n\n%1$s</string>
@@ -154,6 +210,7 @@
     <string name="chat_new_chat">New chat</string>
     <string name="chat_new_chat_started">Started a fresh conversation</string>
     <string name="chat_try_asking">Try asking</string>
+    <string name="chat_suggest_today_sales">What are our sales today?</string>
     <string name="chat_suggest_profit">What is my profit this month?</string>
     <string name="chat_suggest_low_stock">Which products are low on stock?</string>
     <string name="chat_suggest_top_expenses">What are my biggest expenses?</string>
@@ -162,6 +219,32 @@
     <string name="chat_mic_prompt">Ask Biashara AI…</string>
     <string name="chat_mic_unavailable">Voice input is not available on this device.</string>
     <string name="chat_mic_permission_denied">Microphone permission denied.</string>
+    <string name="chat_session_default_title">Chat</string>
+    <string name="chat_new_session_title">New chat</string>
+    <string name="chat_photo_message_placeholder">[Photo attached — describe what you see]</string>
+    <string name="chat_image_attachment_cd">Attached image</string>
+    <string name="chat_attach_image">Attach image</string>
+    <string name="chat_menu_history">Chat history</string>
+    <string name="chat_menu_wikipedia">Wikipedia</string>
+    <string name="chat_menu_maps">Maps</string>
+    <string name="chat_menu_load_skills">Load skills URL</string>
+    <string name="chat_wikipedia_title">Wikipedia</string>
+    <string name="chat_wikipedia_hint">Search term or question</string>
+    <string name="chat_wikipedia_augment">Augment next reply</string>
+    <string name="chat_wikipedia_dialog_message">Enter a topic or question. It will be placed in the input box; send when ready. If augment is on, English Wikipedia snippets are fetched for that text (network).</string>
+    <string name="chat_maps_title">Open in Maps</string>
+    <string name="chat_maps_hint">Place or address</string>
+    <string name="chat_skills_url_title">Skills manifest URL</string>
+    <string name="chat_skills_url_hint">https://…/skills.json</string>
+    <string name="chat_skills_loaded">Skills updated</string>
+    <string name="chat_skills_load_failed">Could not load skills</string>
+    <string name="chat_history_title">Chat history</string>
+    <string name="chat_history_empty">No past chats yet</string>
+    <string name="chat_history_open">Open</string>
+    <string name="chat_history_delete">Delete</string>
+    <string name="chat_history_delete_confirm">Delete this chat?</string>
+    <string name="chat_skill_hint_added">Skill hint added — type your question, then send.</string>
+    <string name="chat_image_ready">Image attached — add a note or send as-is.</string>
 
     <!-- Settings: Benchmark -->
     <string name="settings_btn_benchmark">Run benchmark</string>
@@ -175,5 +258,126 @@
     <string name="product_scan_label_success">Captured from label</string>
     <string name="label_scanner_title">Scan product label</string>
     <string name="label_scanner_hint">Point the camera at the product name on the label</string>
+
+    <!-- POS (Prompt P3) -->
+    <string name="pos_title">Point of sale</string>
+    <string name="pos_walk_in_customer">Walk-in customer</string>
+    <string name="pos_walk_in_subtitle">No customer record</string>
+    <string name="pos_select_customer_title">Select customer</string>
+    <string name="pos_select_customer_search_hint">Search by name, phone, or email</string>
+    <string name="pos_new_customer_row">New customer</string>
+    <string name="pos_new_customer_row_subtitle">Add name and phone</string>
+    <string name="pos_new_customer_title">New customer</string>
+    <string name="pos_new_customer_name_hint">Name</string>
+    <string name="pos_new_customer_phone_hint">Phone (optional)</string>
+    <string name="pos_new_customer_save">Save</string>
+    <string name="pos_customer_last_visit">Last visit: %1$s</string>
+    <string name="pos_customer_since">Customer since %1$s</string>
+    <string name="pos_customer_never_visited">No visits recorded yet</string>
+    <string name="pos_search_hint">Search products…</string>
+    <string name="pos_scan_to_add_desc">Scan barcode to add to cart</string>
+    <string name="pos_stock_badge">Stock: %1$d</string>
+    <string name="pos_product_thumb_desc">Product image</string>
+    <string name="pos_search_row_meta">%1$s · %2$s</string>
+    <string name="pos_cart_title">Cart</string>
+    <string name="pos_cart_items_count">%1$d items</string>
+    <string name="pos_cart_items_count_one">1 item</string>
+    <string name="pos_cart_line_title">%1$s × %2$d</string>
+    <string name="pos_qty_dialog_title">Quantity</string>
+    <string name="pos_qty_dialog_hint">How many?</string>
+    <string name="pos_qty_dialog_positive">Add</string>
+    <string name="pos_barcode_not_found">No product matches barcode %1$s</string>
+
+    <!-- POS cart / totals (Prompt P4) -->
+    <string name="pos_totals_subtotal">Subtotal</string>
+    <string name="pos_totals_grand">Grand total</string>
+    <string name="pos_totals_tax_default">Tax</string>
+    <string name="pos_totals_tax_label">%1$s (%2$.1f%%)</string>
+    <string name="pos_cart_clear">Clear cart</string>
+    <string name="pos_pay">Pay</string>
+    <string name="pos_cart_qty_minus">Decrease quantity</string>
+    <string name="pos_cart_qty_plus">Increase quantity</string>
+    <string name="pos_price_override_title">Override price · %1$s</string>
+    <string name="pos_price_override_message">Catalog price: %1$s</string>
+    <string name="pos_price_override_hint">New unit price</string>
+    <string name="pos_price_override_confirm">Apply</string>
+    <string name="payment_dialog_title">Payment</string>
+    <string name="payment_grand_label">Amount due</string>
+    <string name="payment_tab_cash">Cash</string>
+    <string name="payment_tab_mobile">Mobile money</string>
+    <string name="payment_tab_credit">Credit</string>
+    <string name="payment_split_toggle">Split payment</string>
+    <string name="payment_split_hide">Single method</string>
+    <string name="payment_cash_tendered_hint">Amount tendered</string>
+    <string name="payment_change_due">Change due: %1$s</string>
+    <string name="payment_change_insufficient">Tender insufficient</string>
+    <string name="payment_confirm">Confirm sale</string>
+    <string name="payment_cancel">Cancel</string>
+    <string name="payment_network_label">Network</string>
+    <string name="payment_network_mpesa">M-Pesa</string>
+    <string name="payment_network_mtn">MTN</string>
+    <string name="payment_network_airtel">Airtel</string>
+    <string name="payment_network_other">Other</string>
+    <string name="payment_ref_hint">Reference (optional)</string>
+    <string name="payment_paste_sms">Paste confirmation SMS</string>
+    <string name="payment_paste_sms_title">Paste confirmation message</string>
+    <string name="payment_paste_sms_hint">Paste the SMS or USSD reply from your carrier</string>
+    <string name="payment_paste_apply">Extract reference</string>
+    <string name="payment_sms_parse_failed">Could not find a reference in that text.</string>
+    <string name="payment_credit_need_customer">Please select a customer to sell on credit.</string>
+    <string name="payment_credit_select_customer">Select customer</string>
+    <string name="payment_credit_outstanding">Outstanding: %1$s</string>
+    <string name="payment_credit_due_unset">No due date set</string>
+    <string name="payment_credit_due_set">Due date: %1$s</string>
+    <string name="payment_credit_set_due">Set due date</string>
+    <string name="payment_credit_clear_due">Clear due date</string>
+    <string name="payment_split_row1">Payment 1</string>
+    <string name="payment_split_row2">Payment 2 (remainder)</string>
+    <string name="payment_split_amount1_hint">Amount</string>
+    <string name="payment_split_remainder">Remainder: %1$s</string>
+    <string name="payment_commit_empty_cart">Cart is empty — add items before confirming.</string>
+
+    <!-- Prompt P8 — transactions, receipt, returns -->
+    <string name="transactions_title">Transactions</string>
+    <string name="transactions_menu">Transactions</string>
+    <string name="transactions_empty">No completed sales yet.</string>
+    <string name="transactions_today_summary">Today\'s POS total: %1$s · %2$d sale(s)</string>
+    <string name="transactions_receipt_label">Receipt: %1$s</string>
+    <string name="transactions_receipt_fallback">Sale #%1$d</string>
+    <string name="pos_history_desc">Sales history</string>
+    <string name="tx_payment_cash">Cash</string>
+    <string name="tx_payment_credit">Credit</string>
+    <string name="tx_payment_mobile">Mobile money</string>
+    <string name="tx_payment_split">Split</string>
+    <string name="tx_payment_return">Return</string>
+    <string name="tx_payment_other">Other</string>
+    <string name="receipt_title">Receipt</string>
+    <string name="receipt_meta_format">%1$s · %2$s</string>
+    <string name="receipt_return_banner">RETURN</string>
+    <string name="receipt_return_items">Return items</string>
+    <string name="receipt_subtotal">Subtotal: %1$s</string>
+    <string name="receipt_tax">%1$s: %2$s</string>
+    <string name="receipt_total">Total: %1$s</string>
+    <string name="receipt_line_format">%1$d × %2$s @ %3$s</string>
+    <string name="return_title">Return items</string>
+    <string name="return_qty_hint">Qty</string>
+    <string name="return_line_hint">Sold: %1$d · Can return: %2$d</string>
+    <string name="return_process">Process return</string>
+    <string name="return_none_selected">Select at least one line to return.</string>
+    <string name="return_invalid_qty">Enter a valid quantity for each selected line.</string>
+    <string name="return_failed">Could not process return.</string>
+    <string name="return_success">Return recorded.</string>
+
+    <!-- Prompt P9 — POS AI -->
+    <string name="pos_suggestion_chip_cd">Add %1$s to cart</string>
+    <string name="pos_menu_overflow_desc">More POS options</string>
+    <string name="pos_close_day">Close day</string>
+    <string name="pos_price_warning_undo">Undo</string>
+    <string name="end_of_day_title">End of day</string>
+    <string name="end_of_day_share">Share summary</string>
+    <string name="end_of_day_stat_sales">Sales: %1$s</string>
+    <string name="end_of_day_stat_tx">%1$d transactions</string>
+    <string name="end_of_day_stat_top">Top: %1$s (%2$d)</string>
+    <string name="end_of_day_stat_pay">Cash %1$d%% · Mobile %2$d%% · Credit %3$d%%</string>
 
 </resources>

@@ -2,11 +2,13 @@ package com.biasharaai.ui.inventory
 
 import androidx.lifecycle.viewModelScope
 import com.biasharaai.ai.DemandForecaster
+import com.biasharaai.media.ProductPhotoStore
 import com.biasharaai.data.local.db.Product
 import com.biasharaai.data.local.db.ProductDao
 import com.biasharaai.ui.base.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -17,8 +19,9 @@ import javax.inject.Inject
 
 @HiltViewModel
 class InventoryListViewModel @Inject constructor(
-    productDao: ProductDao,
+    private val productDao: ProductDao,
     private val demandForecaster: DemandForecaster,
+    private val productPhotoStore: ProductPhotoStore,
 ) : BaseViewModel() {
 
     /** Reactive product list backed by Room's Flow, exposed as StateFlow. */
@@ -96,6 +99,28 @@ class InventoryListViewModel @Inject constructor(
         return (0 until 7).map { day ->
             val variation = ((seed + day) % 5) - 2  // -2 to +2
             (baseDaily + variation.toInt()).coerceAtLeast(0)
+        }
+    }
+
+    suspend fun deleteProduct(product: Product) {
+        withContext(Dispatchers.IO) {
+            productPhotoStore.deleteIfAppStored(product.imageUrl)
+            productDao.deleteProduct(product)
+        }
+    }
+
+    /**
+     * Removes units from on-hand stock (damage, shrink, own use). Does not create a transaction row.
+     */
+    suspend fun removeStockUnits(productId: Long, quantity: Int) {
+        require(quantity > 0) { "Quantity must be positive" }
+        withContext(Dispatchers.IO) {
+            val p = productDao.getProductByIdOnce(productId)
+                ?: error("Product not found")
+            if (p.stockQuantity < quantity) {
+                error("Only ${p.stockQuantity} in stock")
+            }
+            productDao.incrementStock(productId, -quantity)
         }
     }
 }

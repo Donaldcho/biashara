@@ -32,4 +32,8 @@ data class SaleLineItem(
     val quantity: Int,
     @ColumnInfo(name = "line_total")
     val lineTotal: Double,
+
+    /** Links a return line back to the original sale line (Prompt P8). */
+    @ColumnInfo(name = "source_sale_line_item_id")
+    val sourceSaleLineItemId: Long? = null,
 )

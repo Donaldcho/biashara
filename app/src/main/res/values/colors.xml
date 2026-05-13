@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Biashara AI concept (biashara_ai_concept.html) — primary palette -->
+    <color name="biashara_forest">#1A5C3A</color>
+    <color name="biashara_forest_dark">#0D3D24</color>
+    <color name="biashara_emerald">#2D9B5F</color>
+    <color name="biashara_sage">#5FB88A</color>
+    <color name="biashara_mint">#A8E6C3</color>
+    <color name="biashara_cream">#F5F0E8</color>
+    <color name="biashara_warm">#FBF7F0</color>
+    <color name="biashara_charcoal">#1C1C1E</color>
+    <color name="biashara_ink">#2D2D35</color>
+    <color name="biashara_muted">#6B7280</color>
+    <color name="biashara_border">#E5E0D8</color>
+    <color name="biashara_amber">#D97706</color>
+    <color name="biashara_amber_light">#FEF3C7</color>
+    <color name="biashara_red">#DC2626</color>
+    <color name="biashara_red_light">#FEE2E2</color>
+    <color name="biashara_blue">#1D4ED8</color>
+    <color name="biashara_blue_light">#DBEAFE</color>
+    <color name="biashara_success_green">#059669</color>
+    <color name="biashara_success_light">#D1FAE5</color>
+    <color name="biashara_success_on_light">#065F46</color>
+
+    <!-- Surfaces (cards on warm background) -->
+    <color name="biashara_surface_bright">#FFFFFF</color>
+    <color name="biashara_scrim">#99000000</color>
+    <color name="biashara_scrim_light">#60000000</color>
+
+    <!-- Chart / income-expense bars (aligned to concept greens) -->
+    <color name="biashara_chart_income">#2D9B5F</color>
+    <color name="biashara_chart_expense">#DC2626</color>
+    <color name="biashara_chart_track">#E5E0D8</color>
+
+    <!-- Bottom nav: warm bar (concept: frosted cream strip) -->
+    <color name="biashara_nav_bar_bg">#F2FBF7F0</color>
+    <color name="biashara_nav_ripple">#331A5C3A</color>
+
+    <!-- Night (concept outer frame + phone chrome) -->
+    <color name="biashara_night_bg">#0F1A14</color>
+    <color name="biashara_night_surface">#1A1F1C</color>
+    <color name="biashara_night_elevated">#232B26</color>
+
+    <!-- Chips on forest POS header -->
+    <color name="biashara_chip_on_forest">#33FFFFFF</color>
+</resources>

@@ -54,7 +54,7 @@ class CashFlowAnalyzer @Inject constructor(
 
     private fun aggregate(transactions: List<Transaction>): CashFlowStats {
         val totalIncome = transactions
-            .filter { it.type == TransactionType.INCOME }
+            .filter { it.type == TransactionType.INCOME || it.type == TransactionType.RETURN }
             .sumOf { it.amount }
 
         val totalExpenses = transactions

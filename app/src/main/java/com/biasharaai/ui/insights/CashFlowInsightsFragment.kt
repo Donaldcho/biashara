@@ -8,6 +8,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.fragment.findNavController
 import com.biasharaai.R
 import com.biasharaai.databinding.FragmentCashFlowInsightsBinding
 import com.biasharaai.ui.base.BaseFragment
@@ -56,6 +57,12 @@ class CashFlowInsightsFragment : BaseFragment() {
             when (menuItem.itemId) {
                 R.id.action_refresh -> {
                     viewModel.refresh()
+                    true
+                }
+                R.id.action_transactions -> {
+                    findNavController().navigate(
+                        R.id.action_insightsFragment_to_transactionHistoryFragment,
+                    )
                     true
                 }
                 else -> false

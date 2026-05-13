@@ -19,17 +19,28 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
+        <ImageView
+            android:id="@+id/image_thumb"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:background="@drawable/bg_product_thumb"
+            android:contentDescription="@string/inventory_product_thumb_cd"
+            android:scaleType="centerCrop"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
         <TextView
             android:id="@+id/text_product_name"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
             android:ellipsize="end"
             android:maxLines="1"
             android:textAlignment="viewStart"
             android:textAppearance="?attr/textAppearanceTitleMedium"
             app:layout_constraintEnd_toStartOf="@id/icon_barcode"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toEndOf="@id/image_thumb"
+            app:layout_constraintTop_toTopOf="@id/image_thumb"
             tools:text="Unga wa Ngano" />
 
         <ImageView
@@ -49,11 +60,12 @@
             android:id="@+id/text_stock_quantity"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
             android:layout_marginTop="6dp"
             android:textAlignment="viewStart"
             android:textAppearance="?attr/textAppearanceBodyMedium"
             android:textColor="?android:attr/textColorSecondary"
-            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintStart_toEndOf="@id/image_thumb"
             app:layout_constraintTop_toBottomOf="@id/text_product_name"
             tools:text="Stock: 42" />
 
@@ -73,6 +85,7 @@
             android:id="@+id/text_forecast"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
             android:layout_marginTop="6dp"
             android:background="@drawable/bg_forecast_badge"
             android:drawablePadding="4dp"
@@ -86,7 +99,7 @@
             android:textColor="?attr/colorOnPrimaryContainer"
             android:visibility="gone"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintStart_toEndOf="@id/image_thumb"
             app:layout_constraintTop_toBottomOf="@id/text_stock_quantity"
             tools:text="📈 Day1: 6, Day2: 5, Day3: 7"
             tools:visibility="visible" />

@@ -44,7 +44,11 @@ class MainActivity : AppCompatActivity() {
             binding.bottomNav.visibility = when (destination.id) {
                 R.id.languageSelectionFragment,
                 R.id.barcodeScannerFragment,
-                R.id.addEditProductFragment -> View.GONE
+                R.id.receiptScanFragment,
+                R.id.receiptReviewFragment,
+                R.id.labelScannerFragment,
+                R.id.addEditProductFragment,
+                R.id.paymentDialogFragment -> View.GONE
                 else -> View.VISIBLE
             }
             applyRootLayoutDirectionFromLocale()

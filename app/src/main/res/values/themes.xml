@@ -1,3 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.BiasharaAI" parent="Theme.Material3.DayNight.NoActionBar" />
+
+    <!--
+      Biashara AI — UI aligned to biashara_ai_concept.html (forest / warm / mint).
+      Light base; see values-night for dark palette.
+    -->
+    <style name="Base.Theme.BiasharaAI" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:colorBackground">@color/biashara_warm</item>
+        <item name="android:windowBackground">@color/biashara_warm</item>
+        <item name="android:statusBarColor">@color/biashara_warm</item>
+        <item name="android:navigationBarColor">@color/biashara_nav_bar_bg</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+
+        <item name="colorPrimary">@color/biashara_forest</item>
+        <item name="colorOnPrimary">@color/biashara_surface_bright</item>
+        <item name="colorPrimaryContainer">@color/biashara_success_light</item>
+        <item name="colorOnPrimaryContainer">@color/biashara_success_on_light</item>
+
+        <item name="colorSecondary">@color/biashara_emerald</item>
+        <item name="colorOnSecondary">@color/biashara_surface_bright</item>
+        <item name="colorSecondaryContainer">@color/biashara_mint</item>
+        <item name="colorOnSecondaryContainer">@color/biashara_forest_dark</item>
+
+        <item name="colorTertiary">@color/biashara_sage</item>
+        <item name="colorOnTertiary">@color/biashara_surface_bright</item>
+        <item name="colorTertiaryContainer">@color/biashara_cream</item>
+        <item name="colorOnTertiaryContainer">@color/biashara_ink</item>
+
+        <item name="colorError">@color/biashara_red</item>
+        <item name="colorOnError">@color/biashara_surface_bright</item>
+        <item name="colorErrorContainer">@color/biashara_red_light</item>
+        <item name="colorOnErrorContainer">@color/biashara_red</item>
+
+        <item name="colorSurface">@color/biashara_surface_bright</item>
+        <item name="colorOnSurface">@color/biashara_charcoal</item>
+        <item name="colorSurfaceVariant">@color/biashara_cream</item>
+        <item name="colorOnSurfaceVariant">@color/biashara_muted</item>
+
+        <item name="colorSurfaceContainerLowest">@color/biashara_warm</item>
+        <item name="colorSurfaceContainerLow">@color/biashara_warm</item>
+        <item name="colorSurfaceContainer">@color/biashara_cream</item>
+        <item name="colorSurfaceContainerHigh">@color/biashara_cream</item>
+        <item name="colorSurfaceContainerHighest">@color/biashara_border</item>
+
+        <item name="colorOutline">@color/biashara_border</item>
+        <item name="colorOutlineVariant">@color/biashara_border</item>
+
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Biashara.SmallComponent</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Biashara.MediumComponent</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Biashara.LargeComponent</item>
+
+        <item name="materialCardViewStyle">@style/Widget.Biashara.CardView</item>
+        <item name="bottomNavigationStyle">@style/Widget.Biashara.BottomNavigationView</item>
+        <item name="extendedFloatingActionButtonPrimaryStyle">@style/Widget.Biashara.ExtendedFloatingActionButton.Primary</item>
+    </style>
+
+    <style name="Theme.BiasharaAI" parent="Base.Theme.BiasharaAI" />
+
+    <style name="Theme.BiasharaAI.FullScreenPaymentDialog" parent="Theme.BiasharaAI">
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowBackground">?attr/colorSurface</item>
+    </style>
 </resources>

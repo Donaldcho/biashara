@@ -2,11 +2,14 @@ package com.biasharaai.pos.cart
 
 import com.biasharaai.data.local.db.AppSettings
 import com.biasharaai.data.local.db.AppSettingsDao
+import com.biasharaai.data.local.db.Customer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -35,6 +38,14 @@ class CartRepository @Inject constructor(
 ) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    private val _selectedCustomer = MutableStateFlow<Customer?>(null)
+    val selectedCustomer: StateFlow<Customer?> = _selectedCustomer.asStateFlow()
+
+    /** Walk-in clears the selection (`null`). */
+    fun setSelectedCustomer(customer: Customer?) {
+        _selectedCustomer.value = customer
+    }
 
     val items: StateFlow<List<CartItem>> = cartManager.items
 

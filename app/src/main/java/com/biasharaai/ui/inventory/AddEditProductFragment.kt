@@ -2,26 +2,38 @@ package com.biasharaai.ui.inventory
 
 import android.Manifest
 import android.app.Activity
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.speech.RecognizerIntent
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.core.os.bundleOf
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
+import coil.load
 import com.biasharaai.R
 import com.biasharaai.ai.AudioCaptureHelper
 import com.biasharaai.ai.VoiceInputProcessor
+import com.biasharaai.data.local.db.Product
 import com.biasharaai.databinding.FragmentAddEditProductBinding
+import com.biasharaai.media.ProductPhotoStore
 import com.biasharaai.ui.base.BaseFragment
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import java.util.Locale
 import javax.inject.Inject
 
@@ -36,6 +48,7 @@ import javax.inject.Inject
  * - Voice input via Gemma 3n multimodal (FULL_AI) or SpeechRecognizer fallback.
  * - Scan shortcut on barcode field opens BarcodeScannerFragment in SCAN_TO_ADD mode.
  * - Barcode pre-fill when arriving from the scanner.
+ * - Optional product photo: camera (FileProvider) or gallery; scaled JPEG in app storage; [Product.imageUrl].
  */
 @AndroidEntryPoint
 class AddEditProductFragment : BaseFragment() {
@@ -48,7 +61,14 @@ class AddEditProductFragment : BaseFragment() {
     @Inject
     lateinit var voiceInputProcessor: VoiceInputProcessor
 
-    // ── Voice input (SpeechRecognizer fallback) ────────────────────────
+    @Inject
+    lateinit var productPhotoStore: ProductPhotoStore
+
+    private var cameraCaptureFile: File? = null
+    private var originalImageUrl: String? = null
+    private var pendingPhotoPath: String? = null
+    private var imageExplicitlyRemoved: Boolean = false
+    private var boundProductId: Long = Long.MIN_VALUE
 
     private val speechLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -78,6 +98,67 @@ class AddEditProductFragment : BaseFragment() {
             }
         }
 
+    private val pickProductPhoto =
+        registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+            if (uri == null) return@registerForActivityResult
+            viewLifecycleOwner.lifecycleScope.launch {
+                val path = withContext(Dispatchers.IO) {
+                    productPhotoStore.saveScaledFromContentUri(uri)
+                }
+                if (!isAdded) return@launch
+                if (path != null) {
+                    commitPendingPhotoPath(path)
+                    bindProductImage()
+                } else {
+                    Snackbar.make(
+                        binding.root,
+                        R.string.product_photo_failed,
+                        Snackbar.LENGTH_LONG,
+                    ).show()
+                }
+            }
+        }
+
+    private val takeProductPhoto =
+        registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+            val file = cameraCaptureFile
+            cameraCaptureFile = null
+            if (file == null) return@registerForActivityResult
+            if (!success) {
+                file.delete()
+                return@registerForActivityResult
+            }
+            viewLifecycleOwner.lifecycleScope.launch {
+                val path = withContext(Dispatchers.IO) {
+                    productPhotoStore.saveScaledJpeg(file)
+                }
+                if (!isAdded) return@launch
+                if (path != null) {
+                    commitPendingPhotoPath(path)
+                    bindProductImage()
+                } else {
+                    Snackbar.make(
+                        binding.root,
+                        R.string.product_photo_failed,
+                        Snackbar.LENGTH_LONG,
+                    ).show()
+                }
+            }
+        }
+
+    private val productCameraPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                launchTakeProductPhoto()
+            } else {
+                Snackbar.make(
+                    binding.root,
+                    R.string.product_photo_permission_camera,
+                    Snackbar.LENGTH_LONG,
+                ).show()
+            }
+        }
+
     // ── Lifecycle ───────────────────────────────────────────────────────
 
     override fun onCreateView(
@@ -97,9 +178,24 @@ class AddEditProductFragment : BaseFragment() {
         setupBarcodeScan()
         setupLabelScan()
         setupSaveButton()
+        setupSuggestPrice()
+        setupProductPhoto()
         prefillBarcode()
         observeViewModel()
         observeLabelScanResult()
+        updateSuggestPriceButtonVisibility()
+        bindProductImage()
+    }
+
+    /** Called from [PricingSuggestionBottomSheet] when the user applies a suggested price. */
+    fun applySuggestedPrice(price: Double) {
+        val text = if (price % 1.0 == 0.0) {
+            price.toLong().toString()
+        } else {
+            String.format(java.util.Locale.US, "%.2f", price).trimEnd('0').trimEnd('.')
+        }
+        binding.editPrice.setText(text)
+        binding.editPrice.setSelection(binding.editPrice.text?.length ?: 0)
     }
 
     override fun onDestroyView() {
@@ -206,14 +302,165 @@ class AddEditProductFragment : BaseFragment() {
                 if (!scanned.isNullOrBlank()) {
                     binding.editName.setText(scanned)
                     binding.editName.setSelection(scanned.length)
+                    val desc = handle.get<String>(com.biasharaai.ui.scanner.LabelScannerFragment.RESULT_DESCRIPTION_KEY)
+                    if (!desc.isNullOrBlank()) {
+                        binding.editDescription.setText(desc)
+                        binding.editDescription.setSelection(desc.length)
+                    }
+                    val cat = handle.get<String>(com.biasharaai.ui.scanner.LabelScannerFragment.RESULT_CATEGORY_KEY)
+                    if (!cat.isNullOrBlank()) {
+                        binding.editCategory.setText(cat)
+                        binding.editCategory.setSelection(cat.length)
+                    }
+                    updateSuggestPriceButtonVisibility()
                     Snackbar.make(
                         binding.root,
                         R.string.product_scan_label_success,
                         Snackbar.LENGTH_SHORT,
                     ).show()
                     handle.remove<String>(com.biasharaai.ui.scanner.LabelScannerFragment.RESULT_KEY)
+                    handle.remove<String>(com.biasharaai.ui.scanner.LabelScannerFragment.RESULT_DESCRIPTION_KEY)
+                    handle.remove<String>(com.biasharaai.ui.scanner.LabelScannerFragment.RESULT_CATEGORY_KEY)
                 }
             }
+    }
+
+    private fun setupSuggestPrice() {
+        binding.btnSuggestPrice.setOnClickListener {
+            val draft = buildDraftProductForPricing() ?: return@setOnClickListener
+            PricingSuggestionBottomSheet.newInstance(draft).show(
+                childFragmentManager,
+                "pricing_suggestion",
+            )
+        }
+        val suggestWatcher = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                updateSuggestPriceButtonVisibility()
+            }
+        }
+        binding.editCost.addTextChangedListener(suggestWatcher)
+        binding.editCategory.addTextChangedListener(suggestWatcher)
+    }
+
+    private fun updateSuggestPriceButtonVisibility() {
+        val costOk = binding.editCost.text.toString().toDoubleOrNull()?.let { it > 0 } == true
+        val categoryOk = binding.editCategory.text.toString().trim().isNotEmpty()
+        binding.btnSuggestPrice.visibility =
+            if (costOk && categoryOk) View.VISIBLE else View.GONE
+    }
+
+    private fun buildDraftProductForPricing(): Product? {
+        val cost = binding.editCost.text.toString().toDoubleOrNull() ?: return null
+        if (cost <= 0) return null
+        val category = binding.editCategory.text.toString().trim()
+        if (category.isEmpty()) return null
+        val name = binding.editName.text.toString().trim()
+            .ifBlank { getString(R.string.product_title_new) }
+        val price = binding.editPrice.text.toString().toDoubleOrNull() ?: 0.0
+        val stock = binding.editStock.text.toString().toIntOrNull() ?: 0
+        return Product(
+            id = viewModel.editingProductId,
+            name = name,
+            description = binding.editDescription.text.toString().trim().ifBlank { null },
+            price = price,
+            cost = cost,
+            stockQuantity = stock,
+            category = category,
+            barcodeValue = binding.editBarcode.text.toString().trim().ifBlank { null },
+            imageUrl = resolveImageUrlForSave(),
+        )
+    }
+
+    private fun setupProductPhoto() {
+        binding.btnPhotoGallery.setOnClickListener {
+            pickProductPhoto.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+            )
+        }
+        binding.btnPhotoCamera.setOnClickListener {
+            when {
+                ContextCompat.checkSelfPermission(
+                    requireContext(),
+                    Manifest.permission.CAMERA,
+                ) == PackageManager.PERMISSION_GRANTED -> launchTakeProductPhoto()
+                else -> productCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+            }
+        }
+        binding.btnPhotoRemove.setOnClickListener {
+            val oldPending = pendingPhotoPath
+            if (!oldPending.isNullOrBlank() &&
+                oldPending != originalImageUrl &&
+                productPhotoStore.isAppStoredAbsolutePath(oldPending)
+            ) {
+                productPhotoStore.deleteIfAppStored(oldPending)
+            }
+            pendingPhotoPath = null
+            imageExplicitlyRemoved = true
+            bindProductImage()
+        }
+    }
+
+    private fun commitPendingPhotoPath(path: String) {
+        val oldPending = pendingPhotoPath
+        if (!oldPending.isNullOrBlank() &&
+            oldPending != path &&
+            oldPending != originalImageUrl &&
+            productPhotoStore.isAppStoredAbsolutePath(oldPending)
+        ) {
+            productPhotoStore.deleteIfAppStored(oldPending)
+        }
+        pendingPhotoPath = path
+        imageExplicitlyRemoved = false
+    }
+
+    private fun resolveImageUrlForSave(): String? = when {
+        imageExplicitlyRemoved -> null
+        !pendingPhotoPath.isNullOrBlank() -> pendingPhotoPath
+        else -> originalImageUrl
+    }
+
+    private fun launchTakeProductPhoto() {
+        val file = productPhotoStore.createCameraCaptureFile()
+        cameraCaptureFile = file
+        val uri = FileProvider.getUriForFile(
+            requireContext(),
+            "${requireContext().packageName}.fileprovider",
+            file,
+        )
+        takeProductPhoto.launch(uri)
+    }
+
+    private fun bindProductImage() {
+        val path = when {
+            imageExplicitlyRemoved -> null
+            !pendingPhotoPath.isNullOrBlank() -> pendingPhotoPath
+            else -> originalImageUrl
+        }
+        val hasLocal = !path.isNullOrBlank() &&
+            !path.startsWith("http", ignoreCase = true) &&
+            File(path).isFile
+        val hasRemote = !path.isNullOrBlank() && path.startsWith("http", ignoreCase = true)
+        if (hasLocal) {
+            binding.imageProduct.background = null
+            binding.imageProduct.load(File(path!!)) {
+                crossfade(true)
+                error(R.drawable.bg_product_thumb)
+            }
+            binding.btnPhotoRemove.visibility = View.VISIBLE
+        } else if (hasRemote) {
+            binding.imageProduct.background = null
+            binding.imageProduct.load(path!!) {
+                crossfade(true)
+                error(R.drawable.bg_product_thumb)
+            }
+            binding.btnPhotoRemove.visibility = View.VISIBLE
+        } else {
+            binding.imageProduct.setImageDrawable(null)
+            binding.imageProduct.setBackgroundResource(R.drawable.bg_product_thumb)
+            binding.btnPhotoRemove.visibility = View.GONE
+        }
     }
 
     private fun setupSaveButton() {
@@ -226,6 +473,7 @@ class AddEditProductFragment : BaseFragment() {
                 stockText = binding.editStock.text.toString(),
                 category = binding.editCategory.text.toString(),
                 barcodeValue = binding.editBarcode.text.toString(),
+                imageUrl = resolveImageUrlForSave(),
             )
         }
     }
@@ -252,6 +500,12 @@ class AddEditProductFragment : BaseFragment() {
     private suspend fun collectExistingProduct() {
         viewModel.existingProduct.collect { product ->
             product ?: return@collect
+            if (boundProductId != product.id) {
+                boundProductId = product.id
+                originalImageUrl = product.imageUrl
+                pendingPhotoPath = null
+                imageExplicitlyRemoved = false
+            }
             binding.editName.setText(product.name)
             binding.editDescription.setText(product.description ?: "")
             binding.editPrice.setText(product.price.toString())
@@ -259,6 +513,8 @@ class AddEditProductFragment : BaseFragment() {
             binding.editStock.setText(product.stockQuantity.toString())
             binding.editCategory.setText(product.category ?: "")
             binding.editBarcode.setText(product.barcodeValue ?: "")
+            updateSuggestPriceButtonVisibility()
+            bindProductImage()
         }
     }
 
