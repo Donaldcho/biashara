@@ -73,6 +73,9 @@ git remote -v
 # git remote add origin <your-git-url>
 ```
 
+**Open a pull request** (after first push of this branch):  
+https://github.com/Donaldcho/biashara/pull/new/feat/phase4-lineage-v1
+
 Push a new branch and set upstream:
 
 ```powershell
@@ -85,4 +88,5 @@ git push -u origin feat/phase4-lineage-v1
 
 | Date | Change |
 |------|--------|
+| 2026-05-12 | Pushed `feat/phase4-lineage-v1` to `origin`; added PR shortcut URL. |
 | 2026-05-12 | Added `feat/phase4-lineage-v1` as Phase 4 prep integration line; documented lineage from `feat/pos-module`. |
