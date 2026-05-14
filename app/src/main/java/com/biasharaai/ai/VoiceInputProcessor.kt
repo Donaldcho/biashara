@@ -66,8 +66,11 @@ class VoiceInputProcessor @Inject constructor(
     /**
      * Create an [Intent] for the system SpeechRecognizer.
      *
-     * Used as a fallback on PARTIAL_AI / RULES_BASED devices,
-     * or when the user doesn't grant RECORD_AUDIO permission.
+ * Used as a fallback on PARTIAL_AI / RULES_BASED devices,
+ * or when the user doesn't grant RECORD_AUDIO permission.
+ *
+ * Chat and product forms only use the microphone when the user has opted in
+ * under Settings → Voice input ([VoiceInputPreferences]).
      */
     fun createSpeechRecognizerIntent(
         locale: Locale = Locale.getDefault(),

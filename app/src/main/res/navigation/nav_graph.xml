@@ -5,6 +5,8 @@
     android:id="@+id/nav_graph"
     app:startDestination="@id/homeFragment">
 
+    <!-- Prompt U8: WhatsApp / SEND text → OrderParserActivity; receipt opens via MainActivity.EXTRA_OPEN_RECEIPT_TRANSACTION_ID -->
+
     <fragment
         android:id="@+id/languageSelectionFragment"
         android:name="com.biasharaai.ui.language.LanguageSelectionFragment"
@@ -15,7 +17,12 @@
         android:id="@+id/homeFragment"
         android:name="com.biasharaai.ui.home.HomeFragment"
         android:label="@string/nav_home"
-        tools:layout="@layout/fragment_home" />
+        tools:layout="@layout/fragment_home">
+
+        <action
+            android:id="@+id/action_homeFragment_to_supplierNegotiationFragment"
+            app:destination="@id/supplierNegotiationFragment" />
+    </fragment>
 
     <fragment
         android:id="@+id/inventoryListFragment"
@@ -34,6 +41,10 @@
         <action
             android:id="@+id/action_inventoryListFragment_to_receiptScanFragment"
             app:destination="@id/receiptScanFragment" />
+
+        <action
+            android:id="@+id/action_inventoryListFragment_to_supplierNegotiationFragment"
+            app:destination="@id/supplierNegotiationFragment" />
 
     </fragment>
 
@@ -226,6 +237,23 @@
             app:popUpTo="@id/posFragment"
             app:popUpToInclusive="false" />
     </dialog>
+
+    <fragment
+        android:id="@+id/supplierNegotiationFragment"
+        android:name="com.biasharaai.ui.negotiation.SupplierNegotiationFragment"
+        android:label="@string/negotiation_supplier_title"
+        tools:layout="@layout/fragment_supplier_negotiation">
+
+        <action
+            android:id="@+id/action_supplierNegotiationFragment_to_negotiationGuideFragment"
+            app:destination="@id/negotiationGuideFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/negotiationGuideFragment"
+        android:name="com.biasharaai.ui.negotiation.NegotiationGuideFragment"
+        android:label="@string/negotiation_guide_title"
+        tools:layout="@layout/fragment_negotiation_guide" />
 
     <fragment
         android:id="@+id/settingsFragment"

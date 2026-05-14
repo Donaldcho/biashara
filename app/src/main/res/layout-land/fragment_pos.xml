@@ -40,8 +40,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
                 android:text="@string/pos_walk_in_customer"
-                android:textColor="@color/biashara_surface_bright"
-                app:chipBackgroundColor="@color/biashara_chip_on_forest"
+                android:textColor="@color/biashara_forest_dark"
+                app:chipBackgroundColor="@color/biashara_cream"
                 app:chipStrokeWidth="0dp"
                 app:closeIconVisible="false"
                 app:ensureMinTouchTargetSize="true" />

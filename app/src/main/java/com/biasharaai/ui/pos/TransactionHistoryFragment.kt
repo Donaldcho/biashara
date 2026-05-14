@@ -12,12 +12,17 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import com.biasharaai.R
 import com.biasharaai.databinding.FragmentTransactionHistoryBinding
+import com.biasharaai.money.MoneyFormatter
+import com.biasharaai.pos.cart.CartRepository
 import com.biasharaai.ui.base.BaseFragment
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import java.text.DateFormat
-import java.text.NumberFormat
 import java.util.Locale
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class TransactionHistoryFragment : BaseFragment() {
@@ -27,8 +32,11 @@ class TransactionHistoryFragment : BaseFragment() {
 
     private val viewModel: TransactionHistoryViewModel by viewModels()
 
-    private val currencyFormat: NumberFormat =
-        NumberFormat.getCurrencyInstance(Locale.getDefault())
+    @Inject
+    lateinit var moneyFormatter: MoneyFormatter
+
+    @Inject
+    lateinit var cartRepository: CartRepository
 
     private val dateFormat: DateFormat =
         DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.getDefault())
@@ -49,7 +57,7 @@ class TransactionHistoryFragment : BaseFragment() {
         binding.toolbar.setNavigationOnClickListener { findNavController().navigateUp() }
 
         adapter = TransactionHistoryAdapter(
-            currencyFormat = currencyFormat,
+            moneyFormatter = moneyFormatter,
             dateFormat = dateFormat,
             onClick = { tx ->
                 findNavController().navigate(
@@ -70,13 +78,26 @@ class TransactionHistoryFragment : BaseFragment() {
                     }
                 }
                 launch {
-                    viewModel.todayPosSalesSummary.collect { summary ->
+                    combine(
+                        viewModel.todayPosSalesSummary,
+                        cartRepository.activeSettings,
+                    ) { summary, _ -> summary }.collect { summary ->
                         binding.textTodaySalesSummary.text = getString(
                             R.string.transactions_today_summary,
-                            currencyFormat.format(summary.totalAmount),
+                            moneyFormatter.format(summary.totalAmount),
                             summary.transactionCount,
                         )
                     }
+                }
+                launch {
+                    cartRepository.activeSettings
+                        .map { it?.currencyCode }
+                        .distinctUntilChanged()
+                        .collect {
+                            if (::adapter.isInitialized && adapter.itemCount > 0) {
+                                adapter.notifyDataSetChanged()
+                            }
+                        }
                 }
             }
         }
@@ -86,5 +107,4 @@ class TransactionHistoryFragment : BaseFragment() {
         super.onDestroyView()
         _binding = null
     }
-
 }

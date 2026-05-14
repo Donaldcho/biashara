@@ -2,7 +2,7 @@
 <resources>
 
     <!--
-      Biashara AI — UI aligned to biashara_ai_concept.html (forest / warm / mint).
+      Biashara AI — forest / warm palette with strong readable type (sans-serif + sans-serif-medium).
       Light base; see values-night for dark palette.
     -->
     <style name="Base.Theme.BiasharaAI" parent="Theme.Material3.DayNight.NoActionBar">
@@ -12,6 +12,10 @@
         <item name="android:navigationBarColor">@color/biashara_nav_bar_bg</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:windowLightNavigationBar">true</item>
+
+        <item name="android:textColorPrimary">@color/biashara_charcoal</item>
+        <item name="android:textColorSecondary">@color/biashara_muted</item>
+        <item name="android:fontFamily">sans-serif</item>
 
         <item name="colorPrimary">@color/biashara_forest</item>
         <item name="colorOnPrimary">@color/biashara_surface_bright</item>
@@ -50,6 +54,21 @@
         <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Biashara.SmallComponent</item>
         <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Biashara.MediumComponent</item>
         <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Biashara.LargeComponent</item>
+
+        <item name="textAppearanceDisplaySmall">@style/TextAppearance.Biashara.DisplaySmall</item>
+        <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Biashara.HeadlineMedium</item>
+        <item name="textAppearanceHeadlineSmall">@style/TextAppearance.Biashara.HeadlineSmall</item>
+        <item name="textAppearanceTitleLarge">@style/TextAppearance.Biashara.TitleLarge</item>
+        <item name="textAppearanceTitleMedium">@style/TextAppearance.Biashara.TitleMedium</item>
+        <item name="textAppearanceTitleSmall">@style/TextAppearance.Biashara.TitleSmall</item>
+        <item name="textAppearanceBodyLarge">@style/TextAppearance.Biashara.BodyLarge</item>
+        <item name="textAppearanceBodyMedium">@style/TextAppearance.Biashara.BodyMedium</item>
+        <item name="textAppearanceBodySmall">@style/TextAppearance.Biashara.BodySmall</item>
+        <item name="textAppearanceLabelLarge">@style/TextAppearance.Biashara.LabelLarge</item>
+        <item name="textAppearanceLabelMedium">@style/TextAppearance.Biashara.LabelMedium</item>
+
+        <item name="toolbarStyle">@style/Widget.Biashara.Toolbar</item>
+        <item name="actionBarTheme">@style/ThemeOverlay.Biashara.ActionBar</item>
 
         <item name="materialCardViewStyle">@style/Widget.Biashara.CardView</item>
         <item name="bottomNavigationStyle">@style/Widget.Biashara.BottomNavigationView</item>

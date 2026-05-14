@@ -140,14 +140,20 @@ class BarcodeScannerFragment : BaseFragment() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
         cameraProviderFuture.addListener(
             {
-                val cameraProvider = cameraProviderFuture.get()
-                bindCameraUseCases(cameraProvider)
+                if (_binding == null) return@addListener
+                try {
+                    val cameraProvider = cameraProviderFuture.get()
+                    bindCameraUseCases(cameraProvider)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Camera provider failed", e)
+                }
             },
             ContextCompat.getMainExecutor(requireContext()),
         )
     }
 
     private fun bindCameraUseCases(cameraProvider: ProcessCameraProvider) {
+        val binding = _binding ?: return
         // Preview
         val preview = Preview.Builder()
             .build()
@@ -203,6 +209,7 @@ class BarcodeScannerFragment : BaseFragment() {
     private fun lookupProduct(barcodeValue: String) {
         viewLifecycleOwner.lifecycleScope.launch {
             val product = productDao.getProductByBarcode(barcodeValue).firstOrNull()
+            val root = _binding?.root ?: return@launch
             if (product != null) {
                 // Found – navigate to AddEditProductFragment with the product id
                 findNavController().navigate(
@@ -212,7 +219,7 @@ class BarcodeScannerFragment : BaseFragment() {
             } else {
                 // Not found – show Snackbar with option to add
                 Snackbar.make(
-                    binding.root,
+                    root,
                     getString(R.string.scanner_product_not_found),
                     Snackbar.LENGTH_LONG,
                 ).setAction(getString(R.string.scanner_add_it)) {

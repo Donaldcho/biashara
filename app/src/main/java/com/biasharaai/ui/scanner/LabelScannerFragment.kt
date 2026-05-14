@@ -113,14 +113,20 @@ class LabelScannerFragment : BaseFragment() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
         cameraProviderFuture.addListener(
             {
-                val provider = cameraProviderFuture.get()
-                bindCameraUseCases(provider)
+                if (_binding == null) return@addListener
+                try {
+                    val provider = cameraProviderFuture.get()
+                    bindCameraUseCases(provider)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Camera provider failed", e)
+                }
             },
             ContextCompat.getMainExecutor(requireContext()),
         )
     }
 
     private fun bindCameraUseCases(cameraProvider: ProcessCameraProvider) {
+        val binding = _binding ?: return
         val preview = Preview.Builder()
             .build()
             .also { it.surfaceProvider = binding.previewView.surfaceProvider }
@@ -149,6 +155,7 @@ class LabelScannerFragment : BaseFragment() {
     private fun handleTextResult(text: String) {
         val firstLine = text.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() }
             ?: text.trim()
+        val binding = _binding ?: return
         binding.progressEnrichment.visibility = View.VISIBLE
         binding.fabClose.isEnabled = false
         viewLifecycleOwner.lifecycleScope.launch {

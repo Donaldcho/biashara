@@ -27,12 +27,23 @@ class ReceiptParser @Inject constructor(
 
     suspend fun parseReceipt(bitmap: Bitmap): ParseResult = withContext(Dispatchers.IO) {
         val ocrText = runCatching { runOcr(bitmap) }.getOrNull()
+        parsePostOcrPipeline(ocrText)
+    }
+
+    /**
+     * Same pipeline as [parseReceipt] after ML Kit OCR — for unit tests without a [Bitmap].
+     */
+    suspend fun parseFromOcrText(ocrText: String): ParseResult = withContext(Dispatchers.IO) {
+        parsePostOcrPipeline(ocrText)
+    }
+
+    private suspend fun parsePostOcrPipeline(ocrText: String?): ParseResult {
         if (ocrText.isNullOrBlank()) {
-            return@withContext ParseResult.ManualFallback
+            return ParseResult.ManualFallback
         }
 
         if (!gemmaService.isAvailable) {
-            return@withContext ParseResult.ManualFallback
+            return ParseResult.ManualFallback
         }
 
         val prompt = """
@@ -45,16 +56,16 @@ $ocrText
         """.trimIndent()
 
         val rawResponse = runCatching { gemmaService.generateResponse(prompt) }.getOrNull()
-            ?: return@withContext ParseResult.ManualFallback
+            ?: return ParseResult.ManualFallback
 
         val jsonPayload = extractJsonArrayPayload(rawResponse)
         val items = try {
             Gson().fromJson(jsonPayload, Array<ReceiptLineItem>::class.java).toList()
         } catch (_: Exception) {
-            return@withContext ParseResult.ManualFallback
+            return ParseResult.ManualFallback
         }
 
-        if (items.isEmpty()) ParseResult.ManualFallback else ParseResult.Success(items)
+        return if (items.isEmpty()) ParseResult.ManualFallback else ParseResult.Success(items)
     }
 
     private fun runOcr(bitmap: Bitmap): String {

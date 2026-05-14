@@ -42,6 +42,8 @@ class SaleRepository @Inject constructor(
         taxRatePercent: Double,
         draft: PaymentDraft,
         cartCustomerId: Long?,
+        transactionDescription: String = "POS sale",
+        transactionNoteTypeOverride: String? = null,
     ): Long {
         require(lines.isNotEmpty()) { "Cart is empty" }
         require(grandTotal > 0) { "Grand total must be positive" }
@@ -70,10 +72,16 @@ class SaleRepository @Inject constructor(
                 }
             }
 
+            val noteType = transactionNoteTypeOverride ?: when {
+                draft.splitMode -> TransactionNoteTypes.STANDARD
+                draft.primaryTab == PrimaryPaymentTab.CREDIT -> TransactionNoteTypes.CREDIT_EXTENDED
+                else -> TransactionNoteTypes.STANDARD
+            }
+
             val tx = Transaction(
                 type = TransactionType.INCOME,
                 amount = grandTotal,
-                description = "POS sale",
+                description = transactionDescription,
                 date = System.currentTimeMillis(),
                 paymentMethod = paymentMethod,
                 mobileMoneyNetwork = mobileNetwork,
@@ -86,6 +94,7 @@ class SaleRepository @Inject constructor(
                 taxAmount = taxAmount,
                 customerId = customerId,
                 relatedSaleTransactionId = null,
+                noteType = noteType,
             )
             val txId = transactionDao.insertTransaction(tx)
 
@@ -106,11 +115,20 @@ class SaleRepository @Inject constructor(
 
             if (!draft.splitMode && draft.primaryTab == PrimaryPaymentTab.CREDIT) {
                 val cid = checkNotNull(customerId)
+                val debtDescription = buildString {
+                    append("POS sale ")
+                    append(receiptNumber)
+                    val n = draft.creditNote?.trim().orEmpty()
+                    if (n.isNotEmpty()) {
+                        append(" — ")
+                        append(n)
+                    }
+                }
                 debtDao.insertDebt(
                     Debt(
                         customerId = cid,
                         amount = grandTotal,
-                        description = "POS sale $receiptNumber",
+                        description = debtDescription,
                         dueDate = draft.creditDueDateMillis,
                         createdAt = System.currentTimeMillis(),
                     ),

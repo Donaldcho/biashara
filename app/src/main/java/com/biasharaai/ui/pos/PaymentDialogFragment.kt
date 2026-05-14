@@ -3,10 +3,14 @@ package com.biasharaai.ui.pos
 import android.graphics.Color
 import android.os.Bundle
 import android.text.Editable
+import android.text.InputType
 import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
 import android.widget.EditText
 import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
@@ -19,6 +23,7 @@ import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
 import com.biasharaai.R
 import com.biasharaai.databinding.FragmentPaymentDialogBinding
+import com.biasharaai.money.MoneyFormatter
 import com.biasharaai.pos.cart.CartRepository
 import com.biasharaai.pos.payment.PrimaryPaymentTab
 import com.biasharaai.pos.payment.SplitLineMethod
@@ -32,7 +37,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.DateFormat
-import java.text.NumberFormat
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
@@ -48,8 +52,8 @@ class PaymentDialogFragment : DialogFragment() {
     @Inject
     lateinit var cartRepository: CartRepository
 
-    private val currencyFormat: NumberFormat =
-        NumberFormat.getCurrencyInstance(Locale.getDefault())
+    @Inject
+    lateinit var moneyFormatter: MoneyFormatter
 
     private val dateFormat: DateFormat =
         DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.getDefault())
@@ -124,35 +128,126 @@ class PaymentDialogFragment : DialogFragment() {
         binding.btnCreditClearDue.setOnClickListener { viewModel.setCreditDueDate(null) }
 
         binding.btnCancel.setOnClickListener { findNavController().navigateUp() }
-        binding.btnConfirmSale.setOnClickListener {
+
+        binding.btnConfirmPaid.setOnClickListener {
             viewLifecycleOwner.lifecycleScope.launch {
-                binding.btnConfirmSale.isEnabled = false
+                binding.btnConfirmPaid.isEnabled = false
+                binding.btnOnCredit.isEnabled = false
                 val result = withContext(Dispatchers.IO) {
                     viewModel.commitCurrentSale()
                 }
-                when (result) {
-                    is SaleCommitResult.Success -> {
-                        findNavController().navigate(
-                            R.id.action_paymentDialogFragment_to_receiptFragment,
-                            bundleOf(ReceiptViewModel.ARG_TRANSACTION_ID to result.transactionId),
-                            NavOptions.Builder()
-                                .setPopUpTo(R.id.posFragment, false)
-                                .build(),
-                        )
-                    }
-                    is SaleCommitResult.EmptyCart -> {
-                        Snackbar.make(binding.root, R.string.payment_commit_empty_cart, Snackbar.LENGTH_SHORT).show()
-                        binding.btnConfirmSale.isEnabled = viewModel.confirmSaleEnabled.value
-                    }
-                    is SaleCommitResult.Failure -> {
-                        Snackbar.make(binding.root, result.message, Snackbar.LENGTH_LONG).show()
-                        binding.btnConfirmSale.isEnabled = viewModel.confirmSaleEnabled.value
-                    }
-                }
+                handleCommitResult(result)
+                binding.btnConfirmPaid.isEnabled = viewModel.paidSaleConfirmEnabled.value
+                binding.btnOnCredit.isEnabled = viewModel.onCreditEnabled.value
             }
         }
 
+        binding.btnOnCredit.setOnClickListener { showOnCreditDialog() }
+
         observeFlows()
+    }
+
+    private fun handleCommitResult(result: SaleCommitResult) {
+        when (result) {
+            is SaleCommitResult.Success -> {
+                findNavController().navigate(
+                    R.id.action_paymentDialogFragment_to_receiptFragment,
+                    bundleOf(ReceiptViewModel.ARG_TRANSACTION_ID to result.transactionId),
+                    NavOptions.Builder()
+                        .setPopUpTo(R.id.posFragment, false)
+                        .build(),
+                )
+            }
+            is SaleCommitResult.EmptyCart -> {
+                Snackbar.make(binding.root, R.string.payment_commit_empty_cart, Snackbar.LENGTH_SHORT).show()
+            }
+            is SaleCommitResult.Failure -> {
+                Snackbar.make(binding.root, result.message, Snackbar.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun showOnCreditDialog() {
+        val ctx = requireContext()
+        val grand = viewModel.grandTotal.value
+        var dueMillis: Long? = viewModel.creditDueDateMillis.value
+        val amountInput = EditText(ctx).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+            setText(String.format(Locale.getDefault(), "%.2f", grand))
+        }
+        val noteInput = EditText(ctx).apply {
+            minLines = 2
+            hint = getString(R.string.payment_credit_dialog_note_hint)
+        }
+        val dueText = TextView(ctx).apply {
+            textSize = 14f
+        }
+        fun syncDueLabel() {
+            dueText.text = if (dueMillis == null) {
+                getString(R.string.payment_credit_due_unset)
+            } else {
+                getString(R.string.payment_credit_due_set, dateFormat.format(Date(dueMillis!!)))
+            }
+        }
+        syncDueLabel()
+        val dueBtn = com.google.android.material.button.MaterialButton(ctx).apply {
+            text = getString(R.string.payment_credit_set_due)
+            setOnClickListener {
+                val picker = MaterialDatePicker.Builder.datePicker()
+                    .setTitleText(R.string.payment_credit_set_due)
+                    .build()
+                picker.addOnPositiveButtonClickListener { sel ->
+                    dueMillis = sel
+                    syncDueLabel()
+                }
+                picker.show(childFragmentManager, "credit_due_on_credit_dialog")
+            }
+        }
+        val clearDueBtn = com.google.android.material.button.MaterialButton(ctx).apply {
+            text = getString(R.string.payment_credit_clear_due)
+            setOnClickListener {
+                dueMillis = null
+                syncDueLabel()
+            }
+        }
+        val inner = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            val p = resources.getDimensionPixelSize(R.dimen.pos_dialog_padding)
+            setPadding(p, p, p, p)
+            addView(TextView(ctx).apply { text = getString(R.string.payment_on_credit_amount_label) })
+            addView(amountInput)
+            addView(TextView(ctx).apply {
+                text = getString(R.string.payment_credit_note_label)
+                setPadding(0, 12, 0, 0)
+            })
+            addView(noteInput)
+            addView(dueBtn)
+            addView(clearDueBtn)
+            addView(dueText)
+        }
+        val scroll = ScrollView(ctx).apply { addView(inner) }
+        MaterialAlertDialogBuilder(ctx)
+            .setTitle(R.string.payment_on_credit_dialog_title)
+            .setView(scroll)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.payment_confirm) { _, _ ->
+                val parsed = PaymentViewModel.parseAmount(amountInput.text?.toString().orEmpty())
+                if (!PaymentViewModel.amountsMatch(parsed, grand)) {
+                    Snackbar.make(binding.root, R.string.payment_credit_amount_must_match, Snackbar.LENGTH_LONG).show()
+                    return@setPositiveButton
+                }
+                viewLifecycleOwner.lifecycleScope.launch {
+                    binding.btnConfirmPaid.isEnabled = false
+                    binding.btnOnCredit.isEnabled = false
+                    val result = withContext(Dispatchers.IO) {
+                        viewModel.commitOnCreditSale(dueMillis, noteInput.text?.toString().orEmpty())
+                    }
+                    handleCommitResult(result)
+                    binding.btnConfirmPaid.isEnabled = viewModel.paidSaleConfirmEnabled.value
+                    binding.btnOnCredit.isEnabled = viewModel.onCreditEnabled.value
+                }
+            }
+            .show()
     }
 
     private fun showCustomerPicker() {
@@ -196,7 +291,7 @@ class PaymentDialogFragment : DialogFragment() {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
                     viewModel.grandTotal.collect { g ->
-                        binding.textGrandTotal.text = currencyFormat.format(g)
+                        binding.textGrandTotal.text = moneyFormatter.format(g)
                     }
                 }
                 launch {
@@ -239,7 +334,7 @@ class PaymentDialogFragment : DialogFragment() {
                 launch {
                     viewModel.creditOutstanding.collect { bal ->
                         binding.textCreditOutstanding.text =
-                            getString(R.string.payment_credit_outstanding, currencyFormat.format(bal))
+                            getString(R.string.payment_credit_outstanding, moneyFormatter.format(bal))
                     }
                 }
                 launch {
@@ -274,7 +369,7 @@ class PaymentDialogFragment : DialogFragment() {
                                 ContextCompat.getColor(requireContext(), R.color.pos_customer_selected),
                             )
                             binding.textChangeDue.text =
-                                getString(R.string.payment_change_due, currencyFormat.format(change))
+                                getString(R.string.payment_change_due, moneyFormatter.format(change))
                         }
                     }
                 }
@@ -282,12 +377,19 @@ class PaymentDialogFragment : DialogFragment() {
                     viewModel.splitLine2DisplayAmount.collect { r ->
                         binding.textSplitRemainder.text = getString(
                             R.string.payment_split_remainder,
-                            currencyFormat.format(r ?: 0.0),
+                            moneyFormatter.format(r ?: 0.0),
                         )
                     }
                 }
                 launch {
-                    viewModel.confirmSaleEnabled.collect { ok -> binding.btnConfirmSale.isEnabled = ok }
+                    viewModel.paidSaleConfirmEnabled.collect { ok ->
+                        binding.btnConfirmPaid.isEnabled = ok
+                    }
+                }
+                launch {
+                    viewModel.onCreditEnabled.collect { ok ->
+                        binding.btnOnCredit.isEnabled = ok
+                    }
                 }
                 launch {
                     viewModel.smsParseInProgress.collect { loading ->

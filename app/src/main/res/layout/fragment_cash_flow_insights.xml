@@ -15,205 +15,28 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            app:title="@string/insights_title"
-            app:menu="@menu/menu_insights" />
+            app:menu="@menu/menu_insights"
+            app:title="@string/insights_title" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <ScrollView
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:clipToPadding="false"
-        android:fillViewport="true"
-        android:padding="@dimen/screen_edge_padding"
+        android:orientation="vertical"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <LinearLayout
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/tab_insights"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical">
+            app:tabMode="fixed" />
 
-            <!-- Period Label -->
-            <TextView
-                android:id="@+id/text_period"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textAlignment="center"
-                android:textAppearance="?attr/textAppearanceTitleMedium"
-                android:textColor="?attr/colorOnSurface"
-                tools:text="This Month — May 2026" />
-
-            <!-- ── Income vs Expenses Chart ──────────────────────────── -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="2dp"
-                app:contentPadding="16dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/insights_chart_title"
-                        android:textAppearance="?attr/textAppearanceTitleSmall"
-                        android:textColor="?attr/colorOnSurface" />
-
-                    <!-- Income Bar -->
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
-
-                        <TextView
-                            android:layout_width="72dp"
-                            android:layout_height="wrap_content"
-                            android:text="@string/insights_label_income"
-                            android:textAppearance="?attr/textAppearanceLabelMedium" />
-
-                        <FrameLayout
-                            android:layout_width="0dp"
-                            android:layout_height="28dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/bg_bar_track">
-
-                            <View
-                                android:id="@+id/bar_income"
-                                android:layout_width="0dp"
-                                android:layout_height="match_parent"
-                                android:background="@drawable/bg_bar_income" />
-
-                        </FrameLayout>
-                    </LinearLayout>
-
-                    <TextView
-                        android:id="@+id/text_income_amount"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="72dp"
-                        android:layout_marginTop="4dp"
-                        android:textAppearance="?attr/textAppearanceLabelSmall"
-                        android:textColor="@android:color/holo_green_dark"
-                        tools:text="KES 45,000" />
-
-                    <!-- Expenses Bar -->
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
-
-                        <TextView
-                            android:layout_width="72dp"
-                            android:layout_height="wrap_content"
-                            android:text="@string/insights_label_expenses"
-                            android:textAppearance="?attr/textAppearanceLabelMedium" />
-
-                        <FrameLayout
-                            android:layout_width="0dp"
-                            android:layout_height="28dp"
-                            android:layout_weight="1"
-                            android:background="@drawable/bg_bar_track">
-
-                            <View
-                                android:id="@+id/bar_expenses"
-                                android:layout_width="0dp"
-                                android:layout_height="match_parent"
-                                android:background="@drawable/bg_bar_expenses" />
-
-                        </FrameLayout>
-                    </LinearLayout>
-
-                    <TextView
-                        android:id="@+id/text_expenses_amount"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="72dp"
-                        android:layout_marginTop="4dp"
-                        android:textAppearance="?attr/textAppearanceLabelSmall"
-                        android:textColor="@android:color/holo_red_dark"
-                        tools:text="KES 32,500" />
-
-                    <!-- Net Cash Flow -->
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginTop="12dp"
-                        android:background="?android:attr/listDivider" />
-
-                    <TextView
-                        android:id="@+id/text_net_cash_flow"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:textAlignment="center"
-                        android:textAppearance="?attr/textAppearanceTitleMedium"
-                        tools:text="✅ Net: +KES 12,500" />
-
-                </LinearLayout>
-
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- ── AI Insights Narrative ────────────────────────────── -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:layout_marginBottom="16dp"
-                app:cardCornerRadius="16dp"
-                app:cardElevation="2dp"
-                app:contentPadding="16dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/insights_narrative_title"
-                        android:textAppearance="?attr/textAppearanceTitleSmall"
-                        android:textColor="?attr/colorOnSurface" />
-
-                    <!-- Loading spinner -->
-                    <com.google.android.material.progressindicator.CircularProgressIndicator
-                        android:id="@+id/progress_insights"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        android:layout_gravity="center"
-                        android:layout_marginTop="16dp"
-                        android:layout_marginBottom="16dp"
-                        android:indeterminate="true"
-                        android:visibility="gone"
-                        app:indicatorSize="48dp"
-                        tools:visibility="visible" />
-
-                    <!-- AI-generated narrative text -->
-                    <TextView
-                        android:id="@+id/text_insights_narrative"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:lineSpacingExtra="4dp"
-                        android:textAppearance="?attr/textAppearanceBodyMedium"
-                        android:textColor="?attr/colorOnSurfaceVariant"
-                        tools:text="Your business is doing well! Income exceeds expenses by 28%. Consider setting aside savings from the surplus." />
-
-                </LinearLayout>
-
-            </com.google.android.material.card.MaterialCardView>
-
-        </LinearLayout>
-
-    </ScrollView>
+        <androidx.viewpager2.widget.ViewPager2
+            android:id="@+id/pager_insights"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+    </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

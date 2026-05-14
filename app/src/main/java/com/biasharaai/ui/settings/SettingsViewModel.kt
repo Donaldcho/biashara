@@ -8,14 +8,22 @@ import com.biasharaai.ai.DownloadState
 import com.biasharaai.ai.GemmaService
 import com.biasharaai.ai.InferenceSettingsStore
 import com.biasharaai.ai.ModelDownloadManager
+import com.biasharaai.data.local.db.AppSettings
+import com.biasharaai.data.local.db.AppSettingsDao
 import com.biasharaai.ui.base.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Currency
+import java.util.Locale
 import javax.inject.Inject
 
 /**
@@ -29,7 +37,12 @@ class SettingsViewModel @Inject constructor(
     val modelDownloadManager: ModelDownloadManager,
     private val gemmaService: GemmaService,
     val inferenceSettingsStore: InferenceSettingsStore,
+    private val appSettingsDao: AppSettingsDao,
 ) : BaseViewModel() {
+
+    /** Singleton POS / shop settings row (currency, tax, …). */
+    val shopSettings: StateFlow<AppSettings?> = appSettingsDao.getSettings()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val downloadState: StateFlow<DownloadState> = modelDownloadManager.state
 
@@ -59,6 +72,24 @@ class SettingsViewModel @Inject constructor(
     /** Call after saving Edge-style inference UI so the next chat run reloads the engine. */
     fun onInferenceSettingsSaved() {
         gemmaService.resetEngine()
+    }
+
+    /** Persists ISO 4217 code and a display symbol for receipts and prompts. */
+    fun setShopCurrency(isoCode: String) {
+        viewModelScope.launch {
+            val code = isoCode.trim().uppercase(Locale.ROOT)
+            val currency = runCatching { Currency.getInstance(code) }.getOrNull() ?: return@launch
+            // Room forbids synchronous DAO reads on the main thread (no allowMainThreadQueries).
+            withContext(Dispatchers.IO) {
+                val row = appSettingsDao.getSettingsSync() ?: AppSettings()
+                appSettingsDao.updateSettings(
+                    row.copy(
+                        currencyCode = code,
+                        currencySymbol = currency.getSymbol(Locale.getDefault()),
+                    ),
+                )
+            }
+        }
     }
 
     fun retryDownload() {

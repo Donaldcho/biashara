@@ -17,6 +17,13 @@ interface DebtDao {
     @Query("SELECT * FROM debts WHERE amount > 0 ORDER BY created_at DESC")
     fun getUnpaidDebts(): Flow<List<Debt>>
 
+    @Query("SELECT * FROM debts WHERE id = :id LIMIT 1")
+    suspend fun getDebtById(id: Long): Debt?
+
+    /** Oldest obligations first (Prompt U6 — credit management). */
+    @Query("SELECT * FROM debts WHERE amount > 0 ORDER BY created_at ASC")
+    fun getUnpaidDebtsOldestFirst(): Flow<List<Debt>>
+
     @Query("SELECT * FROM debts WHERE customer_id = :customerId ORDER BY created_at DESC")
     fun getDebtsByCustomer(customerId: Long): Flow<List<Debt>>
 

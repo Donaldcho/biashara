@@ -3,6 +3,8 @@ package com.biasharaai.ai
 import android.content.Context
 import com.biasharaai.data.local.db.Transaction
 import com.biasharaai.data.local.db.TransactionType
+import com.biasharaai.money.MoneyFormatter
+import com.biasharaai.pos.cart.CartRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -17,6 +19,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -68,7 +71,18 @@ class CashFlowAnalyzerTest {
         unmockkObject(DeviceCapabilityChecker)
     }
 
-    private fun analyzer() = CashFlowAnalyzer(gemmaService, appContext, modelDownloadManager)
+    private fun analyzer() = CashFlowAnalyzer(
+        gemmaService,
+        appContext,
+        modelDownloadManager,
+        testMoneyFormatter(),
+    )
+
+    private fun testMoneyFormatter(): MoneyFormatter {
+        val cartRepo = mockk<CartRepository>(relaxed = true)
+        every { cartRepo.activeSettings } returns MutableStateFlow(null)
+        return MoneyFormatter(cartRepo)
+    }
 
     private fun sampleTransactions() = listOf(
         Transaction(id = 1, type = TransactionType.INCOME, amount = 10000.0, description = "Sales", date = 1_000L),

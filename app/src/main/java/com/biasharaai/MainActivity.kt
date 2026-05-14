@@ -1,14 +1,19 @@
 package com.biasharaai
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
+import android.view.animation.DecelerateInterpolator
+import android.view.animation.PathInterpolator
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.bundleOf
 import androidx.core.view.ViewCompat
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
 import com.biasharaai.databinding.ActivityMainBinding
 import com.biasharaai.locale.LanguagePreferences
+import com.biasharaai.ui.pos.ReceiptViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -48,7 +53,9 @@ class MainActivity : AppCompatActivity() {
                 R.id.receiptReviewFragment,
                 R.id.labelScannerFragment,
                 R.id.addEditProductFragment,
-                R.id.paymentDialogFragment -> View.GONE
+                R.id.paymentDialogFragment,
+                R.id.supplierNegotiationFragment,
+                R.id.negotiationGuideFragment -> View.GONE
                 else -> View.VISIBLE
             }
             applyRootLayoutDirectionFromLocale()
@@ -57,6 +64,35 @@ class MainActivity : AppCompatActivity() {
         if (navController.currentDestination?.id == R.id.languageSelectionFragment) {
             binding.bottomNav.visibility = View.GONE
         }
+
+        runStartupSplashIfNeeded(savedInstanceState)
+
+        handleOpenReceiptIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleOpenReceiptIntent(intent)
+    }
+
+    private fun handleOpenReceiptIntent(intent: Intent?) {
+        val tid = intent?.getLongExtra(EXTRA_OPEN_RECEIPT_TRANSACTION_ID, -1L) ?: -1L
+        if (tid <= 0L) return
+        intent?.removeExtra(EXTRA_OPEN_RECEIPT_TRANSACTION_ID)
+        val navHost =
+            supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as? NavHostFragment
+                ?: return
+        val nav = navHost.navController
+        nav.navigate(
+            R.id.receiptFragment,
+            bundleOf(ReceiptViewModel.ARG_TRANSACTION_ID to tid),
+        )
+    }
+
+    companion object {
+        const val EXTRA_OPEN_RECEIPT_TRANSACTION_ID: String =
+            "com.biasharaai.EXTRA_OPEN_RECEIPT_TRANSACTION_ID"
     }
 
     private fun applyRootLayoutDirectionFromLocale() {
@@ -68,5 +104,56 @@ class MainActivity : AppCompatActivity() {
             binding.root,
             if (rtl) ViewCompat.LAYOUT_DIRECTION_RTL else ViewCompat.LAYOUT_DIRECTION_LTR,
         )
+    }
+
+    private fun runStartupSplashIfNeeded(savedInstanceState: Bundle?) {
+        val overlay = binding.splashOverlay
+        val logo = binding.splashLogoIcon
+        val wordmark = binding.splashWordmark
+        if (savedInstanceState != null) {
+            overlay.visibility = View.GONE
+            return
+        }
+        overlay.alpha = 1f
+        overlay.visibility = View.VISIBLE
+        logo.alpha = 0f
+        logo.scaleX = 0.88f
+        logo.scaleY = 0.88f
+        logo.translationY = 32f
+        wordmark.alpha = 0f
+        wordmark.translationY = 20f
+
+        val easeOut = PathInterpolator(0.2f, 0f, 0f, 1f)
+        val decel = DecelerateInterpolator()
+
+        logo.animate()
+            .alpha(1f)
+            .scaleX(1f)
+            .scaleY(1f)
+            .translationY(0f)
+            .setDuration(560)
+            .setInterpolator(easeOut)
+            .withEndAction {
+                wordmark.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setDuration(360)
+                    .setInterpolator(decel)
+                    .withEndAction {
+                        overlay.postDelayed({
+                            overlay.animate()
+                                .alpha(0f)
+                                .setDuration(400)
+                                .setInterpolator(decel)
+                                .withEndAction {
+                                    overlay.visibility = View.GONE
+                                    overlay.alpha = 1f
+                                }
+                                .start()
+                        }, 480)
+                    }
+                    .start()
+            }
+            .start()
     }
 }

@@ -1,7 +1,9 @@
 package com.biasharaai.ui.pos
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.biasharaai.R
 import com.biasharaai.ai.CapabilityTier
 import com.biasharaai.ai.GemmaService
 import com.biasharaai.data.local.db.ProductDao
@@ -14,6 +16,7 @@ import com.biasharaai.pos.payment.PaymentDraft
 import com.biasharaai.pos.payment.PrimaryPaymentTab
 import com.biasharaai.pos.payment.SplitLineMethod
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -47,6 +50,7 @@ class PaymentViewModel @Inject constructor(
     private val saleRepository: SaleRepository,
     private val capabilityTier: CapabilityTier,
     private val gemmaService: GemmaService,
+    @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
     val grandTotal: StateFlow<Double> = cartRepository.grandTotal
@@ -102,9 +106,6 @@ class PaymentViewModel @Inject constructor(
     val mobileConfirmEnabled: StateFlow<Boolean> = grandTotal.map { it > 0.0 }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
-    val creditConfirmEnabled: StateFlow<Boolean> = selectedCustomer.map { it != null }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
-
     val splitLine1Parsed: StateFlow<Double> = _splitLine1AmountText
         .map { parseAmount(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0.0)
@@ -126,20 +127,25 @@ class PaymentViewModel @Inject constructor(
         abs(a1 + a2 - grand) <= EPSILON * max(grand, 1.0)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
-    val confirmSaleEnabled: StateFlow<Boolean> = combine(
+    /** Cash / mobile / split only — credit sales use **On credit** (Prompt U6). */
+    val paidSaleConfirmEnabled: StateFlow<Boolean> = combine(
         combine(_splitMode, _primaryTab) { split, tab -> split to tab },
         cashConfirmEnabled,
         mobileConfirmEnabled,
-        creditConfirmEnabled,
         splitConfirmEnabled,
-    ) { splitTab, cashOk, mobileOk, creditOk, splitOk ->
+    ) { splitTab, cashOk, mobileOk, splitOk ->
         val (split, tab) = splitTab
         when {
             split -> splitOk
+            tab == PrimaryPaymentTab.CREDIT -> false
             tab == PrimaryPaymentTab.CASH -> cashOk
-            tab == PrimaryPaymentTab.MOBILE_MONEY -> mobileOk
-            else -> creditOk
+            else -> mobileOk
         }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    /** Informal credit: requires customer and non-split cart (Prompt U6). */
+    val onCreditEnabled: StateFlow<Boolean> = combine(_splitMode, selectedCustomer, grandTotal) { split, c, g ->
+        !split && c != null && g > EPSILON
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     /** Prompt P9: paste-SMS ref extraction is FULL_AI + downloaded model only. */
@@ -234,6 +240,9 @@ class PaymentViewModel @Inject constructor(
      * Call from a coroutine on [Dispatchers.IO].
      */
     suspend fun commitCurrentSale(): SaleCommitResult {
+        if (!_splitMode.value && _primaryTab.value == PrimaryPaymentTab.CREDIT) {
+            return SaleCommitResult.Failure(appContext.getString(R.string.payment_use_on_credit_button))
+        }
         val lines = cartRepository.items.value
         if (lines.isEmpty()) return SaleCommitResult.EmptyCart
         val money = cartRepository.monetary.value
@@ -292,6 +301,7 @@ class PaymentViewModel @Inject constructor(
             } else {
                 null
             },
+            creditNote = null,
             splitLine1Method = if (split) _splitLine1Method.value else null,
             splitLine1Amount = if (split) a1 else null,
             splitLine2Method = if (split) _splitLine2Method.value else null,
@@ -299,11 +309,61 @@ class PaymentViewModel @Inject constructor(
         )
     }
 
+    /**
+     * Completes the cart as an informal credit sale (Prompt U6): [TransactionNoteTypes.CREDIT_EXTENDED]
+     * plus a [Debt] row for the selected customer.
+     */
+    suspend fun commitOnCreditSale(dueMillis: Long?, note: String): SaleCommitResult {
+        if (_splitMode.value) {
+            return SaleCommitResult.Failure(appContext.getString(R.string.payment_credit_no_split))
+        }
+        val customer = selectedCustomer.value
+            ?: return SaleCommitResult.Failure(appContext.getString(R.string.payment_credit_customer_required))
+        val lines = cartRepository.items.value
+        if (lines.isEmpty()) return SaleCommitResult.EmptyCart
+        val money = cartRepository.monetary.value
+        if (money.grandTotal <= 0.0) return SaleCommitResult.Failure("Invalid total")
+        val draft = PaymentDraft(
+            grandTotal = money.grandTotal,
+            splitMode = false,
+            primaryTab = PrimaryPaymentTab.CREDIT,
+            cashAmountTendered = null,
+            cashChangeDue = null,
+            mobileMoneyNetwork = null,
+            mobileMoneyRef = null,
+            creditCustomerId = customer.id,
+            creditDueDateMillis = dueMillis,
+            creditNote = note.trim().ifEmpty { null },
+            splitLine1Method = null,
+            splitLine1Amount = null,
+            splitLine2Method = null,
+            splitLine2Amount = null,
+        )
+        val taxRate = cartRepository.activeSettings.value?.taxRate ?: 0.0
+        return try {
+            val txId = saleRepository.commitPosSale(
+                lines = lines,
+                taxAmount = money.taxAmount,
+                grandTotal = money.grandTotal,
+                taxRatePercent = taxRate,
+                draft = draft,
+                cartCustomerId = customer.id,
+            )
+            cartManager.clear()
+            SaleCommitResult.Success(txId)
+        } catch (e: Exception) {
+            SaleCommitResult.Failure(e.message ?: "Sale failed")
+        }
+    }
+
     companion object {
         private const val EPSILON = 0.005
 
         fun parseAmount(raw: String): Double =
             raw.trim().replace(",", "").toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+
+        /** Tolerate float noise when comparing sale total to dialog amount (Prompt U6). */
+        fun amountsMatch(a: Double, b: Double): Boolean = kotlin.math.abs(a - b) <= EPSILON
 
         private val REF_PATTERNS = listOf(
             Pattern.compile("(?i)(?:ref|reference|code|confirmation|txn|transaction)[#:\\s]*([A-Z0-9]{6,32})"),

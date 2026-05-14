@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.core.os.bundleOf
 import androidx.core.view.isVisible
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -13,12 +14,16 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.biasharaai.R
+import com.biasharaai.ai.CapabilityTier
 import com.biasharaai.data.local.db.Alert
 import com.biasharaai.data.local.db.LossAlertTypes
 import com.biasharaai.databinding.FragmentHomeBinding
 import com.biasharaai.ui.base.BaseFragment
+import com.biasharaai.ui.negotiation.NegotiationViewModel
+import com.biasharaai.ui.negotiation.showNegotiationTierBlockedDialogIfNeeded
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class HomeFragment : BaseFragment() {
@@ -27,6 +32,10 @@ class HomeFragment : BaseFragment() {
     private val binding get() = _binding!!
 
     private val viewModel: HomeViewModel by viewModels()
+    private val negotiationViewModel: NegotiationViewModel by activityViewModels()
+
+    @Inject
+    lateinit var capabilityTier: CapabilityTier
 
     private val alertAdapter = AlertCardAdapter(
         onReview = { alert -> navigateForAlert(alert) },
@@ -49,6 +58,12 @@ class HomeFragment : BaseFragment() {
             adapter = alertAdapter
             isNestedScrollingEnabled = false
             itemAnimator = null
+        }
+
+        binding.cardPrepareSupplierVisit.setOnClickListener {
+            if (showNegotiationTierBlockedDialogIfNeeded(capabilityTier)) return@setOnClickListener
+            negotiationViewModel.resetScriptOutput()
+            findNavController().navigate(R.id.action_homeFragment_to_supplierNegotiationFragment)
         }
 
         viewLifecycleOwner.lifecycleScope.launch {

@@ -13,12 +13,12 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import com.biasharaai.R
 import com.biasharaai.databinding.FragmentEndOfDayBinding
+import com.biasharaai.money.MoneyFormatter
 import com.biasharaai.ui.base.BaseFragment
 import com.google.android.material.chip.Chip
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import java.text.NumberFormat
-import java.util.Locale
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class EndOfDayFragment : BaseFragment() {
@@ -28,8 +28,8 @@ class EndOfDayFragment : BaseFragment() {
 
     private val viewModel: EndOfDayViewModel by viewModels()
 
-    private val moneyFormat: NumberFormat =
-        NumberFormat.getCurrencyInstance(Locale.getDefault())
+    @Inject
+    lateinit var moneyFormatter: MoneyFormatter
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -66,11 +66,7 @@ class EndOfDayFragment : BaseFragment() {
                             isCheckable = false
                             isClickable = false
                         }
-                        val salesLabel = if (state.currencySymbol.isNotBlank()) {
-                            "${moneyFormat.format(stats.totalSales)} ${state.currencySymbol}".trim()
-                        } else {
-                            moneyFormat.format(stats.totalSales)
-                        }
+                        val salesLabel = moneyFormatter.format(stats.totalSales)
                         binding.chipGroupStats.addView(
                             chip(getString(R.string.end_of_day_stat_sales, salesLabel)),
                         )

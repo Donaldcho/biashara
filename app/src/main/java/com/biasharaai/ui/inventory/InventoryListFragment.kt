@@ -9,19 +9,29 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import androidx.appcompat.widget.PopupMenu
 import androidx.core.os.bundleOf
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.biasharaai.R
+import com.biasharaai.ai.CapabilityTier
 import com.biasharaai.data.local.db.Product
 import com.biasharaai.databinding.FragmentInventoryListBinding
+import com.biasharaai.money.MoneyFormatter
+import com.biasharaai.pos.cart.CartRepository
 import com.biasharaai.ui.base.BaseFragment
+import com.biasharaai.ui.negotiation.NegotiationViewModel
+import com.biasharaai.ui.negotiation.showNegotiationTierBlockedDialogIfNeeded
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class InventoryListFragment : BaseFragment() {
@@ -30,6 +40,16 @@ class InventoryListFragment : BaseFragment() {
     private val binding get() = _binding!!
 
     private val viewModel: InventoryListViewModel by viewModels()
+    private val negotiationViewModel: NegotiationViewModel by activityViewModels()
+
+    @Inject
+    lateinit var capabilityTier: CapabilityTier
+
+    @Inject
+    lateinit var moneyFormatter: MoneyFormatter
+
+    @Inject
+    lateinit var cartRepository: CartRepository
 
     private lateinit var productAdapter: ProductAdapter
 
@@ -52,6 +72,7 @@ class InventoryListFragment : BaseFragment() {
 
     private fun setupRecyclerView() {
         productAdapter = ProductAdapter(
+            moneyFormatter = moneyFormatter,
             onItemClick = { product ->
                 findNavController().navigate(
                     R.id.action_inventoryListFragment_to_addEditProductFragment,
@@ -86,6 +107,15 @@ class InventoryListFragment : BaseFragment() {
             },
         )
         binding.recyclerProducts.adapter = productAdapter
+        val span = resources.getInteger(R.integer.inventory_catalog_span)
+        binding.recyclerProducts.layoutManager =
+            StaggeredGridLayoutManager(
+                span,
+                StaggeredGridLayoutManager.VERTICAL,
+            ).apply {
+                gapStrategy =
+                    StaggeredGridLayoutManager.GAP_HANDLING_MOVE_ITEMS_BETWEEN_SPANS
+            }
     }
 
     private fun showRemoveStockDialog(product: Product) {
@@ -154,6 +184,17 @@ class InventoryListFragment : BaseFragment() {
                         ),
                     )
                     true
+                }
+                R.id.action_inventory_prepare_supplier_visit -> {
+                    if (showNegotiationTierBlockedDialogIfNeeded(capabilityTier)) {
+                        true
+                    } else {
+                        negotiationViewModel.resetScriptOutput()
+                        findNavController().navigate(
+                            R.id.action_inventoryListFragment_to_supplierNegotiationFragment,
+                        )
+                        true
+                    }
                 }
                 else -> false
             }
@@ -226,6 +267,16 @@ class InventoryListFragment : BaseFragment() {
                     viewModel.forecasts.collect { forecastMap ->
                         productAdapter.submitForecasts(forecastMap)
                     }
+                }
+                launch {
+                    cartRepository.activeSettings
+                        .map { it?.currencyCode }
+                        .distinctUntilChanged()
+                        .collect {
+                            if (::productAdapter.isInitialized && productAdapter.itemCount > 0) {
+                                productAdapter.notifyDataSetChanged()
+                            }
+                        }
                 }
             }
         }

@@ -11,11 +11,11 @@ import com.biasharaai.R
 import com.biasharaai.ai.PricingAdvisor
 import com.biasharaai.data.local.db.Product
 import com.biasharaai.databinding.FragmentPricingSuggestionBinding
+import com.biasharaai.money.MoneyFormatter
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
-import java.text.NumberFormat
-import java.util.Locale
+import javax.inject.Inject
 
 /**
  * Shows AI or rules-based price suggestion — Prompt U3.
@@ -29,6 +29,9 @@ class PricingSuggestionBottomSheet : BottomSheetDialogFragment() {
     private val addEditViewModel: AddEditProductViewModel by viewModels(
         ownerProducer = { requireParentFragment() },
     )
+
+    @Inject
+    lateinit var moneyFormatter: MoneyFormatter
 
     private var parsedPrice: Double? = null
 
@@ -81,10 +84,9 @@ class PricingSuggestionBottomSheet : BottomSheetDialogFragment() {
 
     private fun bindResult(response: String) {
         parsedPrice = PricingAdvisor.parseSuggestedNumericPrice(response)
-        val currency = NumberFormat.getCurrencyInstance(Locale.getDefault())
-
         if (parsedPrice != null) {
-            binding.textSuggestedPrice.text = currency.format(parsedPrice)
+            val price = parsedPrice!!
+            binding.textSuggestedPrice.text = moneyFormatter.format(price)
             binding.textParseHint.visibility = View.GONE
             binding.btnUsePrice.isEnabled = true
             binding.textRationale.text = PricingAdvisor.rationaleText(response).ifBlank {

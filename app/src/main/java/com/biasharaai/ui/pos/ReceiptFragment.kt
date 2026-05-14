@@ -15,13 +15,14 @@ import com.biasharaai.R
 import com.biasharaai.data.local.db.TransactionType
 import com.biasharaai.databinding.FragmentReceiptBinding
 import com.biasharaai.databinding.ItemReceiptLineBinding
+import com.biasharaai.money.MoneyFormatter
 import com.biasharaai.ui.base.BaseFragment
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.text.DateFormat
-import java.text.NumberFormat
 import java.util.Date
 import java.util.Locale
+import javax.inject.Inject
 import kotlin.math.abs
 
 @AndroidEntryPoint
@@ -32,8 +33,8 @@ class ReceiptFragment : BaseFragment() {
 
     private val viewModel: ReceiptViewModel by viewModels()
 
-    private val currencyFormat: NumberFormat =
-        NumberFormat.getCurrencyInstance(Locale.getDefault())
+    @Inject
+    lateinit var moneyFormatter: MoneyFormatter
 
     private val dateFormat: DateFormat =
         DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.getDefault())
@@ -78,9 +79,8 @@ class ReceiptFragment : BaseFragment() {
         val isReturn = tx.type == TransactionType.RETURN
         binding.textReturnBanner.isVisible = isReturn
 
-        val symbol = state.settings?.currencySymbol
-            ?: currencyFormat.currency?.symbol
-            ?: ""
+        val symbol = state.settings?.currencySymbol?.takeIf { it.isNotBlank() }
+            ?: moneyFormatter.numberFormat().currency?.symbol.orEmpty()
 
         binding.textBusinessName.text =
             state.settings?.businessName.orEmpty().ifBlank { getString(R.string.app_name) }
@@ -147,7 +147,7 @@ class ReceiptFragment : BaseFragment() {
     }
 
     private fun formatMoney(isReturn: Boolean, value: Double, symbol: String): String {
-        val core = currencyFormat.format(abs(value))
+        val core = moneyFormatter.format(abs(value))
         return if (isReturn) {
             val trimmed = core.trimStart('+')
             "-$trimmed"

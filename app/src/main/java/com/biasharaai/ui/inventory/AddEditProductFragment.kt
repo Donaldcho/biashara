@@ -12,6 +12,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.os.bundleOf
@@ -23,12 +24,14 @@ import androidx.navigation.fragment.findNavController
 import coil.load
 import com.biasharaai.R
 import com.biasharaai.ai.AudioCaptureHelper
+import com.biasharaai.ai.VoiceInputPreferences
 import com.biasharaai.ai.VoiceInputProcessor
 import com.biasharaai.data.local.db.Product
 import com.biasharaai.databinding.FragmentAddEditProductBinding
 import com.biasharaai.media.ProductPhotoStore
 import com.biasharaai.ui.base.BaseFragment
 import com.google.android.material.snackbar.Snackbar
+import com.google.android.material.textfield.TextInputLayout
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -45,7 +48,7 @@ import javax.inject.Inject
  * - `barcode_value` (String?) — pre-filled barcode from scanner.
  *
  * Features:
- * - Voice input via Gemma 3n multimodal (FULL_AI) or SpeechRecognizer fallback.
+ * - Voice input (opt-in in Settings) via Gemma multimodal when available, else SpeechRecognizer.
  * - Scan shortcut on barcode field opens BarcodeScannerFragment in SCAN_TO_ADD mode.
  * - Barcode pre-fill when arriving from the scanner.
  * - Optional product photo: camera (FileProvider) or gallery; scaled JPEG in app storage; [Product.imageUrl].
@@ -60,6 +63,9 @@ class AddEditProductFragment : BaseFragment() {
 
     @Inject
     lateinit var voiceInputProcessor: VoiceInputProcessor
+
+    @Inject
+    lateinit var voiceInputPreferences: VoiceInputPreferences
 
     @Inject
     lateinit var productPhotoStore: ProductPhotoStore
@@ -174,7 +180,7 @@ class AddEditProductFragment : BaseFragment() {
         super.onViewCreated(view, savedInstanceState)
 
         setupToolbar()
-        setupVoiceInput()
+        observeVoiceInputForProductName()
         setupBarcodeScan()
         setupLabelScan()
         setupSaveButton()
@@ -214,30 +220,49 @@ class AddEditProductFragment : BaseFragment() {
         }
     }
 
-    private fun setupVoiceInput() {
-        binding.layoutName.setEndIconOnClickListener {
-            if (voiceInputProcessor.usesOnDeviceAi) {
-                // FULL_AI path: use Gemma 3n multimodal audio
-                if (AudioCaptureHelper.hasRecordPermission(requireContext())) {
-                    startAiVoiceCapture()
-                } else {
-                    audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+    private fun observeVoiceInputForProductName() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                voiceInputPreferences.voiceInputEnabled.collect { enabled ->
+                    if (enabled) {
+                        binding.layoutName.endIconMode = TextInputLayout.END_ICON_CUSTOM
+                        binding.layoutName.setEndIconDrawable(
+                            AppCompatResources.getDrawable(requireContext(), R.drawable.ic_mic),
+                        )
+                        binding.layoutName.setEndIconContentDescription(
+                            getString(R.string.product_voice_input_desc),
+                        )
+                        binding.layoutName.setEndIconOnClickListener { onProductNameVoiceClicked() }
+                    } else {
+                        binding.layoutName.setEndIconOnClickListener(null)
+                        binding.layoutName.endIconMode = TextInputLayout.END_ICON_NONE
+                    }
                 }
+            }
+        }
+    }
+
+    private fun onProductNameVoiceClicked() {
+        if (!voiceInputPreferences.isVoiceInputEnabled()) return
+        if (voiceInputProcessor.usesOnDeviceAi) {
+            if (AudioCaptureHelper.hasRecordPermission(requireContext())) {
+                startAiVoiceCapture()
             } else {
-                // PARTIAL_AI / RULES_BASED fallback: system SpeechRecognizer
-                val intent = voiceInputProcessor.createSpeechRecognizerIntent(
-                    locale = Locale.getDefault(),
-                    prompt = getString(R.string.product_voice_prompt),
-                )
-                try {
-                    speechLauncher.launch(intent)
-                } catch (_: Exception) {
-                    Snackbar.make(
-                        binding.root,
-                        getString(R.string.product_voice_unavailable),
-                        Snackbar.LENGTH_SHORT,
-                    ).show()
-                }
+                audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        } else {
+            val intent = voiceInputProcessor.createSpeechRecognizerIntent(
+                locale = Locale.getDefault(),
+                prompt = getString(R.string.product_voice_prompt),
+            )
+            try {
+                speechLauncher.launch(intent)
+            } catch (_: Exception) {
+                Snackbar.make(
+                    binding.root,
+                    getString(R.string.product_voice_unavailable),
+                    Snackbar.LENGTH_SHORT,
+                ).show()
             }
         }
     }

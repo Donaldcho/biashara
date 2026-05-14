@@ -3,6 +3,7 @@ package com.biasharaai.ui.inventory
 import android.Manifest
 import android.graphics.BitmapFactory
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -120,14 +121,20 @@ class ReceiptScanFragment : BaseFragment() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
         cameraProviderFuture.addListener(
             {
-                val cameraProvider = cameraProviderFuture.get()
-                bindCamera(cameraProvider)
+                if (_binding == null) return@addListener
+                try {
+                    val cameraProvider = cameraProviderFuture.get()
+                    bindCamera(cameraProvider)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Camera provider failed", e)
+                }
             },
             ContextCompat.getMainExecutor(requireContext()),
         )
     }
 
     private fun bindCamera(cameraProvider: ProcessCameraProvider) {
+        val binding = _binding ?: return
         val preview = Preview.Builder()
             .build()
             .also { it.surfaceProvider = binding.previewView.surfaceProvider }
@@ -147,7 +154,9 @@ class ReceiptScanFragment : BaseFragment() {
                 capture,
             )
         } catch (_: Exception) {
-            Snackbar.make(binding.root, R.string.receipt_camera_bind_failed, Snackbar.LENGTH_LONG).show()
+            _binding?.root?.let { root ->
+                Snackbar.make(root, R.string.receipt_camera_bind_failed, Snackbar.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -231,6 +240,7 @@ class ReceiptScanFragment : BaseFragment() {
     }
 
     companion object {
+        private const val TAG = "ReceiptScanFragment"
         const val ARG_LINES_JSON = "lines_json"
         const val ARG_FALLBACK = "fallback_mode"
     }

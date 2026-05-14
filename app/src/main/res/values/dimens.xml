@@ -6,4 +6,6 @@
     <dimen name="biashara_corner_card">12dp</dimen>
     <dimen name="biashara_corner_bubble">16dp</dimen>
     <dimen name="biashara_corner_hero">24dp</dimen>
+    <dimen name="chat_composer_margin_h">14dp</dimen>
+    <dimen name="chat_composer_margin_bottom">12dp</dimen>
 </resources>

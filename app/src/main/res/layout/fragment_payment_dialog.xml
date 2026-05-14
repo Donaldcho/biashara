@@ -394,11 +394,20 @@
             android:text="@string/payment_cancel" />
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_confirm_sale"
+            android:id="@+id/btn_confirm_paid"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:enabled="false"
-            android:text="@string/payment_confirm" />
+            android:text="@string/payment_paid" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_on_credit"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:enabled="false"
+            android:text="@string/payment_on_credit" />
     </LinearLayout>
 </LinearLayout>

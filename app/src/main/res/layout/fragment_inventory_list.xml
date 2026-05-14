@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Prompt U7: overflow "Prepare supplier visit" is defined in menu_inventory_list.xml (toolbar app:menu). -->
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -10,17 +11,15 @@
         android:id="@+id/app_bar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/biashara_charcoal"
+        android:background="?attr/colorSurface"
         android:fitsSystemWindows="true">
 
         <com.google.android.material.appbar.MaterialToolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:theme="@style/ThemeOverlay.Biashara.Toolbar.Dark"
             app:menu="@menu/menu_inventory_list"
-            app:title="@string/nav_inventory"
-            app:titleTextColor="@color/biashara_surface_bright" />
+            app:title="@string/nav_inventory" />
 
     </com.google.android.material.appbar.AppBarLayout>
 
@@ -30,9 +29,10 @@
         android:layout_height="match_parent"
         android:background="?android:attr/colorBackground"
         android:clipToPadding="false"
-        android:paddingTop="8dp"
+        android:paddingStart="6dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="6dp"
         android:paddingBottom="240dp"
-        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
         tools:listitem="@layout/item_product" />
 

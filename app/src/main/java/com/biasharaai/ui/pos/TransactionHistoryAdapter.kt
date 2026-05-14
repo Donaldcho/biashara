@@ -8,13 +8,13 @@ import androidx.recyclerview.widget.RecyclerView
 import com.biasharaai.R
 import com.biasharaai.data.local.db.Transaction
 import com.biasharaai.databinding.ItemTransactionHistoryRowBinding
+import com.biasharaai.money.MoneyFormatter
 import java.text.DateFormat
-import java.text.NumberFormat
 import java.util.Date
 import java.util.Locale
 
 class TransactionHistoryAdapter(
-    private val currencyFormat: NumberFormat,
+    private val moneyFormatter: MoneyFormatter,
     private val dateFormat: DateFormat,
     private val onClick: (Transaction) -> Unit,
 ) : ListAdapter<Transaction, TransactionHistoryAdapter.VH>(DIFF) {
@@ -52,7 +52,7 @@ class TransactionHistoryAdapter(
                 ctx.getString(R.string.transactions_receipt_fallback, tx.id)
             }
             binding.textDate.text = dateFormat.format(Date(tx.date))
-            binding.textTotal.text = currencyFormat.format(tx.amount)
+            binding.textTotal.text = moneyFormatter.format(tx.amount)
             binding.textPaymentMethod.text = PaymentMethodLabels.label(ctx, tx.paymentMethod)
         }
     }

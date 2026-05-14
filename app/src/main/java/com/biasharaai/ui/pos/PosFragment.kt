@@ -27,6 +27,7 @@ import com.biasharaai.databinding.FragmentPosBinding
 import com.biasharaai.databinding.ItemProductSearchResultBinding
 import com.biasharaai.pos.cart.CartItem
 import com.biasharaai.pos.cart.CartManager
+import com.biasharaai.money.MoneyFormatter
 import com.biasharaai.pos.cart.CartRepository
 import com.biasharaai.ui.base.BaseFragment
 import com.biasharaai.ui.scanner.BarcodeScannerFragment
@@ -39,7 +40,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import java.text.NumberFormat
 import java.util.Locale
 import javax.inject.Inject
 
@@ -57,8 +57,8 @@ class PosFragment : BaseFragment() {
     @Inject
     lateinit var cartRepository: CartRepository
 
-    private val currencyFormat: NumberFormat =
-        NumberFormat.getCurrencyInstance(Locale.getDefault())
+    @Inject
+    lateinit var moneyFormatter: MoneyFormatter
 
     private lateinit var productGridAdapter: ProductGridAdapter
     private lateinit var searchAdapter: PosSearchResultsAdapter
@@ -97,13 +97,13 @@ class PosFragment : BaseFragment() {
         productGridAdapter = ProductGridAdapter(
             onProductClick = { viewModel.addProductToCart(it, 1) },
             onProductLongClick = { showQuantityDialog(it) },
-            formatMoney = { currencyFormat.format(it) },
+            formatMoney = { moneyFormatter.format(it) },
         )
         binding.recyclerProductGrid.adapter = productGridAdapter
 
         binding.recyclerSearchResults.layoutManager = LinearLayoutManager(requireContext())
         searchAdapter = PosSearchResultsAdapter(
-            formatMoney = { currencyFormat.format(it) },
+            formatMoney = { moneyFormatter.format(it) },
             onPick = { product ->
                 viewModel.addProductToCart(product, 1)
                 viewModel.clearSearch()
@@ -121,13 +121,13 @@ class PosFragment : BaseFragment() {
         if (wideCartAdapter != null) return
         wideCartAdapter = CartAdapter(
             cartManager = cartManager,
-            formatMoney = { currencyFormat.format(it) },
+            formatMoney = { moneyFormatter.format(it) },
             allowPriceOverride = cartRepository.activeSettings.value?.allowPriceOverride != false,
             onRequestPriceOverride = { item ->
                 CartLinePriceOverrideDialog.show(
                     this,
                     item,
-                    currencyFormat::format,
+                    moneyFormatter::format,
                 ) { cartItem, newPrice ->
                     viewModel.applyLinePriceOverride(cartItem, newPrice)
                 }
@@ -156,7 +156,7 @@ class PosFragment : BaseFragment() {
     private fun ensureTotalsBarBound() {
         if (totalsBarBound || !isSideCartVisible()) return
         totalsBarBound = true
-        binding.totalsBar.bind(viewLifecycleOwner, cartRepository, currencyFormat)
+        binding.totalsBar.bind(viewLifecycleOwner, cartRepository, moneyFormatter)
     }
 
     private fun isSideCartVisible(): Boolean {
@@ -290,8 +290,8 @@ class PosFragment : BaseFragment() {
                 }
                 launch {
                     viewModel.selectedCustomer.collect { customer ->
-                        val walkInColor = ContextCompat.getColor(requireContext(), R.color.biashara_surface_bright)
-                        val customerColor = ContextCompat.getColor(requireContext(), R.color.biashara_mint)
+                        val walkInColor = ContextCompat.getColor(requireContext(), R.color.biashara_forest_dark)
+                        val customerColor = ContextCompat.getColor(requireContext(), R.color.biashara_forest)
                         if (customer == null) {
                             binding.chipCustomer.text = getString(R.string.pos_walk_in_customer)
                             binding.chipCustomer.setTextColor(walkInColor)
@@ -351,8 +351,11 @@ class PosFragment : BaseFragment() {
                     }
                 }
                 launch {
-                    cartRepository.grandTotal.collect { total ->
-                        binding.textCartGrandTotal.text = currencyFormat.format(total)
+                    combine(
+                        cartRepository.grandTotal,
+                        cartRepository.activeSettings,
+                    ) { total, _ -> total }.collect { total ->
+                        binding.textCartGrandTotal.text = moneyFormatter.format(total)
                     }
                 }
                 launch {

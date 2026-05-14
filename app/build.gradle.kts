@@ -61,6 +61,7 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:$material")
     implementation("androidx.constraintlayout:constraintlayout:2.2.0")
+    implementation("androidx.viewpager2:viewpager2:1.1.0")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutines")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutines")
@@ -122,4 +123,5 @@ dependencies {
     androidTestImplementation("androidx.room:room-testing:$room")
     androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:$coroutines")
     androidTestImplementation("app.cash.turbine:turbine:1.2.0")
+    androidTestImplementation("io.mockk:mockk:1.13.13")
 }

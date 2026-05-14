@@ -11,6 +11,8 @@ data class PaymentDraft(
     val mobileMoneyRef: String?,
     val creditCustomerId: Long?,
     val creditDueDateMillis: Long?,
+    /** Optional owner note for informal credit (Prompt U6). */
+    val creditNote: String? = null,
     val splitLine1Method: SplitLineMethod?,
     val splitLine1Amount: Double?,
     val splitLine2Method: SplitLineMethod?,

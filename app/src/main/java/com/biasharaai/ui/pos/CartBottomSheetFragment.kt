@@ -12,6 +12,7 @@ import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.biasharaai.R
 import com.biasharaai.databinding.FragmentCartBottomSheetBinding
+import com.biasharaai.money.MoneyFormatter
 import com.biasharaai.pos.cart.CartManager
 import com.biasharaai.pos.cart.CartRepository
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
@@ -19,8 +20,6 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import java.text.NumberFormat
-import java.util.Locale
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -35,10 +34,10 @@ class CartBottomSheetFragment : BottomSheetDialogFragment() {
     @Inject
     lateinit var cartRepository: CartRepository
 
-    private val posViewModel: PosViewModel by viewModels(ownerProducer = { requireParentFragment() })
+    @Inject
+    lateinit var moneyFormatter: MoneyFormatter
 
-    private val currencyFormat: NumberFormat =
-        NumberFormat.getCurrencyInstance(Locale.getDefault())
+    private val posViewModel: PosViewModel by viewModels(ownerProducer = { requireParentFragment() })
 
     private lateinit var cartAdapter: CartAdapter
 
@@ -55,13 +54,13 @@ class CartBottomSheetFragment : BottomSheetDialogFragment() {
         super.onViewCreated(view, savedInstanceState)
         cartAdapter = CartAdapter(
             cartManager = cartManager,
-            formatMoney = { currencyFormat.format(it) },
+            formatMoney = { moneyFormatter.format(it) },
             allowPriceOverride = cartRepository.activeSettings.value?.allowPriceOverride != false,
             onRequestPriceOverride = { item ->
                 CartLinePriceOverrideDialog.show(
                     this,
                     item,
-                    currencyFormat::format,
+                    moneyFormatter::format,
                 ) { cartItem, newPrice ->
                     posViewModel.applyLinePriceOverride(cartItem, newPrice)
                 }
@@ -71,7 +70,7 @@ class CartBottomSheetFragment : BottomSheetDialogFragment() {
         binding.recyclerCart.adapter = cartAdapter
         CartAdapter.attachSwipeToRemove(binding.recyclerCart, cartAdapter, cartManager)
 
-        binding.totalsBarSheet.bind(viewLifecycleOwner, cartRepository, currencyFormat)
+        binding.totalsBarSheet.bind(viewLifecycleOwner, cartRepository, moneyFormatter)
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {

@@ -1,5 +1,8 @@
 package com.biasharaai.ui.settings
 
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -16,8 +19,11 @@ import com.biasharaai.ai.DownloadState
 import com.biasharaai.ai.InferenceSettingsStore
 import com.biasharaai.ai.InferenceUiConfig
 import com.biasharaai.ai.ModelDownloadManager
+import com.biasharaai.ai.VoiceInputPreferences
 import com.biasharaai.databinding.FragmentSettingsBinding
 import com.biasharaai.ui.base.BaseFragment
+import com.biasharaai.ui.order.OrderParserActivity
+import com.biasharaai.ui.order.showOrderParserTierBlockedDialogIfNeeded
 import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -26,6 +32,7 @@ import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.util.Locale
+import javax.inject.Inject
 import kotlin.math.roundToInt
 
 /**
@@ -42,6 +49,9 @@ class SettingsFragment : BaseFragment() {
 
     private val viewModel: SettingsViewModel by viewModels()
 
+    @Inject
+    lateinit var voiceInputPreferences: VoiceInputPreferences
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -57,6 +67,9 @@ class SettingsFragment : BaseFragment() {
         displayAppVersion()
         setupButtons()
         setupInferenceConfigurations()
+        setupOrderParserFromClipboard()
+        setupVoiceInputSwitch()
+        setupCurrency()
         observeDownloadState()
         observeDownloadProgress()
         observeEvents()
@@ -92,6 +105,71 @@ class SettingsFragment : BaseFragment() {
     }
 
     // ── Buttons ─────────────────────────────────────────────────────────
+
+    private fun setupCurrency() {
+        binding.btnChangeCurrency.setOnClickListener { showCurrencyPicker() }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.shopSettings.collect { s ->
+                    val codes = resources.getStringArray(R.array.supported_currency_codes)
+                    val names = resources.getStringArray(R.array.supported_currency_names)
+                    val code = s?.currencyCode?.uppercase(Locale.ROOT) ?: "KES"
+                    val idx = codes.indexOf(code).let { if (it >= 0) it else 0 }
+                    binding.textCurrencyCurrent.text = names[idx]
+                }
+            }
+        }
+    }
+
+    private fun showCurrencyPicker() {
+        val codes = resources.getStringArray(R.array.supported_currency_codes)
+        val names = resources.getStringArray(R.array.supported_currency_names)
+        val current = viewModel.shopSettings.value?.currencyCode?.uppercase(Locale.ROOT) ?: "KES"
+        val checked = codes.indexOf(current).let { if (it >= 0) it else 0 }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.settings_currency_dialog_title)
+            .setSingleChoiceItems(names, checked) { dialog, which ->
+                viewModel.setShopCurrency(codes[which])
+                dialog.dismiss()
+                val anchor = _binding?.root ?: view
+                anchor?.let {
+                    Snackbar.make(it, R.string.settings_currency_saved, Snackbar.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun setupVoiceInputSwitch() {
+        binding.switchVoiceInput.setOnCheckedChangeListener(null)
+        binding.switchVoiceInput.isChecked = voiceInputPreferences.isVoiceInputEnabled()
+        binding.switchVoiceInput.setOnCheckedChangeListener { _, isChecked ->
+            voiceInputPreferences.setVoiceInputEnabled(isChecked)
+        }
+    }
+
+    private fun setupOrderParserFromClipboard() {
+        binding.btnOrderParserFromClipboard.setOnClickListener {
+            if (showOrderParserTierBlockedDialogIfNeeded(viewModel.capabilityResult.tier)) {
+                return@setOnClickListener
+            }
+            val cm = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val text = cm.primaryClip?.getItemAt(0)?.text?.toString().orEmpty().trim()
+            if (text.isBlank()) {
+                Snackbar.make(
+                    binding.root,
+                    R.string.settings_order_parser_clipboard_empty,
+                    Snackbar.LENGTH_SHORT,
+                ).show()
+            } else {
+                startActivity(
+                    Intent(requireContext(), OrderParserActivity::class.java).apply {
+                        putExtra(Intent.EXTRA_TEXT, text)
+                    },
+                )
+            }
+        }
+    }
 
     private fun setupButtons() {
         binding.btnDownloadModel.setOnClickListener {

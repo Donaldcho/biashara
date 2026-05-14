@@ -10,9 +10,10 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.biasharaai.databinding.ViewTotalsBarBinding
+import com.biasharaai.money.MoneyFormatter
 import com.biasharaai.pos.cart.CartRepository
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
-import java.text.NumberFormat
 
 /**
  * Live subtotal / tax / grand total strip bound to [CartRepository] monetary flows.
@@ -32,24 +33,33 @@ class TotalsBarView @JvmOverloads constructor(
         binding = ViewTotalsBarBinding.inflate(LayoutInflater.from(context), this)
     }
 
-    fun bind(owner: LifecycleOwner, cartRepository: CartRepository, moneyFormat: NumberFormat) {
+    fun bind(owner: LifecycleOwner, cartRepository: CartRepository, moneyFormatter: MoneyFormatter) {
         if (observing) return
         observing = true
         owner.lifecycleScope.launch {
             owner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
-                    cartRepository.subtotal.collect { v ->
-                        binding.textSubtotalValue.text = moneyFormat.format(v)
+                    combine(
+                        cartRepository.subtotal,
+                        cartRepository.activeSettings,
+                    ) { sub, _ -> sub }.collect { v ->
+                        binding.textSubtotalValue.text = moneyFormatter.format(v)
                     }
                 }
                 launch {
-                    cartRepository.taxAmount.collect { tax ->
-                        binding.textTaxValue.text = moneyFormat.format(tax)
+                    combine(
+                        cartRepository.taxAmount,
+                        cartRepository.activeSettings,
+                    ) { tax, _ -> tax }.collect { tax ->
+                        binding.textTaxValue.text = moneyFormatter.format(tax)
                     }
                 }
                 launch {
-                    cartRepository.grandTotal.collect { g ->
-                        binding.textGrandValue.text = moneyFormat.format(g)
+                    combine(
+                        cartRepository.grandTotal,
+                        cartRepository.activeSettings,
+                    ) { g, _ -> g }.collect { g ->
+                        binding.textGrandValue.text = moneyFormatter.format(g)
                     }
                 }
                 launch {

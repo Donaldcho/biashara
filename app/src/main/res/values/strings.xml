@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">BiasharaAI</string>
+    <string name="deviceterra_wordmark" translatable="false">DEVICETERRA</string>
+    <string name="splash_logo_content_description">Deviceterra logo</string>
 
     <string name="nav_home">Home</string>
     <string name="nav_inventory">Inventory</string>
@@ -35,6 +37,7 @@
     <string name="inventory_fab_scan_receipt">Scan receipt</string>
     <string name="inventory_empty">No products yet.\nTap + to add, scan a barcode, or scan a receipt.</string>
     <string name="inventory_stock_format">Stock: %1$d</string>
+    <string name="inventory_catalog_stock">%1$d in stock</string>
     <string name="inventory_product_thumb_cd">Product image</string>
     <string name="inventory_barcode_icon_desc">Has barcode</string>
     <string name="inventory_add_edit_title">Product</string>
@@ -152,6 +155,12 @@
     <string name="inference_defaults">Restore defaults</string>
     <string name="inference_configs_saved">Configurations saved. The model will reload on the next reply.</string>
     <string name="settings_section_about">About</string>
+    <string name="settings_section_regional">Regional</string>
+    <string name="settings_currency_title">Shop currency</string>
+    <string name="settings_currency_summary">Used for prices, POS, receipts, and money shown in insights.</string>
+    <string name="settings_currency_change">Change currency</string>
+    <string name="settings_currency_dialog_title">Choose currency</string>
+    <string name="settings_currency_saved">Currency updated</string>
     <string name="settings_app_version">Version %1$s</string>
 
     <!-- Demand Forecasting (Prompt 7) -->
@@ -219,6 +228,9 @@
     <string name="chat_mic_prompt">Ask Biashara AI…</string>
     <string name="chat_mic_unavailable">Voice input is not available on this device.</string>
     <string name="chat_mic_permission_denied">Microphone permission denied.</string>
+    <string name="settings_section_voice_input">Voice input</string>
+    <string name="settings_voice_input_title">Allow voice input</string>
+    <string name="settings_voice_input_summary">When on, you can use the microphone in Chat and when naming products. Transcription uses your device’s speech service; on many devices that may send short audio clips to Google for recognition. Off by default.</string>
     <string name="chat_session_default_title">Chat</string>
     <string name="chat_new_session_title">New chat</string>
     <string name="chat_photo_message_placeholder">[Photo attached — describe what you see]</string>
@@ -245,6 +257,7 @@
     <string name="chat_history_delete_confirm">Delete this chat?</string>
     <string name="chat_skill_hint_added">Skill hint added — type your question, then send.</string>
     <string name="chat_image_ready">Image attached — add a note or send as-is.</string>
+    <string name="chat_remove_attachment">Remove image</string>
 
     <!-- Settings: Benchmark -->
     <string name="settings_btn_benchmark">Run benchmark</string>
@@ -337,6 +350,34 @@
     <string name="payment_split_remainder">Remainder: %1$s</string>
     <string name="payment_commit_empty_cart">Cart is empty — add items before confirming.</string>
 
+    <!-- Prompt U6 — informal credit at POS + debt tracker -->
+    <string name="payment_paid">Paid</string>
+    <string name="payment_on_credit">On credit</string>
+    <string name="payment_use_on_credit_button">Use On credit to complete this sale.</string>
+    <string name="payment_credit_no_split">Credit sales are not available while split payment is on.</string>
+    <string name="payment_credit_customer_required">Select a customer before recording credit.</string>
+    <string name="payment_on_credit_dialog_title">Confirm credit sale</string>
+    <string name="payment_on_credit_amount_label">Amount (must match total)</string>
+    <string name="payment_credit_dialog_note_hint">Optional note</string>
+    <string name="payment_credit_note_label">Note</string>
+    <string name="payment_credit_amount_must_match">Amount must match the sale total.</string>
+
+    <string name="insights_tab_flow">Cash flow</string>
+    <string name="insights_tab_credit">Credit</string>
+
+    <string name="credit_total_outstanding_label">Total outstanding</string>
+    <string name="credit_no_outstanding">No unpaid debts.</string>
+    <string name="credit_row_amount_days">%1$s · %2$d days outstanding</string>
+    <string name="credit_remind">Remind</string>
+    <string name="credit_mark_paid">Paid</string>
+    <string name="credit_remind_preview_title">SMS preview</string>
+    <string name="credit_send_via_sms">Send via SMS</string>
+    <string name="credit_sms_intent_failed">Could not open the SMS app.</string>
+    <string name="credit_debt_missing">That debt is no longer available.</string>
+    <string name="credit_customer_missing">Customer record is missing.</string>
+    <string name="credit_remind_no_phone">Add a phone number for this customer to send a reminder.</string>
+    <string name="credit_remind_fallback_sms">Hi %1$s, friendly reminder you have a balance of %2$s %3$.2f with us (%4$d days). Thanks.</string>
+
     <!-- Prompt P8 — transactions, receipt, returns -->
     <string name="transactions_title">Transactions</string>
     <string name="transactions_menu">Transactions</string>
@@ -379,5 +420,54 @@
     <string name="end_of_day_stat_tx">%1$d transactions</string>
     <string name="end_of_day_stat_top">Top: %1$s (%2$d)</string>
     <string name="end_of_day_stat_pay">Cash %1$d%% · Mobile %2$d%% · Credit %3$d%%</string>
+
+    <!-- Prompt U7 — Supplier negotiation assistant (FULL_AI only) -->
+    <string name="home_prepare_supplier_visit_title">Prepare supplier visit</string>
+    <string name="home_prepare_supplier_visit_subtitle">Generate a culturally appropriate negotiation script before you meet a supplier (on-device AI).</string>
+    <string name="inventory_menu_prepare_supplier_visit">Prepare supplier visit</string>
+    <string name="negotiation_tier_required_message">This feature requires a higher-end device. It is available on devices with 4GB+ RAM.</string>
+    <string name="negotiation_supplier_title">Supplier visit</string>
+    <string name="negotiation_guide_title">Negotiation script</string>
+    <string name="negotiation_supplier_name_hint">Supplier name (optional)</string>
+    <string name="negotiation_select_products">Select from inventory</string>
+    <string name="negotiation_products_none_selected">No inventory items selected yet.</string>
+    <string name="negotiation_extra_items_hint">Other items (one per line)</string>
+    <string name="negotiation_budget_hint">Total budget</string>
+    <string name="negotiation_city_hint">City</string>
+    <string name="negotiation_country_hint">Country</string>
+    <string name="negotiation_generate_script">Generate script</string>
+    <string name="negotiation_regenerate">Regenerate</string>
+    <string name="negotiation_share_script">Share script</string>
+    <string name="negotiation_share_chooser_title">Share negotiation script</string>
+    <string name="negotiation_error_no_items">Select at least one inventory product or add other items.</string>
+    <string name="negotiation_error_budget">Enter a valid total budget greater than zero.</string>
+    <string name="negotiation_error_model">Download the AI model in Settings to generate a script.</string>
+    <string name="negotiation_no_products_inventory">No products in inventory yet.</string>
+
+    <!-- Prompt U8 — WhatsApp / shared text order parser -->
+    <string name="order_parser_title">Order from message</string>
+    <string name="order_parser_loading_message">Parsing order with on-device AI…</string>
+    <string name="order_parser_no_text">No message text to parse.</string>
+    <string name="order_parser_error_no_model">Download the AI model in Settings to parse orders.</string>
+    <string name="order_parser_error_parse">Could not parse a product list from that message.</string>
+    <string name="order_parser_offline_message">You are offline. Connect to a network, then try again.</string>
+    <string name="order_parser_tier_rules_only_message">Order-from-message needs the on-device AI model and a capable device (not rules-only mode). Try again after upgrading hardware or downloading the model in Settings.</string>
+    <string name="order_parser_record_sale">Record sale</string>
+    <string name="order_parser_find_product">Find product</string>
+    <string name="order_parser_search_hint">Search inventory</string>
+    <string name="order_parser_line_qty_price">Qty %1$d%2$s · %3$s each</string>
+    <string name="order_parser_line_unmatched_qty">Qty %1$d%2$s · not matched to inventory</string>
+    <string name="order_parser_skipped_toast">%d items could not be matched and were skipped.</string>
+    <string name="order_parser_no_matched_lines">No matched products to record. Match or remove lines first.</string>
+    <string name="order_parser_record_failed">Could not record sale.</string>
+    <string name="settings_section_order_parser">WhatsApp orders</string>
+    <string name="settings_order_parser_body">Share a customer message from WhatsApp (or any app) to Biashara AI, or paste the order text from your clipboard below.</string>
+    <string name="settings_order_parser_clipboard">Parse order from clipboard</string>
+    <string name="settings_order_parser_clipboard_empty">Clipboard is empty.</string>
+
+    <plurals name="negotiation_products_selected_count">
+        <item quantity="one">%d product selected</item>
+        <item quantity="other">%d products selected</item>
+    </plurals>
 
 </resources>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ISO 4217 codes and labels (same order). Shown in Settings → Currency. -->
+    <string-array name="supported_currency_codes">
+        <item>KES</item>
+        <item>NGN</item>
+        <item>GHS</item>
+        <item>ZAR</item>
+        <item>UGX</item>
+        <item>TZS</item>
+        <item>RWF</item>
+        <item>XOF</item>
+        <item>XAF</item>
+        <item>MAD</item>
+        <item>EGP</item>
+        <item>ETB</item>
+        <item>ZMW</item>
+        <item>MWK</item>
+        <item>MZN</item>
+        <item>SOS</item>
+        <item>DZD</item>
+        <item>TND</item>
+        <item>CVE</item>
+        <item>SCR</item>
+        <item>XPF</item>
+        <item>LSL</item>
+        <item>BWP</item>
+    </string-array>
+    <string-array name="supported_currency_names">
+        <item>Kenyan Shilling (KES)</item>
+        <item>Nigerian Naira (NGN)</item>
+        <item>Ghanaian Cedi (GHS)</item>
+        <item>South African Rand (ZAR)</item>
+        <item>Ugandan Shilling (UGX)</item>
+        <item>Tanzanian Shilling (TZS)</item>
+        <item>Rwandan Franc (RWF)</item>
+        <item>West African CFA franc (XOF)</item>
+        <item>Central African CFA franc (XAF)</item>
+        <item>Moroccan Dirham (MAD)</item>
+        <item>Egyptian Pound (EGP)</item>
+        <item>Ethiopian Birr (ETB)</item>
+        <item>Zambian Kwacha (ZMW)</item>
+        <item>Malawian Kwacha (MWK)</item>
+        <item>Mozambican Metical (MZN)</item>
+        <item>Somali Shilling (SOS)</item>
+        <item>Algerian Dinar (DZD)</item>
+        <item>Tunisian Dinar (TND)</item>
+        <item>Cape Verdean Escudo (CVE)</item>
+        <item>Seychellois Rupee (SCR)</item>
+        <item>CFP Franc (XPF)</item>
+        <item>Lesotho Loti (LSL)</item>
+        <item>Botswana Pula (BWP)</item>
+    </string-array>
+</resources>

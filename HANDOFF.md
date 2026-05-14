@@ -1,23 +1,46 @@
 # Biashara AI Project Handoff Document
 
 ## Current Project State
-- **Active track:** **Phase 2 — Intelligence upgrade (U prompts)**. Phase 4 **A** prompts (agent DB migrations, etc.) are **deferred** while this track proceeds; work continues on branch **`release/biashara-phase4`** unless you branch otherwise (see [docs/BRANCHES.md](docs/BRANCHES.md)).
-- **Last Completed Prompt (U track):** Prompt U5 — Loss Prevention Alerts
-- **Next Expected Prompt:** Prompt U6 — Debt and Credit Tracker
-- **Phase:** 2 — Intelligence Layer Upgrade
-- **AppDatabase version:** **15** (`AppDatabase.kt`) — U6 and later U-prompt work stay **additive** (new migrations from current version forward only).
+- **Active track:** **Phase 2 — Intelligence upgrade (U prompts) — COMPLETE** (Prompt U10). Phase 4 **A** prompts (agent DB migrations, etc.) remain **deferred**. Stable line: **`release/biashara-phase4`** (see [docs/BRANCHES.md](docs/BRANCHES.md)).
+- **Last Completed Prompt (U track):** Prompt U10 — Final Upgrade Review
+- **Next Expected Prompt:** **None** — Phase 2 closed. Phase 3 TBD (see **Phase 3 candidates** below).
+- **Phase:** 2 — Intelligence Layer Upgrade (shipped)
+- **AppDatabase version:** **15** (`AppDatabase.kt`) — **not** v5; the handoff template “DB version 5” referred to an older Phase-2 SQL baseline label, not current Room `version`.
 - **Key Notes (U track):**
   - Prefer **additive** schema and code; no destructive rollback of shipped POS / chat tables.
-  - **`Debt` / `DebtDao` / `DebtRepository`** already exist for POS credit; U6 likely extends **owner-facing debt/credit UX** and reporting — confirm scope in the U6 prompt spec.
+  - **U6:** POS **Paid** / **On credit** (`PaymentDialogFragment` + `PaymentViewModel`): credit path inserts `Transaction` with `noteType = CREDIT_EXTENDED` and a `Debt` row; **Insights** host adds **Credit** tab (`CreditFragment`, oldest-first list, mark paid → `DEBT_REPAID` income + `markPaid`, **Remind** → Gemma SMS draft + `ACTION_SENDTO` preview only).
+  - **U7:** **Prepare supplier visit** — **FULL_AI** only (`CapabilityTier`); **RULES_BASED** / **PARTIAL_AI** get an explanatory dialog (4GB+ RAM). `SupplierNegotiationFragment` form → `NegotiationViewModel` + `GemmaService` on `Dispatchers.IO` → `NegotiationGuideFragment` colour-coded section cards, **Share** sheet, **Regenerate**. Entry: `HomeFragment` card + `InventoryListFragment` overflow menu. Shared VM: `activityViewModels()`.
+  - **U8:** **WhatsApp / text order parser** — `ACTION_SEND` `text/plain` → `OrderParserActivity` (or Settings **paste from clipboard**) → Gemma JSON line items → `ProductDao.findProductByNameFuzzy` + manual search → `OrderReviewFragment`; **Record sale** → `SaleRepository.commitPosSale` with `WHATSAPP_ORDER` note → `MainActivity` + `EXTRA_OPEN_RECEIPT_TRANSACTION_ID` → `ReceiptFragment`.
+  - **U9:** **Testing suite** — `MigrationTest.kt` (v3 → v11 Phase-2 chain + 1k products → v15); DAO instrumented tests (`CustomerDaoTest`, `DebtDaoTest`, `AlertDaoTest`); `LossAlertEngineTest` (shrinkage + sales-gap); `ReceiptParserTest` + `parseFromOcrText` for mocked Gemma; `OrderParserViewModelTest` (fuzzy match, unmatched lines, record-sale events, Swahili phrase JSON fixtures). Existing `AppDatabaseMigrationTest` still covers v3→v15 end-to-end.
+  - **U10:** **Final upgrade review** — `NetworkStatus.kt` + `ACCESS_NETWORK_STATE`; order parser offline UX (`OFFLINE` → “You are offline…”); **RULES_BASED** blocks F7 (`OrderParserActivity`, Settings clipboard) with `OrderParserTierGate` + toast; `Phase2PerformanceAuditTest` (loss engine <10s, customer top-products query with 520+ lines, mocked receipt parse <15s). Manual U10 checklist: airplane mode F1–F6 offline; F4/F7 tier gating; full receipt pipeline timing on device.
 - **Also (Phase 4 — deferred):** When returning to **A** prompts: agents additive; 4a without Gemma; `AgentOrchestrator` + `Mutex` for Gemma; owner approval for agent actions.
 
-**Repository snapshot:** POS, loss alerts (U5), receipt OCR (U4), chat sessions (DB v15), conversational layer, etc. Details in sections below.
+**Repository snapshot:** POS + credit/debt (U6), supplier negotiation (U7, **FULL_AI** only), loss alerts (U5), receipt OCR (U4), chat (v15), WhatsApp order parser (U8), testing + perf audits (U9–U10).
 
-| Handoff | |
+| Handoff (H) | |
 |---------|---|
-| **Last Completed** | Resume **U** prompt track (HANDOFF) |
-| **Next Prompt** | **U6:** Debt and Credit Tracker |
-| **Files modified** | `HANDOFF.md` |
+| **Last Completed** | Prompt U10: Final Upgrade Review — Phase 2 complete |
+| **Next Prompt** | None — Phase 2 complete. Phase 3 TBD. |
+| **Final DB version (Room)** | **15** (`AppDatabase.kt`) |
+| **Phase 2 entities (Kotlin, representative)** | `Customer`, `Debt`, `Alert`, chat session/message entities, `AiBusinessMemory`, etc. (see Room section) |
+| **U10 files created** | `NetworkStatus.kt`, `OrderParserTierGate.kt`, `Phase2PerformanceAuditTest.kt` |
+| **U10 files modified** | `OrderParserViewModel.kt`, `OrderParserActivity.kt`, `SettingsFragment.kt`, `AndroidManifest.xml`, `strings.xml`, `HANDOFF.md` |
+| **Prior (U9)** | `MigrationTest.kt`, DAO tests, `LossAlertEngineTest.kt`, `ReceiptParserTest.kt`, `OrderParserViewModelTest.kt`, `ReceiptParser.kt` |
+| **Prior (U8)** | Order parser UI + `MainActivity` receipt extra, `ProductDao.findProductByNameFuzzy`, `SaleRepository` note types, etc. |
+| **Prompt vs. this repo** | Official **Room version is 15**, not “5”. **F7 offline:** parser shows localized offline message when there is **no default network** (e.g. airplane mode), even though Gemma is on-device — aligns with U10 manual test matrix. **F4 tier:** supplier script remains **FULL_AI**-only (U7); **F7 tier:** **RULES_BASED** only (PARTIAL can still use order parser if model present). **U9:** v3 baseline; `MigrationTest` chain **3_5**…**10_11**. |
+
+### Phase 2 closure (Prompt U10)
+
+- **Offline (manual):** With airplane mode on, confirm pricing (F1), receipt OCR + manual rows (F2), POS customer memory chips (F3), loss alerts / WorkManager (F5), debt / credit tab (F6), and on-device chat/inventory flows remain usable. **F7:** expect **“You are offline…”** when there is no default network, then exit without crash.
+- **Tier (manual):** **RULES_BASED:** F4 blocked via existing negotiation dialog; F7 blocked via toast/dialog. **F1:** margin-style rules path without Gemma (`PricingAdvisor`). **F2:** OCR + Gemma unavailable → manual receipt review. **F3:** repeat-purchase chips without Gemma subtitle (`CustomerSuggestionEngine` returns null narrative off FULL_AI).
+- **Performance (automated + device):** `Phase2PerformanceAuditTest` encodes budgets for CI; on a physical device, re-run receipt **capture → OCR → Gemma → review** and aim for **under ~15s** total when the model is warm.
+
+### Phase 3 candidates (not scheduled)
+
+- **Federated / crowd price intelligence** — privacy-preserving aggregates, opt-in, regional benchmarks.
+- **Gemma 3n product photo description** — shelf SKU photo → structured fields + safety filters.
+- **Shelf audit by camera** — planogram / gap detection (likely hybrid rules + vision).
+- **Micro-loan readiness score** — optional financial-health signal from cashflow + debt history (policy-heavy).
 
 ### Git branches (do not merge blindly)
 
@@ -28,7 +51,7 @@
 ### Prior phases (reference)
 - **Phase 2 — Intelligence Layer Upgrade:** Features such as loss prevention alerts (U5), receipt OCR (U4), conversational chat layer, and related Room fields shipped under the upgrade track; prefer **additive** follow-ups only.
 - **POS / Phase 1–3:** `PosFragment`, cart, payments, returns, end-of-day AI, etc. — treat as **confirmed working** unless a prompt explicitly revisits them.
-- **Build / test stack:** `AppDatabaseMigrationTest` validates **v3→v15** among other paths; **`fallbackToDestructiveMigration()`** is **not** used in `AppModule` — migrations are explicit. Run `.\scripts\preflight-build.ps1` before Gradle builds (see **Prerequisites** below).
+- **Build / test stack:** `AppDatabaseMigrationTest` and **`MigrationTest`** (Prompt U9) validate **v3→v15** and focused Phase-2 chains; **`CustomerDaoTest`**, **`DebtDaoTest`**, **`AlertDaoTest`**, **`LossAlertEngineTest`**, **`Phase2PerformanceAuditTest`** (instrumented); **`ReceiptParserTest`**, **`OrderParserViewModelTest`** (JVM). **`fallbackToDestructiveMigration()`** is **not** used in `AppModule` — migrations are explicit. Run `.\scripts\preflight-build.ps1` before Gradle builds (see **Prerequisites** below).
 - **Libraries (snapshot):** ML Kit (OCR, image labeling for Ask Image), WorkManager, Gson, Room testing, Turbine — see sections below for feature mapping.
 
 ## Prerequisites Before Any Gradle / IDE Build
@@ -39,14 +62,14 @@
 ## Localization (Prompt 2b — done)
 - **Locales:** `values` (English), `values-sw`, `values-ha`, `values-yo`, `values-am`.
 - **First launch:** `LanguageSelectionFragment` → choose locale → `homeFragment`.
-- **Bottom navigation:** Hidden on `languageSelectionFragment`, `barcodeScannerFragment`, `addEditProductFragment`, `paymentDialogFragment`.
+- **Bottom navigation:** Hidden on `languageSelectionFragment`, `barcodeScannerFragment`, `addEditProductFragment`, `paymentDialogFragment`, `supplierNegotiationFragment`, `negotiationGuideFragment`.
 
 ## Room Database (Prompt 3 + 9 — done; Prompt P1 — v7 + migrations; chat v15)
 - **Version 15** — migrations in `DatabaseMigrations.kt` through **14→15** (`chat_sessions`, `chat_session_messages`, migrate off `chat_transcript_turns`); plus **12→13** loss columns on `alerts`; **7→8** `Customer`, **8→9** `Debt`, **9→10** `customer_id` / `related_sale_transaction_id` on `transactions`, `source_sale_line_item_id` on `sale_line_items`, **10→11** `note_type` on `transactions`, **11→12** `last_visit` on `customers`); **no** destructive fallback in `AppModule`.
 - **`Product` entity**: `id`, `name`, `description?`, `price`, `cost`, `stockQuantity`, `category?`, `barcodeValue?`, `imageUrl?`.
 - **`Transaction` entity**: legacy fields `id`, `type`, `amount`, `description`, `date`; **POS (P1):** `paymentMethod`, `mobileMoneyNetwork`, `mobileMoneyRef`, `amountTendered`, `changeDue`, `receiptNumber`, `saleGroupId`, `taxRate`, `taxAmount`. **P8:** `TransactionType.RETURN`, `customerId` (credit sales), `relatedSaleTransactionId` (return rows). **`SaleLineItem`:** `sourceSaleLineItemId` links return lines to original sale lines.
 - **`SaleLineItem`**, **`AppSettings`** (singleton row `id = 1`) — Prompt P1.
-- **Phase 2 SQL tables (P1 migration 3→5):** `customers`, `debts`, `alerts` — reserved for upcoming Kotlin `@Entity` / DAO wiring; **no Kotlin entities yet**, data preserved across upgrades.
+- **Phase 2 SQL tables (P1 migration 3→5):** `customers`, `debts`, `alerts` — now backed by Kotlin `@Entity` / DAOs (`Customer`, `Debt`, `Alert`); data preserved across upgrades.
 - **`ProductDao`**: CRUD + Flow queries; POS helpers `searchProductsByNameOrBarcode`, `getProductsOrderedForPos`, `getProductByBarcode`; **U3:** `CategoryAverages` + `getCategoryAverages`, `sumUnitsSoldForProductInPeriod` (pricing advisor). **`Customer` / `CustomerDao`**: Phase 2 `customers` table (v8 entity). **`Debt` / `DebtDao` / `DebtRepository`**: Phase 2 `debts` table (v9 entity); outstanding sum per customer for POS credit tab. **`TransactionDao`**: `insertTransaction`, `getAllTransactions()`, `getTransactionsByPeriod(start, end)`.
 - **`SaleLineItemDao`**, **`AppSettingsDao`** — Prompt P1 (Hilt-provided from `AppModule`).
 - **`TransactionRepository`**: Hilt `@Singleton` wrapper around `TransactionDao` (includes `observeCompletedPosSales`, `observeTransactionById`). **`SaleRepository`**: atomic `commitReturn` (RETURN tx, lines, stock, optional `DebtDao.reduceAmount`).
@@ -81,9 +104,9 @@
 ## Financial Insights Generator (Prompt 9 — done)
 - `Transaction` entity + `TransactionDao` + `TransactionRepository`.
 - `CashFlowAnalyzer`: Gemma-powered insights with rules fallback.
-- `CashFlowInsightsFragment` + `CashFlowInsightsViewModel`: Chart + AI narrative.
+- `CashFlowInsightsFragment` + `CashFlowInsightsViewModel`: Chart + AI narrative; **U6:** same screen adds **Credit** tab (debts list, mark paid, SMS reminder draft).
 
-## Testing Suite (Prompt 10 — done)
+## Testing Suite (Phase 1 baseline + Phase 2 U9/U10)
 - **Test Dependencies Added** (`build.gradle.kts`):
   - `io.mockk:mockk:1.13.13` (unit test mocking)
   - `app.cash.turbine:turbine:1.2.0` (StateFlow testing)
@@ -245,6 +268,29 @@ LabelProductEnricher (singleton, dep: GemmaService)
 | **Files created** | `LossAlertTypes.kt`, `LossAlertDao.kt`, `LossAlertEngine.kt`, `LossAlertWorker.kt`, `LossAlertWorkerFactory.kt`, `LossAlertScheduler.kt`, `HomeViewModel.kt`, `AlertCardAdapter.kt`, `item_alert_card.xml`, `ic_loss_alert.xml` |
 | **Files modified** | `Alert.kt`, `AlertDao.kt`, `AppDatabase.kt`, `DatabaseMigrations.kt`, `AppModule.kt`, `BiasharaApp.kt`, `HomeFragment.kt`, `fragment_home.xml`, `AndroidManifest.xml`, `strings.xml`, `AppDatabaseMigrationTest.kt`, `HANDOFF.md` |
 | **Tests** | `AppDatabaseMigrationTest.migrate3To15_preservesProductsAndTransactionsAndSeedsSettings` — v3→v15; `PRAGMA table_info(alerts)` includes U5 columns. |
+
+## Phase 2A — Prompt U6 (Debt and credit tracker)
+
+| Field | Value |
+|-------|-------|
+| **Last Completed** | Prompt U6: Debt and Credit Tracker |
+| **Next Prompt** | Prompt U7: Supplier Negotiation Assistant |
+| **DB version** | **15** (no new migration; uses existing `debts`, `transactions.note_type`) |
+| **Behavior** | **POS:** `PaymentDialogFragment` — **Paid** commits cash/mobile/split as before; **Credit** tab blocks **Paid** and requires **On credit** → dialog (amount must match total, optional due date, optional note) → `commitOnCreditSale` → `SaleRepository` writes INCOME with `CREDIT_EXTENDED` + `Debt`. **Insights:** `CashFlowInsightsFragment` hosts `TabLayout` + `ViewPager2` — **Cash flow** (`InsightsOverviewFragment`, shared `CashFlowInsightsViewModel`) and **Credit** (`CreditFragment`: total outstanding, `DebtAdapter` rows with **Paid** / **Remind**). **Paid** → `DebtRepository.markDebtRepaid` (DAO `markPaid` + balancing INCOME `DEBT_REPAID`). **Remind** → `DebtReminderViewModel` + Gemma prompt (locale language name) → preview dialog → user **Send via SMS** (`ACTION_SENDTO` / `sms_body`; app never auto-sends). |
+| **Files created** | `CreditFragment.kt`, `CreditViewModel.kt`, `DebtReminderViewModel.kt`, `DebtAdapter.kt`, `InsightsPagerAdapter.kt`, `InsightsOverviewFragment.kt`, `fragment_credit.xml`, `fragment_insights_overview.xml`, `item_debt_row.xml` |
+| **Files modified** | `PaymentDialogFragment.kt`, `PaymentViewModel.kt`, `fragment_payment_dialog.xml`, `CashFlowInsightsFragment.kt`, `fragment_cash_flow_insights.xml`, `SaleRepository.kt`, `PaymentDraft.kt`, `DebtRepository.kt`, `DebtDao.kt`, `TransactionNoteTypes.kt`, `app/build.gradle.kts` (ViewPager2), `strings.xml`, `HANDOFF.md` |
+| **Prompt vs. this repo** | Written U6: `SalesFragment` / `SalesViewModel` / `InsightsFragment` / `fragment_insights.xml`. **Shipped:** `PaymentDialogFragment` + `PaymentViewModel`; `CashFlowInsightsFragment` + `fragment_cash_flow_insights.xml` + `InsightsOverviewFragment` + `fragment_insights_overview.xml`. `nav_graph.xml` unchanged for U6 (Credit is an in-screen tab). `DebtRepository.kt` extended (original file from P5). |
+
+## Phase 2A — Prompt U7 (Supplier negotiation assistant)
+
+| Field | Value |
+|-------|-------|
+| **Last Completed** | Prompt U7: Supplier Negotiation Assistant |
+| **Next Prompt** | Prompt U8: WhatsApp Order Parser |
+| **DB version** | **15** (no migration) |
+| **Behavior** | **FULL_AI** only: `RULES_BASED` / `PARTIAL_AI` see a dialog (4GB+ RAM message) and do **not** navigate. Entry: **Prepare supplier visit** card on `HomeFragment` (below loss alerts) + overflow item on `InventoryListFragment`. `SupplierNegotiationFragment`: supplier name (optional), inventory multi-select + free-text lines, budget, city/country (country prefilled from device locale; currency from `AppSettings`). **Generate script** → `NegotiationViewModel` builds the spec prompt (city, country, language, items, budget, currency, supplier) and calls `GemmaService.generateResponse` on `Dispatchers.IO` with loading UI. `NegotiationGuideFragment`: parses OPENING / MAIN ASK / IF PUSHED BACK / CLOSING into colour‑coded cards; **Regenerate** re-runs Gemma; **Share** uses `ACTION_SEND` chooser with plain text. Activity-scoped `NegotiationViewModel` via `activityViewModels()`. |
+| **Files created** | `SupplierNegotiationFragment.kt`, `NegotiationGuideFragment.kt`, `NegotiationViewModel.kt`, `NegotiationTierGate.kt`, `fragment_supplier_negotiation.xml`, `fragment_negotiation_guide.xml`, `item_negotiation_section.xml` |
+| **Files modified** | `HomeFragment.kt`, `fragment_home.xml`, `InventoryListFragment.kt`, `fragment_inventory_list.xml`, `menu_inventory_list.xml`, `nav_graph.xml`, `MainActivity.kt`, `strings.xml`, `HANDOFF.md` |
 
 ## Phase 2A — Prompt U4 (Receipt and invoice OCR)
 

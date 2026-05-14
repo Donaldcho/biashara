@@ -43,6 +43,19 @@ interface ProductDao {
     @Query("SELECT * FROM products WHERE id = :id LIMIT 1")
     suspend fun getProductByIdOnce(id: Long): Product?
 
+    /**
+     * Prompt U8 — fuzzy name match for parsed order lines (shortest name first among LIKE hits).
+     */
+    @Query(
+        """
+        SELECT * FROM products
+        WHERE LOWER(name) LIKE '%' || LOWER(:query) || '%'
+        ORDER BY LENGTH(name) ASC
+        LIMIT 1
+        """,
+    )
+    suspend fun findProductByNameFuzzy(query: String): Product?
+
     @Query("SELECT * FROM products WHERE barcode_value = :barcodeValue LIMIT 1")
     fun getProductByBarcode(barcodeValue: String): Flow<Product?>
 

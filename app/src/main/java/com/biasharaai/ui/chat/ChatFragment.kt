@@ -28,7 +28,9 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.biasharaai.R
+import com.biasharaai.ai.VoiceInputPreferences
 import com.biasharaai.ai.VoiceInputProcessor
+import coil.load
 import com.biasharaai.databinding.FragmentChatBinding
 import com.biasharaai.ui.base.BaseFragment
 import com.google.android.material.chip.Chip
@@ -47,6 +49,9 @@ class ChatFragment : BaseFragment() {
     @Inject
     lateinit var voiceInputProcessor: VoiceInputProcessor
 
+    @Inject
+    lateinit var voiceInputPreferences: VoiceInputPreferences
+
     private var _binding: FragmentChatBinding? = null
     private val binding get() = _binding!!
 
@@ -61,13 +66,15 @@ class ChatFragment : BaseFragment() {
         ActivityResultContracts.PickVisualMedia(),
     ) { uri ->
         if (uri == null) return@registerForActivityResult
+        val b = _binding ?: return@registerForActivityResult
         val path = copyUriToChatCache(uri)
         if (path == null) {
-            Snackbar.make(binding.root, R.string.chat_error_generic, Snackbar.LENGTH_SHORT).show()
+            Snackbar.make(b.root, R.string.chat_error_generic, Snackbar.LENGTH_SHORT).show()
             return@registerForActivityResult
         }
         pendingImagePath = path
-        Snackbar.make(binding.root, R.string.chat_image_ready, Snackbar.LENGTH_SHORT).show()
+        showAttachmentPreview(path)
+        Snackbar.make(b.root, R.string.chat_image_ready, Snackbar.LENGTH_SHORT).show()
     }
 
     private val speechLauncher = registerForActivityResult(
@@ -117,6 +124,17 @@ class ChatFragment : BaseFragment() {
         observeSuggestionChips()
         observeThinking()
         observeGenerating()
+        observeVoiceInputPreference()
+    }
+
+    private fun observeVoiceInputPreference() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                voiceInputPreferences.voiceInputEnabled.collect { enabled ->
+                    binding.btnMic.visibility = if (enabled) View.VISIBLE else View.GONE
+                }
+            }
+        }
     }
 
     private fun setupToolbar() {
@@ -230,9 +248,30 @@ class ChatFragment : BaseFragment() {
                 PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
             )
         }
+        binding.btnRemoveAttachment.setOnClickListener {
+            pendingImagePath = null
+            hideAttachmentPreview()
+        }
+    }
+
+    private fun showAttachmentPreview(absolutePath: String) {
+        val b = _binding ?: return
+        b.layoutAttachmentPreview.visibility = View.VISIBLE
+        b.dividerChatAttachment.visibility = View.VISIBLE
+        b.imageAttachmentPreview.load(File(absolutePath)) {
+            crossfade(true)
+        }
+    }
+
+    private fun hideAttachmentPreview() {
+        val b = _binding ?: return
+        b.layoutAttachmentPreview.visibility = View.GONE
+        b.dividerChatAttachment.visibility = View.GONE
+        b.imageAttachmentPreview.setImageDrawable(null)
     }
 
     private fun onMicTapped() {
+        if (!voiceInputPreferences.isVoiceInputEnabled()) return
         if (viewModel.isGenerating.value) return
         val granted = ContextCompat.checkSelfPermission(
             requireContext(),
@@ -275,6 +314,7 @@ class ChatFragment : BaseFragment() {
 
     private fun clearSendFlags() {
         pendingImagePath = null
+        hideAttachmentPreview()
         wikipediaAugmentNext = false
         pendingRemoteSkillPrefix = null
     }
@@ -421,6 +461,7 @@ class ChatFragment : BaseFragment() {
                     }
                     binding.btnMic.isEnabled = !generating
                     binding.btnAttach.isEnabled = !generating
+                    binding.btnRemoveAttachment.isEnabled = !generating
                 }
             }
         }

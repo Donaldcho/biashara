@@ -11,6 +11,8 @@ import com.biasharaai.data.local.db.Transaction
 import com.biasharaai.data.local.db.TransactionDao
 import com.biasharaai.data.local.db.TransactionRepository
 import com.biasharaai.data.local.db.TransactionType
+import com.biasharaai.money.MoneyFormatter
+import com.biasharaai.pos.cart.CartRepository
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
@@ -20,6 +22,7 @@ import io.mockk.unmockkStatic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -82,7 +85,14 @@ class CashFlowInsightsViewModelTest {
         val appContext = mockk<Context>(relaxed = true)
         val modelDm = mockk<ModelDownloadManager>(relaxed = true)
         every { modelDm.isModelDownloaded } returns true
-        cashFlowAnalyzer = CashFlowAnalyzer(gemmaService, appContext, modelDm)
+        val cartRepo = mockk<CartRepository>(relaxed = true)
+        every { cartRepo.activeSettings } returns MutableStateFlow(null)
+        cashFlowAnalyzer = CashFlowAnalyzer(
+            gemmaService,
+            appContext,
+            modelDm,
+            MoneyFormatter(cartRepo),
+        )
     }
 
     @After

@@ -8,10 +8,11 @@
     <color name="biashara_mint">#A8E6C3</color>
     <color name="biashara_cream">#F5F0E8</color>
     <color name="biashara_warm">#FBF7F0</color>
-    <color name="biashara_charcoal">#1C1C1E</color>
-    <color name="biashara_ink">#2D2D35</color>
-    <color name="biashara_muted">#6B7280</color>
-    <color name="biashara_border">#E5E0D8</color>
+    <!-- Primary / secondary copy — higher contrast on cream & white surfaces -->
+    <color name="biashara_charcoal">#0F1714</color>
+    <color name="biashara_ink">#1A2420</color>
+    <color name="biashara_muted">#3D4A44</color>
+    <color name="biashara_border">#D8D2C8</color>
     <color name="biashara_amber">#D97706</color>
     <color name="biashara_amber_light">#FEF3C7</color>
     <color name="biashara_red">#DC2626</color>
@@ -32,7 +33,7 @@
     <color name="biashara_chart_expense">#DC2626</color>
     <color name="biashara_chart_track">#E5E0D8</color>
 
-    <!-- Bottom nav: warm bar (concept: frosted cream strip) -->
+    <color name="biashara_nav_label_unselected">#5A6862</color>
     <color name="biashara_nav_bar_bg">#F2FBF7F0</color>
     <color name="biashara_nav_ripple">#331A5C3A</color>
 
@@ -40,6 +41,9 @@
     <color name="biashara_night_bg">#0F1A14</color>
     <color name="biashara_night_surface">#1A1F1C</color>
     <color name="biashara_night_elevated">#232B26</color>
+
+    <color name="biashara_night_text_primary">#F1F5F3</color>
+    <color name="biashara_night_text_secondary">#C4CEC9</color>
 
     <!-- Chips on forest POS header -->
     <color name="biashara_chip_on_forest">#33FFFFFF</color>
