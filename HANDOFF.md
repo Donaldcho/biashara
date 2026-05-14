@@ -22,8 +22,8 @@
 ### Git branches (do not merge blindly)
 
 - **Branch map and commands:** [docs/BRANCHES.md](docs/BRANCHES.md) — which branch to checkout, naming rules, and PR-oriented workflow.
-- **Phase 4 prep integration:** remote branch **`feat/phase4-lineage-v1`** — carries chat / DB v15 / HANDOFF A0 work **without** folding it into `main` until a reviewed PR. Parent line: **`feat/pos-module`**.
-- **Open a PR from this line:** https://github.com/Donaldcho/biashara/pull/new/feat/phase4-lineage-v1
+- **Phase 4 stable line:** remote branch **`release/biashara-phase4`** — long-lived release line (chat, DB v15, HANDOFF A0); **not** required to merge to `main`. Parent line: **`feat/pos-module`**.
+- **Open a PR from this line** (optional, e.g. into another branch): https://github.com/Donaldcho/biashara/pull/new/release/biashara-phase4
 
 ### Prior phases (reference)
 - **Phase 2 — Intelligence Layer Upgrade:** Features such as loss prevention alerts (U5), receipt OCR (U4), conversational chat layer, and related Room fields shipped under the upgrade track; prefer **additive** follow-ups only.
