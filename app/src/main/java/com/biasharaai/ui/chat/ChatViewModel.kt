@@ -82,7 +82,10 @@ class ChatViewModel @Inject constructor(
               stock_quantity, category, barcode_value.
             • transactions: type INCOME | EXPENSE | RETURN, amount, description, date (epoch ms), plus POS fields.
             • sale_line_items: POS line rows — product_id, product_name, unit_price, quantity, line_total, transaction_id.
+            • customers: name, phone, notes, created_at, last_visit (address book + visit hints).
+            • debts: unpaid amounts linked to a customer (credit tab); repayments update these rows.
             Use "cost" from products for purchase/cost questions; use "price" for shelf/list price.
+            If a topic is not listed here, the app may answer from rules only ("not stored") unless facts appear below.
         """.trimIndent()
 
         /** Glue words when matching OCR tokens from photos to `products.name`. */
@@ -507,6 +510,10 @@ class ChatViewModel @Inject constructor(
      *
      * Shorter prompts → faster prefill → much shorter time-to-first-token on `tasks-genai`.
      * If we can't classify the question, we fall back to a small summary instead of the full dump.
+     *
+     * When the question matches at least one inventory/finance/stock keyword ([needAll] is false),
+     * we use a **slim** context for Gemma: smaller catalog cap, shorter “today sold” lines, and no
+     * 7‑day top-seller paragraph — structured answers still bypass Gemma entirely when they hit first.
      */
     private suspend fun buildBusinessContext(userQuestion: String, visualSummary: String = ""): String {
         val q = userQuestion.lowercase()
@@ -522,6 +529,9 @@ class ChatViewModel @Inject constructor(
             "sale", "sales", "sold", "selling", "uza", "uuzaji", "today", "leo", "hii leo",
         )
         val needAll = !(wantsInventory || wantsLowStock || wantsFinance)
+        val slimGemmaContext = !needAll
+        val maxCatalogChars = if (slimGemmaContext) 2_400 else 6_000
+        val shortListProductCount = if (slimGemmaContext) 6 else 8
         /** Per-unit economics: must load products even if the only finance keyword is "cost"/"price". */
         val wantsUnitEconomics = q.containsAnyKeyword(
             "cost", "price", "how much", "bei", "gharama", "per unit", "per item",
@@ -534,6 +544,10 @@ class ChatViewModel @Inject constructor(
         val sb = StringBuilder()
         sb.appendLine(DATABASE_SCHEMA_HINT)
         sb.appendLine()
+        if (slimGemmaContext) {
+            sb.appendLine("Context mode: focused facts only (question matched specific business keywords).")
+            sb.appendLine()
+        }
 
         if (includeProducts) {
             try {
@@ -580,18 +594,21 @@ class ChatViewModel @Inject constructor(
                     }
                     val productListing = if (detailedListing) {
                         val lines = products.joinToString(" | ") { formatProductFactLine(it) }
-                        truncateContextLines(lines, maxChars = 6_000)
+                        truncateContextLines(lines, maxChars = maxCatalogChars)
                     } else {
                         products
                             .sortedByDescending { it.price * it.stockQuantity }
-                            .take(8)
+                            .take(shortListProductCount)
                             .joinToString(", ") { formatProductFactLine(it) }
                     }
                     sb.appendLine("Product catalog: $productListing.")
                     if (lowStock.isNotEmpty()) {
-                        sb.appendLine(
-                            "Low stock items: ${lowStock.joinToString(", ") { "${it.name} (${it.stockQuantity} left)" }}.",
-                        )
+                        val lowStockNote = if (slimGemmaContext) {
+                            lowStock.take(6).joinToString(", ") { "${it.name} (${it.stockQuantity} left)" }
+                        } else {
+                            lowStock.joinToString(", ") { "${it.name} (${it.stockQuantity} left)" }
+                        }
+                        sb.appendLine("Low stock items: $lowStockNote.")
                     }
                 } else {
                     sb.appendLine("Inventory: no products added yet.")
@@ -650,14 +667,18 @@ class ChatViewModel @Inject constructor(
             sb.appendLine("Today sales summary: unavailable.")
         }
         try {
-            sb.appendLine(buildTodaySoldProductsFactLine())
+            val todaySoldMaxChars = if (slimGemmaContext) 900 else 2_000
+            val todaySoldTake = if (slimGemmaContext) 15 else 40
+            sb.appendLine(buildTodaySoldProductsFactLine(maxChars = todaySoldMaxChars, take = todaySoldTake))
         } catch (_: Exception) {
             sb.appendLine("Today sold products (detail): unavailable.")
         }
 
-        try {
-            buildLastSevenDaysTopSellersLine()?.let { sb.appendLine(it) }
-        } catch (_: Exception) {
+        if (!slimGemmaContext) {
+            try {
+                buildLastSevenDaysTopSellersLine()?.let { sb.appendLine(it) }
+            } catch (_: Exception) {
+            }
         }
 
         return sb.toString()
@@ -705,7 +726,7 @@ class ChatViewModel @Inject constructor(
             .sortedByDescending { it.second }
     }
 
-    private suspend fun buildTodaySoldProductsFactLine(): String {
+    private suspend fun buildTodaySoldProductsFactLine(maxChars: Int = 2_000, take: Int = 40): String {
         val agg = try {
             aggregateTodaySoldLines()
         } catch (_: Exception) {
@@ -714,14 +735,13 @@ class ChatViewModel @Inject constructor(
         if (agg.isEmpty()) {
             return "Today sold products (from POS line items): none recorded for this date."
         }
-        val parts = agg.take(40).map { (name, qty, rev) ->
+        val parts = agg.take(take).map { (name, qty, rev) ->
             "$name × $qty (${formatCurrency(rev)})"
         }
         var text = "Today sold products (each name × units sold today, then line revenue): " +
             parts.joinToString("; ") + "."
-        val max = 2_000
-        if (text.length > max) {
-            text = text.take(max) + "…"
+        if (text.length > maxChars) {
+            text = text.take(maxChars) + "…"
         }
         return text
     }

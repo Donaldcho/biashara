@@ -876,6 +876,29 @@ internal suspend fun structuredQueryPart3(
     ctx: StructuredQueryContext,
     polish: suspend (String, String, String) -> String,
 ): String? = with(ctx) {
+    // Swahili / mixed phrasing — mirrors English debt totals (experiment branch).
+    if (q.contains("jumla ya deni") || q.contains("deni jumla") ||
+        (hasAny("deni", "madeni") && hasAny("jumla", "kiasi") && (q.contains("deni") || q.contains("madeni")))
+    ) {
+        return polish(question, "Total outstanding recorded debt: ${fmt(outstanding)}.", languageDisplayName)
+    }
+    if ((q.contains("nani") && hasAny("deni", "madeni", "wanidai", "inadaiwa")) ||
+        hasAny("nani anadaiwa", "nani ananidai")
+    ) {
+        val top = unpaidDebts.groupBy { it.customerId }
+            .mapValues { (_, d) -> d.sumOf { it.amount } }
+            .entries.sortedByDescending { it.value }.take(12)
+        val txt = if (top.isEmpty()) {
+            "No outstanding debt rows."
+        } else {
+            top.joinToString("; ") { e ->
+                val name = customers.find { it.id == e.key }?.name ?: "#${e.key}"
+                "$name ${fmt(e.value)}"
+            }
+        }
+        return polish(question, "Outstanding by customer (top slice): $txt.", languageDisplayName)
+    }
+
     // ── Category 5–6: customers & debt ───────────────────────────────
     if (q.contains("owe") && (q.contains("total") || q.contains("how much"))) {
         return polish(question, "Total outstanding recorded debt: ${fmt(outstanding)}.", languageDisplayName)
