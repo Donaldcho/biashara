@@ -198,6 +198,17 @@ internal suspend fun structuredQueryPart1(
         return polish(question, "Today you have $c income sale transaction(s) with positive totals.", languageDisplayName)
     }
 
+    if (hasAny("average", "mean") && hasAny("order", "sale", "ticket", "transaction") && hasAny("today", "leo")) {
+        val inc = incomeInRange(t0, t1)
+        val c = txs.count { it.type == TransactionType.INCOME && it.amount > 0 && it.date in t0..t1 }
+        val aov = if (c > 0) inc / c else 0.0
+        return polish(
+            question,
+            "Average income transaction amount today: ${fmt(aov)} (from $c positive income sale(s)).",
+            languageDisplayName,
+        )
+    }
+
     if ((q.contains("revenue") && q.contains("week")) || (q.contains("this week") && q.contains("revenue"))) {
         val v = incomeInRange(w0, wEnd)
         return polish(question, "Income (revenue) this week so far: ${fmt(v)}.", languageDisplayName)
@@ -242,6 +253,12 @@ internal suspend fun structuredQueryPart1(
         val a = incomeInRange(t0, t1)
         val b = incomeInRange(y0, y1)
         return polish(question, "Today income ${fmt(a)} vs yesterday ${fmt(b)}.", languageDisplayName)
+    }
+
+    if (hasAny("jana", "yesterday") && hasAny("leo", "today") && hasAny("mapato", "mauzo", "income", "revenue", "faida", "pesa")) {
+        val a = incomeInRange(t0, t1)
+        val b = incomeInRange(y0, y1)
+        return polish(question, "Recorded income leo (today) ${fmt(a)} vs jana (yesterday) ${fmt(b)}.", languageDisplayName)
     }
 
     if (q.contains("time of day") && q.contains("sell")) {
@@ -510,6 +527,13 @@ internal suspend fun structuredQueryPart1(
     if ((q.contains("total value") && q.contains("inventory")) || (q.contains("stock value") && q.contains("total"))) {
         val v = products.sumOf { it.price * it.stockQuantity }
         return polish(question, "Total retail value of on-hand stock (sum of list price × quantity): ${fmt(v)}.", languageDisplayName)
+    }
+
+    if (hasAny("thamani", "jumla") && hasAny("stock", "stoo", "hifadhi", "bidhaa", "inventory") &&
+        (hasAny("jumla", "total", "nzima", "shelf") || q.contains("thamani ya"))
+    ) {
+        val v = products.sumOf { it.price * it.stockQuantity }
+        return polish(question, "Total retail value of on-hand stock (list price × quantity): ${fmt(v)}.", languageDisplayName)
     }
 
     if (q.contains("low stock") || q.contains("running low")) {

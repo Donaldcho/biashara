@@ -142,7 +142,7 @@ class MigrationTest {
      * 500ms is the on-device target from the Phase 2 checklist.
      */
     @Test
-    fun migrateV3To15_preservesThousandProducts_underReasonableTime() {
+    fun migrateV3To16_preservesThousandProducts_underReasonableTime() {
         helper.createDatabase(TEST_DB_LARGE, 3).apply {
             execSQL(
                 """
@@ -189,7 +189,7 @@ class MigrationTest {
         val t0 = System.nanoTime()
         val db = helper.runMigrationsAndValidate(
             TEST_DB_LARGE,
-            15,
+            16,
             true,
             *DatabaseMigrations.ALL,
         )

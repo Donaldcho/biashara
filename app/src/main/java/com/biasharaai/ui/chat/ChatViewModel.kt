@@ -12,6 +12,7 @@ import com.biasharaai.chat.query.ConversationalQueryLayer
 import com.biasharaai.chat.skills.RemoteSkillManifestStore
 import com.biasharaai.chat.skills.WikipediaSkillClient
 import com.biasharaai.chat.vision.ImageChatAnalyzer
+import com.biasharaai.data.ChatActiveSessionStore
 import com.biasharaai.data.ChatQueryHistoryStore
 import com.biasharaai.data.local.db.ChatMemoryRepository
 import com.biasharaai.data.local.db.ChatSessionEntity
@@ -321,7 +322,13 @@ class ChatViewModel @Inject constructor(
                 }
                 chatSessionRepository.updateTitleFromFirstUserLine(sessionId, bodyForDb)
 
-                val structured = conversationalQueryLayer.tryStructuredAnswer(fallbackQ, langName)
+                val structuredPrimary = conversationalQueryLayer.tryStructuredAnswer(structuredQ, langName)
+                val structured = structuredPrimary
+                    ?: if (fallbackQ != structuredQ) {
+                        conversationalQueryLayer.tryStructuredAnswer(fallbackQ, langName)
+                    } else {
+                        null
+                    }
                 if (structured != null) {
                     replacePlaceholder(placeholderIndex, structured)
                     persistAssistantAndFixRow(sessionId, placeholderIndex, structured)
@@ -447,6 +454,24 @@ class ChatViewModel @Inject constructor(
                     list[placeholderIndex] = list[placeholderIndex].copy(stableId = aid)
                     _messages.value = list
                 }
+            }
+        }
+    }
+
+    /** Persist helpful / not helpful for a persisted assistant bubble (`stableId` > 0). */
+    fun submitAssistantFeedback(messageId: Long, vote: Int) {
+        if (messageId <= 0L) return
+        val normalized = when (vote) {
+            1 -> 1
+            -1 -> -1
+            else -> return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            chatSessionRepository.setMessageFeedback(messageId, normalized)
+            val sid = chatSessionRepository.getActiveSessionIdFromStore()
+            if (sid != ChatActiveSessionStore.NO_SESSION) {
+                val rows = chatSessionRepository.loadMessagesForUi(sid)
+                withContext(Dispatchers.Main.immediate) { _messages.value = rows }
             }
         }
     }
@@ -674,6 +699,13 @@ class ChatViewModel @Inject constructor(
             sb.appendLine("Today sold products (detail): unavailable.")
         }
 
+        if (mentionsCalendarToday(q) && (wantsFinance || wantsInventory || wantsLowStock)) {
+            try {
+                buildDailyPosBriefingLine()?.let { sb.appendLine(it) }
+            } catch (_: Exception) {
+            }
+        }
+
         if (!slimGemmaContext) {
             try {
                 buildLastSevenDaysTopSellersLine()?.let { sb.appendLine(it) }
@@ -696,6 +728,37 @@ class ChatViewModel @Inject constructor(
         val start = day.atStartOfDay(zone).toInstant().toEpochMilli()
         val end = day.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
         return Triple(day, start, end)
+    }
+
+    private fun mentionsCalendarToday(qLower: String): Boolean =
+        qLower.contains("leo") ||
+            qLower.contains("hii leo") ||
+            Regex("""\btoday\b""").containsMatchIn(qLower)
+
+    /** One-line yesterday vs today recorded income for “today” questions (POS hero slice). */
+    private suspend fun buildDailyPosBriefingLine(): String? {
+        val zone = ZoneId.systemDefault()
+        val todayDay = LocalDate.now(zone)
+        val (_, tStart, tEnd) = todayLocalDateAndMillisRange()
+        val yDay = todayDay.minusDays(1)
+        val yStart = yDay.atStartOfDay(zone).toInstant().toEpochMilli()
+        val yEnd = yDay.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
+        val todayTxs = transactionDao.getTransactionsBetween(tStart, tEnd)
+            .filter { it.type == TransactionType.INCOME && it.amount > 0 }
+        val yTxs = transactionDao.getTransactionsBetween(yStart, yEnd)
+            .filter { it.type == TransactionType.INCOME && it.amount > 0 }
+        val tSum = todayTxs.sumOf { it.amount }
+        val ySum = yTxs.sumOf { it.amount }
+        val detail = when {
+            tSum <= 0.0 && ySum <= 0.0 -> "no positive income transactions on either day."
+            ySum <= 0.0 -> "yesterday had none; today ${formatCurrency(tSum)} from ${todayTxs.size} transaction(s)."
+            else -> {
+                val deltaPct = (tSum - ySum) / ySum * 100.0
+                val pctStr = String.format(Locale.US, "%.0f", deltaPct)
+                "yesterday ${formatCurrency(ySum)} (${yTxs.size} tx) vs today ${formatCurrency(tSum)} (${todayTxs.size} tx); about $pctStr% vs yesterday."
+            }
+        }
+        return "Same-day POS briefing (local calendar): $detail"
     }
 
     private suspend fun loadTodaySalesSnapshot(): TodaySalesSnapshot {

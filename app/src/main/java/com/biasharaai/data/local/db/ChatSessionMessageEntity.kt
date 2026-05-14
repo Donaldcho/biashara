@@ -30,4 +30,7 @@ data class ChatSessionMessageEntity(
     val imagePath: String? = null,
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis(),
+    /** Optional user feedback on assistant replies: `1` helpful, `-1` not helpful, `null` unset. */
+    @ColumnInfo(name = "feedback_vote")
+    val feedbackVote: Int? = null,
 )

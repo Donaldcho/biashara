@@ -211,6 +211,8 @@
     <string name="chat_fallback_today_items_none">On %1$s (local date), no itemized POS sale lines were recorded (or all lines were returns).</string>
     <string name="chat_fallback_today_items_intro">Items sold (name × units, line total):</string>
     <string name="chat_fallback_no_data">You haven\'t added any products or recorded any transactions yet. Open Inventory or Sales to get started.</string>
+    <string name="chat_feedback_positive">Helpful</string>
+    <string name="chat_feedback_negative">Not helpful</string>
     <string name="chat_error_generic">Sorry, something went wrong. Please try again.</string>
     <string name="chat_ai_timeout_with_summary">The on-device model took too long. Here is a quick answer from your records:\n\n%1$s</string>
 

@@ -11,4 +11,6 @@ data class ChatMessage(
     val isUser: Boolean,
     val imageUri: String? = null,
     val timestamp: Long = System.currentTimeMillis(),
+    /** `1` user marked helpful, `-1` not helpful; `null` no vote. Persisted for assistant rows. */
+    val feedbackVote: Int? = null,
 )

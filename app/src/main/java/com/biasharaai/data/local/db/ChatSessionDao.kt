@@ -57,4 +57,6 @@ interface ChatSessionDao {
     )
     suspend fun deleteOldestMessages(sessionId: Long, excess: Int)
 
+    @Query("UPDATE chat_session_messages SET feedback_vote = :vote WHERE id = :messageId")
+    suspend fun updateMessageFeedback(messageId: Long, vote: Int?)
 }

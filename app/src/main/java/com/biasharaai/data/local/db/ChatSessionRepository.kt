@@ -107,6 +107,10 @@ class ChatSessionRepository @Inject constructor(
         return id
     }
 
+    suspend fun setMessageFeedback(messageId: Long, vote: Int?) {
+        chatSessionDao.updateMessageFeedback(messageId, vote)
+    }
+
     suspend fun appendAssistantMessage(sessionId: Long, text: String): Long {
         val t = text.trim()
         if (t.isBlank()) return -1L
@@ -144,6 +148,7 @@ class ChatSessionRepository @Inject constructor(
             isUser = role == ROLE_USER,
             imageUri = imagePath,
             timestamp = createdAt,
+            feedbackVote = feedbackVote,
         )
 
     companion object {

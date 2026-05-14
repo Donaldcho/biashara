@@ -24,6 +24,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  *   (persisted turns for Gemma prompt continuity).
  * - **14 → 15:** Chat sessions — `chat_sessions` + `chat_session_messages`; legacy `chat_transcript_turns`
  *   migrated into session `id=1` then dropped (Gallery-style history per thread).
+ * - **15 → 16:** `chat_session_messages.feedback_vote` for lightweight assistant reply feedback (experiment).
  */
 object DatabaseMigrations {
 
@@ -304,6 +305,15 @@ object DatabaseMigrations {
         }
     }
 
+    /** Experiment: optional thumbs feedback on persisted assistant chat bubbles. */
+    val MIGRATION_15_16 = object : Migration(15, 16) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            if (!columnExists(db, "chat_session_messages", "feedback_vote")) {
+                db.execSQL("ALTER TABLE chat_session_messages ADD COLUMN feedback_vote INTEGER")
+            }
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_3_5,
         MIGRATION_5_6,
@@ -316,5 +326,6 @@ object DatabaseMigrations {
         MIGRATION_12_13,
         MIGRATION_13_14,
         MIGRATION_14_15,
+        MIGRATION_15_16,
     )
 }

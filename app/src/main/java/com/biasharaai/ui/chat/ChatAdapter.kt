@@ -12,8 +12,13 @@ import java.io.File
 
 /**
  * RecyclerView adapter for chat messages.
+ *
+ * @param onAssistantFeedback when non-null, persisted assistant rows (`stableId` > 0) show
+ * lightweight feedback controls; vote is `1` (helpful) or `-1` (not helpful).
  */
-class ChatAdapter : ListAdapter<ChatMessage, ChatAdapter.ChatViewHolder>(DIFF_CALLBACK) {
+class ChatAdapter(
+    private val onAssistantFeedback: ((Long, Int) -> Unit)? = null,
+) : ListAdapter<ChatMessage, ChatAdapter.ChatViewHolder>(DIFF_CALLBACK) {
 
     companion object {
         private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<ChatMessage>() {
@@ -29,7 +34,7 @@ class ChatAdapter : ListAdapter<ChatMessage, ChatAdapter.ChatViewHolder>(DIFF_CA
         val binding = ItemChatMessageBinding.inflate(
             LayoutInflater.from(parent.context), parent, false,
         )
-        return ChatViewHolder(binding)
+        return ChatViewHolder(binding, onAssistantFeedback)
     }
 
     override fun onBindViewHolder(holder: ChatViewHolder, position: Int) {
@@ -38,9 +43,12 @@ class ChatAdapter : ListAdapter<ChatMessage, ChatAdapter.ChatViewHolder>(DIFF_CA
 
     class ChatViewHolder(
         private val binding: ItemChatMessageBinding,
+        private val onAssistantFeedback: ((Long, Int) -> Unit)?,
     ) : RecyclerView.ViewHolder(binding.root) {
 
         fun bind(message: ChatMessage) {
+            binding.btnFeedbackUp.setOnClickListener(null)
+            binding.btnFeedbackDown.setOnClickListener(null)
             if (message.isUser) {
                 binding.cardUser.visibility = View.VISIBLE
                 binding.cardAi.visibility = View.GONE
@@ -59,6 +67,18 @@ class ChatAdapter : ListAdapter<ChatMessage, ChatAdapter.ChatViewHolder>(DIFF_CA
                 binding.cardUser.visibility = View.GONE
                 binding.cardAi.visibility = View.VISIBLE
                 binding.textAiMessage.text = message.text
+                val showFeedback = message.stableId > 0L && onAssistantFeedback != null
+                binding.rowAiFeedback.visibility = if (showFeedback) View.VISIBLE else View.GONE
+                if (showFeedback) {
+                    binding.btnFeedbackUp.isSelected = message.feedbackVote == 1
+                    binding.btnFeedbackDown.isSelected = message.feedbackVote == -1
+                    binding.btnFeedbackUp.setOnClickListener {
+                        onAssistantFeedback.invoke(message.stableId, 1)
+                    }
+                    binding.btnFeedbackDown.setOnClickListener {
+                        onAssistantFeedback.invoke(message.stableId, -1)
+                    }
+                }
             }
         }
     }

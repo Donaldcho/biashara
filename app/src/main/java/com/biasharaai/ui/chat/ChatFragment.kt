@@ -168,7 +168,11 @@ class ChatFragment : BaseFragment() {
     }
 
     private fun setupRecyclerView() {
-        chatAdapter = ChatAdapter()
+        chatAdapter = ChatAdapter(
+            onAssistantFeedback = { messageId, vote ->
+                viewModel.submitAssistantFeedback(messageId, vote)
+            },
+        )
         binding.recyclerChat.apply {
             layoutManager = LinearLayoutManager(requireContext()).apply { stackFromEnd = true }
             adapter = chatAdapter
