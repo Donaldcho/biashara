@@ -12,7 +12,7 @@ Keep it updated when you add long-lived integration lines or change the default 
 | See current branch | `git branch --show-current` |
 | List remote branches | `git branch -r` |
 | Fetch everything | `git fetch origin` |
-| Work on **Phase 4 stable line** (chat, DB v15, HANDOFF A0) | `git fetch origin && git checkout release/biashara-phase4` |
+| Work on **stable line** (U prompts, POS, chat) | `git fetch origin && git checkout release/biashara-phase4` |
 | Work on **POS feature line** (historical) | `git fetch origin && git checkout feat/pos-module` |
 | Start a **new** task from latest integration | `git fetch origin && git checkout release/biashara-phase4 && git pull && git checkout -b feat/<short-topic>` |
 
@@ -23,12 +23,12 @@ Keep it updated when you add long-lived integration lines or change the default 
 ```text
 main
  └── feat/pos-module          (POS / earlier integration — pushed earlier)
-       └── release/biashara-phase4   (current: HANDOFF A0, chat sessions, v15, …)
+       └── release/biashara-phase4   (stable line: U-track + POS + chat v15, …)
 ```
 
 - **`main`** — release-aligned default; treat as **protected** (PR + review + CI before merge).
 - **`origin/feat/pos-module`** — prior integration branch; **not replaced** by the new line.
-- **`origin/release/biashara-phase4`** — **stable Phase 4 line** (HANDOFF A0, chat sessions, DB v15, …). Intended as a **long-lived branch**; you do **not** have to merge it into `main`. Open PRs only when you want review or to merge into another branch.
+- **`origin/release/biashara-phase4`** — **stable integration line** (POS, U-track intelligence, chat DB v15, etc.). Intended as **long-lived**; merge to `main` only if you choose. Prompt state: **`HANDOFF.md`** (currently **U** track — next **U6**).
 
 ---
 
@@ -86,6 +86,7 @@ git push -u origin release/biashara-phase4
 
 | Date | Change |
 |------|--------|
+| 2026-05-14 | **Prompt tracker:** primary work back on **U** prompts (next **U6**); Phase **A** deferred. Stable branch unchanged: `release/biashara-phase4`. |
 | 2026-05-14 | Renamed **`feat/phase4-lineage-v1`** → **`release/biashara-phase4`** on `origin`; old remote branch removed. |
 | 2026-05-12 | Pushed `feat/phase4-lineage-v1` to `origin`; added PR shortcut URL. |
 | 2026-05-12 | Added Phase 4 prep integration line from `feat/pos-module`. |

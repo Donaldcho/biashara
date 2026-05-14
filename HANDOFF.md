@@ -1,28 +1,28 @@
 # Biashara AI Project Handoff Document
 
 ## Current Project State
-- **Last Completed Prompt:** Prompt P10 — POS Module Complete
-- **Next Expected Prompt:** Prompt A1 — Agent Database Migrations
-- **Phase:** 4 — Autonomous Business Agent
-- **AppDatabase version:** **15** (`AppDatabase.kt`) — **Prompt A1** and later agent work add **additive** migrations from this baseline (e.g. **15→16+**). *(Any template that still says “v7” refers to an old POS-era milestone, not the current schema.)*
-- **Key Notes:**
-  - All agents are **ADDITIVE** — no existing code is deleted.
-  - Phase **4a** (A1–A4) has **zero Gemma dependency** — value on all device tiers.
-  - **`GemmaService`** calls are serialised via **`Mutex`** in **`AgentOrchestrator`** (add **`AgentOrchestrator`** in Phase 4; keep single-flight access consistent with existing `GemmaService` mutex usage).
-  - Every agent action requires **owner approval** unless auto-approved in settings.
+- **Active track:** **Phase 2 — Intelligence upgrade (U prompts)**. Phase 4 **A** prompts (agent DB migrations, etc.) are **deferred** while this track proceeds; work continues on branch **`release/biashara-phase4`** unless you branch otherwise (see [docs/BRANCHES.md](docs/BRANCHES.md)).
+- **Last Completed Prompt (U track):** Prompt U5 — Loss Prevention Alerts
+- **Next Expected Prompt:** Prompt U6 — Debt and Credit Tracker
+- **Phase:** 2 — Intelligence Layer Upgrade
+- **AppDatabase version:** **15** (`AppDatabase.kt`) — U6 and later U-prompt work stay **additive** (new migrations from current version forward only).
+- **Key Notes (U track):**
+  - Prefer **additive** schema and code; no destructive rollback of shipped POS / chat tables.
+  - **`Debt` / `DebtDao` / `DebtRepository`** already exist for POS credit; U6 likely extends **owner-facing debt/credit UX** and reporting — confirm scope in the U6 prompt spec.
+- **Also (Phase 4 — deferred):** When returning to **A** prompts: agents additive; 4a without Gemma; `AgentOrchestrator` + `Mutex` for Gemma; owner approval for agent actions.
 
-**Repository snapshot (unchanged facts):** POS, intelligence upgrades (e.g. loss alerts, **Gallery-style chat** with `chat_sessions` / `chat_session_messages` at **DB v15**), and the full **`DatabaseMigrations.kt`** chain remain in place. Details in **Room Database** and **Chat** sections below.
+**Repository snapshot:** POS, loss alerts (U5), receipt OCR (U4), chat sessions (DB v15), conversational layer, etc. Details in sections below.
 
 | Handoff | |
 |---------|---|
-| **Last Completed** | Prompt A0 |
-| **Next Prompt** | A1: Database Migrations |
+| **Last Completed** | Resume **U** prompt track (HANDOFF) |
+| **Next Prompt** | **U6:** Debt and Credit Tracker |
 | **Files modified** | `HANDOFF.md` |
 
 ### Git branches (do not merge blindly)
 
 - **Branch map and commands:** [docs/BRANCHES.md](docs/BRANCHES.md) — which branch to checkout, naming rules, and PR-oriented workflow.
-- **Phase 4 stable line:** remote branch **`release/biashara-phase4`** — long-lived release line (chat, DB v15, HANDOFF A0); **not** required to merge to `main`. Parent line: **`feat/pos-module`**.
+- **Stable git line:** remote branch **`release/biashara-phase4`** — long-lived branch for Phase 2 **U**-prompt work and related features; **not** required to merge to `main`. Parent line: **`feat/pos-module`**.
 - **Open a PR from this line** (optional, e.g. into another branch): https://github.com/Donaldcho/biashara/pull/new/release/biashara-phase4
 
 ### Prior phases (reference)
@@ -235,6 +235,10 @@ LabelProductEnricher (singleton, dep: GemmaService)
 | **Files modified** | `AddEditProductFragment.kt`, `fragment_add_edit_product.xml`, `AddEditProductViewModel.kt`, `ProductDao.kt` (+ `CategoryAverages`), `strings.xml`, `HANDOFF.md` |
 
 ## Phase 2A — Prompt U5 (Loss prevention alerts)
+
+| Field | Value |
+|-------|-------|
+| **Last Completed** | Prompt U5: Loss Prevention Alerts |
 | **Next Prompt** | Prompt U6: Debt and Credit Tracker |
 | **DB version** | **13** (`MIGRATION_12_13`: `alert_type`, `product_id`, `dedupe_key`, `localized_message`, `related_transaction_id` on `alerts`) |
 | **Behavior** | `LossAlertEngine` runs four Room-backed detectors (low stock without recent POS lines, 7-day-then-3-day-quiet sales gap, line `unit_price` &lt; 70% of list `price`, high expense day vs trailing 30-day average). `LossAlertWorker` (WorkManager **24h** unique periodic) inserts `Alert` rows with `dedupe_key` skip-if-active. **FULL_AI** + model + non-English locale: Gemma caches translation in `localized_message`. `HomeFragment` shows cards (`AlertCardAdapter`) with Review (inventory / edit product / receipt / insights) and Dismiss. `BiasharaApp` implements `Configuration.Provider` with `LossAlertWorkerFactory`; manifest removes default WorkManager initializer. |
