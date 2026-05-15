@@ -13,7 +13,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Validates **v3 → v19** migrations preserve existing product and transaction rows
+ * Validates **v3 → v20** migrations preserve existing product and transaction rows
  * and produce the POS schema (`sale_line_items`, extended `transactions`, `app_settings`,
  * `note_type` on `transactions`, `last_visit` on `customers`, loss columns on `alerts`),
  * chat session tables, and Phase 4a agent tables (`agent_actions`, `agent_settings`, `agent_run_log`)
@@ -37,7 +37,7 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
-    fun migrate3To19_preservesProductsAndTransactionsAndSeedsSettings() {
+    fun migrate3To20_preservesProductsAndTransactionsAndSeedsSettings() {
         helper.createDatabase(TEST_DB, 3).apply {
             // v3 schema (matches Room entities before POS — indices match Room naming)
             execSQL(
@@ -82,7 +82,7 @@ class AppDatabaseMigrationTest {
 
         val db = helper.runMigrationsAndValidate(
             TEST_DB,
-            19,
+            20,
             true,
             *DatabaseMigrations.ALL,
         )
@@ -194,6 +194,16 @@ class AppDatabaseMigrationTest {
         }
 
         db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='pending_notifications'").use { c ->
+            assertTrue(c.moveToFirst())
+        }
+
+        db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='model_descriptors'").use { c ->
+            assertTrue(c.moveToFirst())
+        }
+        db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='skill_descriptors'").use { c ->
+            assertTrue(c.moveToFirst())
+        }
+        db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='skill_pack_records'").use { c ->
             assertTrue(c.moveToFirst())
         }
 

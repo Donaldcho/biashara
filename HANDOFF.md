@@ -1,11 +1,11 @@
 # Biashara AI Project Handoff Document
 
 ## Current Project State
-- **Last Completed Prompt:** Prompt A10 — Battery constraints, quiet-hour notification queue, and agent run history UI ([NotificationScheduler], [PendingNotification], [AgentOrchestrator] constraints, [AgentSettingsFragment]).
-- **Next Expected Prompt:** Prompt A11 — Testing suite
-- **Phase:** 4 — Autonomous Business Agent
-- **AppDatabase version:** **19** (`AppDatabase.kt` — Room `version`; latest chain **18→19** `pending_notifications`; **17→18** `products.last_stock_check_at` + stock index; **16→17** agent tables)
-- **Active git line:** **`release/biashara-phase4`** (see [docs/BRANCHES.md](docs/BRANCHES.md))
+- **Last Completed Prompt:** Prompt **X0** — Phase 6 foundation: `model_descriptors`, `skill_descriptors`, `skill_pack_records` (Room **19→20**).
+- **Next Expected Prompt:** Prompt **X1** — Migrate `GemmaService` to LiteRT-LM **Engine / Conversation** API; introduce `ModelLoader`, `ActiveModelStore`, `BiasharaConversation`.
+- **Phase:** **6** — Extended agents · swappable models · skills system (builds on **Phase 4** agents shipped on `release/biashara-phase4`).
+- **AppDatabase version:** **20** (`AppDatabase.kt`; latest **19→20** adds Phase 6 tables; prior chain through **18→19** `pending_notifications`, **16→17** agents, etc.)
+- **Active git line:** **`feat/phase6-model-skills`** (Phase 6 work); production line remains **`release/biashara-phase4`** until Phase 6 is merged.
 - **Key Notes (Phase 4 — A track):**
   - All agents are **additive** — no existing shipped code is deleted; extend schema and features in place.
   - **Phase 4a (A1–A4)** targets **zero Gemma dependency** so agent value applies on **all** device tiers (`RULES_BASED` / `PARTIAL_AI` / `FULL_AI`).
@@ -13,12 +13,16 @@
   - Every agent action requires **owner approval** unless **auto-approved** in settings (policy to be defined in A-track prompts).
 - **Phase 2 (U1–U10) — shipped (reference):** Intelligence upgrade complete through Prompt U10; conversational query layer, POS, debt/credit, loss alerts, order parser, tests — see sections **Phase 2 closure**, **Room Database**, and **Chat** below for file and schema detail.
 
-**Repository snapshot:** POS + Phase 2 + **Room 19 agent schema** + **A5–A10 agent stack** (WorkManager + feed execution bridge + notification quiet-hours queue + run-history settings UI).
+**Repository snapshot:** POS + Phase 2 + **Room 20** + Phase 4 agent stack + **Phase 6 X0** (model/skill/pack tables for registry & skills engine). `GemmaService` remains until **X1** (Engine API migration).
 
 | Handoff (H) | |
 |---------|---|
-| **Last Completed** | Prompt A10: Battery constraints, quiet hours, RunLog UI |
-| **Next Prompt** | Prompt A11 — Testing suite |
+| **Last Completed** | Prompt **X0**: Phase 6 DB + HANDOFF (`model_descriptors`, `skill_descriptors`, `skill_pack_records`) |
+| **Next Prompt** | Prompt **X1**: Engine API migration (`ModelLoader`, `ActiveModelStore`, deprecate direct `GemmaService` usage) |
+| **Files created (X0)** | `ModelDescriptor.kt`, `SkillDescriptor.kt`, `SkillPackRecord.kt`, `ModelDescriptorDao.kt`, `SkillDescriptorDao.kt`, `SkillPackRecordDao.kt` |
+| **Files modified (X0)** | `AppDatabase.kt`, `DatabaseMigrations.kt`, `AppModule.kt`, `AppDatabaseMigrationTest.kt`, `HANDOFF.md` |
+| **Last Completed (Phase 4 track)** | Prompt A10: Battery constraints, quiet hours, RunLog UI |
+| **Next Prompt (Phase 4 track)** | Prompt A11 — Testing suite *(parallel maintenance; Phase 6 branch may merge A11 later)* |
 | **Files modified (A10)** | `AgentOrchestrator.kt`, `AppDatabase.kt`, `DatabaseMigrations.kt`, `AppModule.kt`, `AgentRunLogDao.kt`, `BiasharaApp.kt`, `MainActivity.kt`, `AndroidManifest.xml`, `SettingsFragment.kt`, `fragment_settings.xml`, `nav_graph.xml`, `strings.xml` (all locales), `AppDatabaseMigrationTest.kt`, `HANDOFF.md` |
 | **Files created (A10)** | `NotificationScheduler.kt`, `PendingNotification.kt`, `PendingNotificationDao.kt`, `AgentSettingsFragment.kt`, `AgentSettingsViewModel.kt`, `AgentSettingsAdapter.kt`, `fragment_agent_settings.xml`, `item_agent_settings_row.xml` |
 | **Files modified (A9)** | `AgentActionExecutor.kt`, `AgentFeedViewModel.kt`, `AgentFeedFragment.kt`, `strings.xml`, `HANDOFF.md` |
@@ -32,9 +36,9 @@
 | **Files created (A4)** | `AgentFeedFragment.kt`, `AgentFeedViewModel.kt`, `AgentActionCardAdapter.kt`, `AgentActionExecutor.kt`, `fragment_agent_feed.xml`, `item_agent_action_card.xml` |
 | **Files removed (A4)** | `HomeFragment.kt`, `HomeViewModel.kt`, `fragment_home.xml` (replaced by agent feed) |
 | **Files created (A2–A3)** | **A2:** `AgentMutex`, `AgentOrchestrator`, `AgentDecisionEngine`, `AgentActionBuilder`, `AgentTypes`; stub `*Worker` classes. **A3:** `StockGuardianRepository.kt`, `FraudRuleEngine.kt`; real `StockGuardianWorker`, `FraudSentinelWorker`. |
-| **Final DB version (Room)** | **19** (`AppDatabase.kt`) |
+| **Final DB version (Room)** | **20** (`AppDatabase.kt`) |
 | **Phase 2 entities (Kotlin, representative)** | `Customer`, `Debt`, `Alert`, chat session/message entities, `AiBusinessMemory`, etc. (see Room section) |
-| **Prompt vs. this repo** | **A2** [AgentOrchestrator] schedules workers. **A3** Stock Guardian + Fraud Sentinel. **A4** [AgentFeedFragment]. **A5** [CashFlowSentinelWorker] daily ~[AgentSetting.dailySummaryHour] (±30m flex) + [PricingAgentWorker] daily (staggered +4h); [PricingRuleEngine]; PARTIAL_AI+ uses [GemmaService] inside [AgentMutex]. **A6** [CustomerPatternAnalyser] + [CustomerRelationWorker]: overdue debt SMS (priority) and visit-gap “we miss you” SMS; daily (+2h vs summary hour, ±30m flex); `SEND_SMS` payload (`phone`, `draftMessage`, optional `debtId`); PARTIAL_AI+ Gemma (debt prompt aligned with Phase 2 [DebtReminderViewModel]). **A7** [WeeklyReviewBuilder] + [WeeklyReviewWorker]: last completed ISO week stats → Gemma long prompt → feed card `AUTO_EXECUTE` / `SHOW_REVIEW` + stat chips JSON; [CoPurchaseAnalyser] + [OpportunitySpotterWorker]: top co-purchase pairs (≥3×) → Gemma bundle/shelf ideas; **FULL_AI + model only**; WorkManager **weekly** on [AgentSetting.weeklyReviewDayOfWeek] at [dailySummaryHour] while charging; opportunity run **+30 min** stagger; [AgentOrchestrator] injects [CapabilityTier] to cancel/skip schedules off FULL_AI. **A9** [AgentActionExecutor]: `SEND_SMS` → `smsto:` + `sms_body` (main thread, never auto-send); `UPDATE_PRICE` / payload-bearing `REVIEW_PRICE` → [ProductDao.updateProduct]; `OPEN_SCREEN` → [ExecutionResult.RequiresNavigation] + fragment completes navigation then `EXECUTED`; `SHOW_REVIEW` + `REVIEW_*` acknowledge → `EXECUTED`; [ExecutionResult] surfaces errors / unknown verbs to [AgentFeedViewModel]. **A10** [NotificationScheduler]: quiet hours → [PendingNotification] queue + flush on app resume; WorkManager constraints per agent (battery / charging / `NetworkType.NOT_REQUIRED`); [AgentSettingsFragment] shows last run + expandable 5-run history from [AgentRunLogDao]. |
+| **Prompt vs. this repo** | **A2** [AgentOrchestrator] schedules workers. **A3** Stock Guardian + Fraud Sentinel. **A4** [AgentFeedFragment]. **A5** [CashFlowSentinelWorker] daily ~[AgentSetting.dailySummaryHour] (±30m flex) + [PricingAgentWorker] daily (staggered +4h); [PricingRuleEngine]; PARTIAL_AI+ uses [GemmaService] inside [AgentMutex]. **A6** [CustomerPatternAnalyser] + [CustomerRelationWorker]: overdue debt SMS (priority) and visit-gap “we miss you” SMS; daily (+2h vs summary hour, ±30m flex); `SEND_SMS` payload (`phone`, `draftMessage`, optional `debtId`); PARTIAL_AI+ Gemma (debt prompt aligned with Phase 2 [DebtReminderViewModel]). **A7** [WeeklyReviewBuilder] + [WeeklyReviewWorker]: last completed ISO week stats → Gemma long prompt → feed card `AUTO_EXECUTE` / `SHOW_REVIEW` + stat chips JSON; [CoPurchaseAnalyser] + [OpportunitySpotterWorker]: top co-purchase pairs (≥3×) → Gemma bundle/shelf ideas; **FULL_AI + model only**; WorkManager **weekly** on [AgentSetting.weeklyReviewDayOfWeek] at [dailySummaryHour] while charging; opportunity run **+30 min** stagger; [AgentOrchestrator] injects [CapabilityTier] to cancel/skip schedules off FULL_AI. **A9** [AgentActionExecutor]: `SEND_SMS` → `smsto:` + `sms_body` (main thread, never auto-send); `UPDATE_PRICE` / payload-bearing `REVIEW_PRICE` → [ProductDao.updateProduct]; `OPEN_SCREEN` → [ExecutionResult.RequiresNavigation] + fragment completes navigation then `EXECUTED`; `SHOW_REVIEW` + `REVIEW_*` acknowledge → `EXECUTED`; [ExecutionResult] surfaces errors / unknown verbs to [AgentFeedViewModel]. **A10** [NotificationScheduler]: quiet hours → [PendingNotification] queue + flush on app resume; WorkManager constraints per agent (battery / charging / `NetworkType.NOT_REQUIRED`); [AgentSettingsFragment] shows last run + expandable 5-run history from [AgentRunLogDao]. **X0** (Phase 6): Room tables `model_descriptors`, `skill_descriptors`, `skill_pack_records` (**19→20**; external handbook “v9→v10” = same migration intent). |
 
 ## Phase 4 — Autonomous agent handbook (A0–A11)
 
@@ -69,6 +73,26 @@ Eleven delivery prompts (**A1–A11**) plus **A0** (tracker/setup) build the aut
 | **A10** | 4d — Polish | Quiet hours, battery constraints, run log | No | **Yes** — `pending_notifications` |
 | **A11** | 4d — Testing | Full test suite + acceptance criteria | No | No |
 
+### Phase 6 — Model registry & skills handbook (X0–X12)
+
+Phase 6 adds a **Model Registry** (swappable LiteRT-LM models), **Skills Engine** (tool-use / `BiasharaSkill`), multi-step **agentic loop**, optional **FunctionGemma** fast path, and **Skill Packs** (signed OTA). It **migrates inference** from the legacy `GemmaService` / LlmInference-style usage to the **Engine / Conversation** API (**X1**). Canonical Room version on this repo: **20** after **X0** (external doc “v9→v10” = same step relative to an older baseline).
+
+| Prompt | Focus | Main deliverables |
+|--------|-------|-------------------|
+| **X0** | Foundation | `model_descriptors`, `skill_descriptors`, `skill_pack_records` + migration **19→20** (**done** on `feat/phase6-model-skills`) |
+| **X1** | Engine API | `ModelLoader`, `ActiveModelStore`, `BiasharaConversation`; deprecate direct `GemmaService` for agents |
+| **X2** | Model registry | `ModelRegistry`, `ModelDownloadManager` v2, `models_catalogue.json` / `ModelCatalogue` |
+| **X3** | Model settings UI | `ModelSettingsFragment`, benchmarks, per-capability assignment |
+| **X4** | Skills core | `BiasharaSkill`, `SkillRegistry`, `SkillExecutor`, `SkillResult` |
+| **X5** | Data skills | `query_sales`, `query_inventory`, `calculate_profit`, `query_customers` |
+| **X6** | AI + action skills | `forecast_demand`, `suggest_price`, `draft_message`, `update_data` |
+| **X7** | Multimodal skills | `extract_receipt_data`, `transcribe_voice`, `detect_anomaly`, `find_copurchase_pairs` |
+| **X8** | Tool use loop | `AgentLoopRunner`, wire `SkillExecutor` + Engine tool registration |
+| **X9** | Worker upgrade | All 7 Phase 4 workers use agentic loop + system prompts |
+| **X10** | FunctionGemma | `FunctionGemmaRouter`, latency routing |
+| **X11** | Skill packs | `SkillPackManager`, `SkillPackVerifier`, OTA (Enterprise) |
+| **X12** | Testing | Model swap, skills, loop, pack security, acceptance criteria |
+
 ### Phase 2 closure (Prompt U10)
 
 - **Offline (manual):** With airplane mode on, confirm pricing (F1), receipt OCR + manual rows (F2), POS customer memory chips (F3), loss alerts / WorkManager (F5), debt / credit tab (F6), and on-device chat/inventory flows remain usable. **F7:** expect **“You are offline…”** when there is no default network, then exit without crash.
@@ -93,7 +117,7 @@ Eleven delivery prompts (**A1–A11**) plus **A0** (tracker/setup) build the aut
 ### Prior phases (reference)
 - **Phase 2 — Intelligence Layer Upgrade:** Features such as loss prevention alerts (U5), receipt OCR (U4), conversational chat layer, and related Room fields shipped under the upgrade track; prefer **additive** follow-ups only.
 - **POS / Phase 1–3:** `PosFragment`, cart, payments, returns, end-of-day AI, etc. — treat as **confirmed working** unless a prompt explicitly revisits them.
-- **Build / test stack:** `AppDatabaseMigrationTest` and **`MigrationTest`** (Prompt U9) validate **v3→v19** and focused Phase-2 chains; **`CustomerDaoTest`**, **`DebtDaoTest`**, **`AlertDaoTest`**, **`LossAlertEngineTest`**, **`Phase2PerformanceAuditTest`** (instrumented); **`ReceiptParserTest`**, **`OrderParserViewModelTest`** (JVM). **`fallbackToDestructiveMigration()`** is **not** used in `AppModule` — migrations are explicit. Run `.\scripts\preflight-build.ps1` before Gradle builds (see **Prerequisites** below).
+- **Build / test stack:** `AppDatabaseMigrationTest` and **`MigrationTest`** (Prompt U9) validate **v3→v20** and focused Phase-2 chains; **`CustomerDaoTest`**, **`DebtDaoTest`**, **`AlertDaoTest`**, **`LossAlertEngineTest`**, **`Phase2PerformanceAuditTest`** (instrumented); **`ReceiptParserTest`**, **`OrderParserViewModelTest`** (JVM). **`fallbackToDestructiveMigration()`** is **not** used in `AppModule` — migrations are explicit. Run `.\scripts\preflight-build.ps1` before Gradle builds (see **Prerequisites** below).
 - **Libraries (snapshot):** ML Kit (OCR, image labeling for Ask Image), WorkManager, Gson, Room testing, Turbine — see sections below for feature mapping.
 
 ## Prerequisites Before Any Gradle / IDE Build
@@ -106,8 +130,8 @@ Eleven delivery prompts (**A1–A11**) plus **A0** (tracker/setup) build the aut
 - **First launch:** `LanguageSelectionFragment` → choose locale → `agentFeedFragment` (Today tab).
 - **Bottom navigation:** Hidden on `languageSelectionFragment`, `barcodeScannerFragment`, `addEditProductFragment`, `paymentDialogFragment`, `supplierNegotiationFragment`, `negotiationGuideFragment`.
 
-## Room Database (Prompt 3 + 9 — done; Prompt P1 — v7 + migrations; chat through v16; Prompt A1 — v19 agents)
-- **Version 19** — migrations in `DatabaseMigrations.kt` through **18→19** (`pending_notifications` + index on `fire_at`); **17→18** (`products.last_stock_check_at`, `index_products_stock_quantity` on `stock_quantity`); **16→17** (`agent_actions`, `agent_settings` singleton row, `agent_run_log`); **15→16** (`chat_session_messages.feedback_vote`); **14→15** (chat sessions/messages); plus earlier POS / Phase 2 chain (**no** `fallbackToDestructiveMigration()` in `AppModule`).
+## Room Database (Prompt 3 + 9 — done; Prompt P1 — v7 + migrations; chat through v16; Phase 4 agents + Phase 6 X0 — v20)
+- **Version 20** — **19→20**: `model_descriptors`, `skill_descriptors`, `skill_pack_records` (Prompt **X0** — Model Registry + Skills Engine persistence). **18→19** (`pending_notifications` + index on `fire_at`); **17→18** (`products.last_stock_check_at`, `index_products_stock_quantity` on `stock_quantity`); **16→17** (`agent_actions`, `agent_settings` singleton row, `agent_run_log`); **15→16** (`chat_session_messages.feedback_vote`); **14→15** (chat sessions/messages); plus earlier POS / Phase 2 chain (**no** `fallbackToDestructiveMigration()` in `AppModule`).
 - **`Product` entity**: `id`, `name`, `description?`, `price`, `cost`, `stockQuantity`, `category?`, `barcodeValue?`, `imageUrl?`, **`lastStockCheckAt`** (Prompt A1 — stock guardian clock).
 - **Phase 4a — Prompt A1:** `AgentAction`, `AgentSetting`, `AgentRunLog` + `AgentActionDao`, `AgentSettingDao`, `AgentRunLogDao` (Hilt-provided). `transactions` already indexed on `date` and `type`; A1 did **not** add duplicate transaction indexes.
 - **Phase 4a — Prompt A2:** `AgentOrchestrator` (WorkManager `enqueueUniquePeriodicWork` / `cancelUniqueWork` per [AgentSetting]), `AgentMutex` (single `Mutex` for all `GemmaService` use from agents), `AgentDecisionEngine` (`isDuplicateAction`, `shouldSuppressNotification`, `buildRunLog`), `AgentActionBuilder` (typed `AgentAction` factories). Stub `CoroutineWorker` classes in `com.biasharaai.agent.workers` — **A3** replaces `doWork` bodies with real detection.
@@ -288,7 +312,7 @@ LabelProductEnricher (singleton, dep: GemmaService)
 | **Behavior** | POS customer chip opens `CustomerSelectorBottomSheet` (search, last visit, new customer dialog). `CustomerSuggestionEngine` loads top repeat-purchase products (see `SaleLineItemDao.topProductIdsForCustomer`); on **FULL_AI** + model, optional Gemma one-liner in `text_suggestion_subtitle`. Suggestion chips add product at list price and hide when the product is already in cart. `SaleRepository` sets `Transaction.customerId` and `CustomerDao.updateLastVisit` after a successful sale. |
 | **Files created** | `CustomerRepository.kt` (`data/local/db`) |
 | **Files modified** | `CustomerSelectorBottomSheet.kt`, `fragment_customer_selector.xml`, `PosFragment.kt`, `fragment_pos.xml` (+ land / `sw600dp`), `PosViewModel.kt`, `Customer.kt`, `CustomerDao.kt`, `SaleLineItemDao.kt`, `CustomerSuggestionEngine.kt`, `SaleRepository.kt`, `DatabaseMigrations.kt`, `AppDatabase.kt`, `AppDatabaseMigrationTest.kt`, `strings.xml`, `HANDOFF.md` |
-| **Tests** | `AppDatabaseMigrationTest.migrate3To19_preservesProductsAndTransactionsAndSeedsSettings` — v3→v19; `PRAGMA table_info(customers)` includes `last_visit`. |
+| **Tests** | `AppDatabaseMigrationTest.migrate3To20_preservesProductsAndTransactionsAndSeedsSettings` — v3→v20; `PRAGMA table_info(customers)` includes `last_visit`. |
 
 ## Phase 2A — Prompt U3 (Smart pricing engine)
 
@@ -311,7 +335,7 @@ LabelProductEnricher (singleton, dep: GemmaService)
 | **Behavior** | `LossAlertEngine` runs four Room-backed detectors (low stock without recent POS lines, 7-day-then-3-day-quiet sales gap, line `unit_price` &lt; 70% of list `price`, high expense day vs trailing 30-day average). `LossAlertWorker` (WorkManager **24h** unique periodic) inserts `Alert` rows with `dedupe_key` skip-if-active. **FULL_AI** + model + non-English locale: Gemma caches translation in `localized_message`. `HomeFragment` shows cards (`AlertCardAdapter`) with Review (inventory / edit product / receipt / insights) and Dismiss. `BiasharaApp` implements `Configuration.Provider` with `LossAlertWorkerFactory`; manifest removes default WorkManager initializer. |
 | **Files created** | `LossAlertTypes.kt`, `LossAlertDao.kt`, `LossAlertEngine.kt`, `LossAlertWorker.kt`, `LossAlertWorkerFactory.kt`, `LossAlertScheduler.kt`, `HomeViewModel.kt`, `AlertCardAdapter.kt`, `item_alert_card.xml`, `ic_loss_alert.xml` |
 | **Files modified** | `Alert.kt`, `AlertDao.kt`, `AppDatabase.kt`, `DatabaseMigrations.kt`, `AppModule.kt`, `BiasharaApp.kt`, `HomeFragment.kt`, `fragment_home.xml`, `AndroidManifest.xml`, `strings.xml`, `AppDatabaseMigrationTest.kt`, `HANDOFF.md` |
-| **Tests** | `AppDatabaseMigrationTest.migrate3To19_preservesProductsAndTransactionsAndSeedsSettings` — v3→v19; `PRAGMA table_info(alerts)` includes U5 columns. |
+| **Tests** | `AppDatabaseMigrationTest.migrate3To20_preservesProductsAndTransactionsAndSeedsSettings` — v3→v20; `PRAGMA table_info(alerts)` includes U5 columns. |
 
 ## Phase 2A — Prompt U6 (Debt and credit tracker)
 
@@ -452,4 +476,4 @@ LabelProductEnricher (singleton, dep: GemmaService)
 | **Explicit gaps** | Per-device / per-cashier / offline-sync counts / deep fraud analytics are **not** in Room as modeled — layer returns a clear “not stored” or “check Home” message instead of inventing data. |
 | **Extension** | Add ordered branches in `tryStructuredAnswer` + optional new DAO queries; keep matchers **deterministic** for RULES_BASED devices. |
 | **Catalog coverage** | Broad keyword routes for all 12 owner categories: timeboxed revenue/expenses, POS lines (profit, payment mix, top products, category share), customers/debts (including overdue heuristics), planning pointers, and honest fallbacks where targets, elasticity, device sync, or repayment timelines are not persisted. |
-| **Gemma memory + sessions (DB v19)** | `ai_business_memory` + `ChatMemoryRepository`: owner phrases like “remember that …” / “note that …” persist and prefix structured + Gemma prompts (transcript rows removed from this repository — only long-term memory). **`chat_session_messages`**: each user/assistant reply is scoped to a **session**; **first** Gemma prompt after cold start, **New chat** (new session), or opening a session from history includes a capped transcript snapshot built from that session (`injectTranscriptIntoNextGemmaPrompt`). **New chat** creates a new session row and clears the on-screen thread without deleting other sessions. |
+| **Gemma memory + sessions (DB v20)** | `ai_business_memory` + `ChatMemoryRepository`: owner phrases like “remember that …” / “note that …” persist and prefix structured + Gemma prompts (transcript rows removed from this repository — only long-term memory). **`chat_session_messages`**: each user/assistant reply is scoped to a **session**; **first** Gemma prompt after cold start, **New chat** (new session), or opening a session from history includes a capped transcript snapshot built from that session (`injectTranscriptIntoNextGemmaPrompt`). **New chat** creates a new session row and clears the on-screen thread without deleting other sessions. |

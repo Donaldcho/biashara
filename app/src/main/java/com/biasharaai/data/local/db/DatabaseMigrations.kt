@@ -425,6 +425,56 @@ object DatabaseMigrations {
         }
     }
 
+    /** Phase 6 — Prompt X0: Model Registry + Skills Engine tables (Room **19→20**; external handbook “v9→v10” refers to an older numbering). */
+    val MIGRATION_19_20 = object : Migration(19, 20) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS model_descriptors (
+                    modelId TEXT PRIMARY KEY NOT NULL,
+                    displayName TEXT NOT NULL,
+                    huggingFaceRepo TEXT NOT NULL,
+                    fileName TEXT NOT NULL,
+                    sizeBytes INTEGER NOT NULL,
+                    sha256 TEXT NOT NULL,
+                    capabilitiesJson TEXT NOT NULL,
+                    minTier TEXT NOT NULL,
+                    isDownloaded INTEGER NOT NULL DEFAULT 0,
+                    downloadedAt INTEGER,
+                    filePath TEXT,
+                    tokensPerSecGpu REAL,
+                    tokensPerSecCpu REAL
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS skill_descriptors (
+                    skillId TEXT PRIMARY KEY NOT NULL,
+                    displayName TEXT NOT NULL,
+                    schemaJson TEXT NOT NULL,
+                    isEnabled INTEGER NOT NULL DEFAULT 1,
+                    packId TEXT,
+                    lastExecutedAt INTEGER,
+                    executionCount INTEGER NOT NULL DEFAULT 0
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS skill_pack_records (
+                    packId TEXT PRIMARY KEY NOT NULL,
+                    packName TEXT NOT NULL,
+                    version TEXT NOT NULL,
+                    installedAt INTEGER NOT NULL,
+                    isActive INTEGER NOT NULL DEFAULT 1,
+                    signatureValid INTEGER NOT NULL DEFAULT 1
+                )
+                """.trimIndent(),
+            )
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_3_5,
         MIGRATION_5_6,
@@ -441,5 +491,6 @@ object DatabaseMigrations {
         MIGRATION_16_17,
         MIGRATION_17_18,
         MIGRATION_18_19,
+        MIGRATION_19_20,
     )
 }

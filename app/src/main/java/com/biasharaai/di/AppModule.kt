@@ -14,7 +14,10 @@ import com.biasharaai.ai.ModelDownloadManager
 import com.biasharaai.data.local.db.AppDatabase
 import com.biasharaai.data.local.db.AgentActionDao
 import com.biasharaai.data.local.db.AgentRunLogDao
+import com.biasharaai.data.local.db.ModelDescriptorDao
 import com.biasharaai.data.local.db.PendingNotificationDao
+import com.biasharaai.data.local.db.SkillDescriptorDao
+import com.biasharaai.data.local.db.SkillPackRecordDao
 import com.biasharaai.data.local.db.AgentSettingDao
 import com.biasharaai.data.local.db.AlertDao
 import com.biasharaai.data.local.db.LossAlertDao
@@ -98,6 +101,15 @@ object AppModule {
     @Provides
     fun providePendingNotificationDao(database: AppDatabase): PendingNotificationDao =
         database.pendingNotificationDao()
+
+    @Provides
+    fun provideModelDescriptorDao(database: AppDatabase): ModelDescriptorDao = database.modelDescriptorDao()
+
+    @Provides
+    fun provideSkillDescriptorDao(database: AppDatabase): SkillDescriptorDao = database.skillDescriptorDao()
+
+    @Provides
+    fun provideSkillPackRecordDao(database: AppDatabase): SkillPackRecordDao = database.skillPackRecordDao()
 
     @Provides
     @Singleton

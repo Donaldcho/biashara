@@ -19,8 +19,11 @@ import androidx.room.RoomDatabase
         AgentSetting::class,
         AgentRunLog::class,
         PendingNotification::class,
+        ModelDescriptor::class,
+        SkillDescriptor::class,
+        SkillPackRecord::class,
     ],
-    version = 19,
+    version = 20,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -46,6 +49,12 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun agentRunLogDao(): AgentRunLogDao
 
     abstract fun pendingNotificationDao(): PendingNotificationDao
+
+    abstract fun modelDescriptorDao(): ModelDescriptorDao
+
+    abstract fun skillDescriptorDao(): SkillDescriptorDao
+
+    abstract fun skillPackRecordDao(): SkillPackRecordDao
 
     companion object {
         const val NAME = "biashara.db"
