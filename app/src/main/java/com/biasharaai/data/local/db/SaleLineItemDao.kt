@@ -17,7 +17,14 @@ data class PosSaleLineFact(
     @ColumnInfo(name = "line_total") val lineTotal: Double,
     @ColumnInfo(name = "tx_date") val transactionDate: Long,
     @ColumnInfo(name = "payment_method") val paymentMethod: String,
-    @ColumnInfo(name = "customer_id") val customerId: Long?,
+    @ColumnInfo(name = "customer_id")     val customerId: Long?,
+)
+
+/** Row for A7 co-purchase mining ([SaleLineItemDao.getTopCoPurchasePairs]). */
+data class CoPurchasePair(
+    @ColumnInfo(name = "product1") val product1: String,
+    @ColumnInfo(name = "product2") val product2: String,
+    @ColumnInfo(name = "coCount") val coCount: Int,
 )
 
 @Dao
@@ -90,4 +97,29 @@ interface SaleLineItemDao {
 
     @Query("DELETE FROM sale_line_items WHERE transaction_id = :transactionId")
     suspend fun deleteByTransaction(transactionId: Long)
+
+    /** Full export for optional cloud analytics (user-initiated). */
+    @Query("SELECT * FROM sale_line_items ORDER BY id ASC")
+    suspend fun getAllLineItems(): List<SaleLineItem>
+
+    // ── Opportunity spotter (A7) — co-purchase pairs on completed POS sales ─────────────
+
+    /**
+     * Product pairs sold together on the same INCOME receipt at least [minCoCount] times since [sinceMillis].
+     */
+    @Query(
+        """
+        SELECT a.product_name AS product1, b.product_name AS product2, COUNT(*) AS coCount
+        FROM sale_line_items a
+        INNER JOIN sale_line_items b
+            ON a.transaction_id = b.transaction_id AND a.product_id < b.product_id
+        INNER JOIN transactions t ON t.id = a.transaction_id
+        WHERE t.type = 'INCOME' AND a.quantity > 0 AND b.quantity > 0 AND t.date >= :sinceMillis
+        GROUP BY a.product_id, b.product_id
+        HAVING COUNT(*) >= :minCoCount
+        ORDER BY COUNT(*) DESC
+        LIMIT 5
+        """,
+    )
+    suspend fun getTopCoPurchasePairs(sinceMillis: Long, minCoCount: Int = 3): List<CoPurchasePair>
 }

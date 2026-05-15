@@ -1,5 +1,6 @@
 package com.biasharaai.di
 
+import android.app.NotificationManager
 import android.content.Context
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -11,6 +12,10 @@ import com.biasharaai.ai.GemmaService
 import com.biasharaai.ai.InferenceSettingsStore
 import com.biasharaai.ai.ModelDownloadManager
 import com.biasharaai.data.local.db.AppDatabase
+import com.biasharaai.data.local.db.AgentActionDao
+import com.biasharaai.data.local.db.AgentRunLogDao
+import com.biasharaai.data.local.db.PendingNotificationDao
+import com.biasharaai.data.local.db.AgentSettingDao
 import com.biasharaai.data.local.db.AlertDao
 import com.biasharaai.data.local.db.LossAlertDao
 import com.biasharaai.data.local.db.AppSettingsDao
@@ -45,6 +50,7 @@ object AppModule {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         // Fresh install: Room creates `app_settings` empty; seed the singleton row.
                         db.execSQL("INSERT OR IGNORE INTO app_settings (id) VALUES (1)")
+                        db.execSQL("INSERT OR IGNORE INTO agent_settings (id) VALUES (1)")
                     }
                 },
             )
@@ -79,6 +85,24 @@ object AppModule {
 
     @Provides
     fun provideChatSessionDao(database: AppDatabase): ChatSessionDao = database.chatSessionDao()
+
+    @Provides
+    fun provideAgentActionDao(database: AppDatabase): AgentActionDao = database.agentActionDao()
+
+    @Provides
+    fun provideAgentSettingDao(database: AppDatabase): AgentSettingDao = database.agentSettingDao()
+
+    @Provides
+    fun provideAgentRunLogDao(database: AppDatabase): AgentRunLogDao = database.agentRunLogDao()
+
+    @Provides
+    fun providePendingNotificationDao(database: AppDatabase): PendingNotificationDao =
+        database.pendingNotificationDao()
+
+    @Provides
+    @Singleton
+    fun provideNotificationManager(@ApplicationContext context: Context): NotificationManager =
+        context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     // Prompt U5: 24h periodic loss scan is scheduled from [BiasharaApp] via [com.biasharaai.loss.LossAlertScheduler].
 

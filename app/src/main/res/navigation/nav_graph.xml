@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/homeFragment">
+    app:startDestination="@id/agentFeedFragment">
 
     <!-- Prompt U8: WhatsApp / SEND text → OrderParserActivity; receipt opens via MainActivity.EXTRA_OPEN_RECEIPT_TRANSACTION_ID -->
 
@@ -14,13 +14,13 @@
         tools:layout="@layout/fragment_language_selection" />
 
     <fragment
-        android:id="@+id/homeFragment"
-        android:name="com.biasharaai.ui.home.HomeFragment"
+        android:id="@+id/agentFeedFragment"
+        android:name="com.biasharaai.ui.agent.AgentFeedFragment"
         android:label="@string/nav_home"
-        tools:layout="@layout/fragment_home">
+        tools:layout="@layout/fragment_agent_feed">
 
         <action
-            android:id="@+id/action_homeFragment_to_supplierNegotiationFragment"
+            android:id="@+id/action_agentFeedFragment_to_supplierNegotiationFragment"
             app:destination="@id/supplierNegotiationFragment" />
     </fragment>
 
@@ -259,6 +259,17 @@
         android:id="@+id/settingsFragment"
         android:name="com.biasharaai.ui.settings.SettingsFragment"
         android:label="@string/nav_settings"
-        tools:layout="@layout/fragment_settings" />
+        tools:layout="@layout/fragment_settings">
+
+        <action
+            android:id="@+id/action_settingsFragment_to_agentSettingsFragment"
+            app:destination="@id/agentSettingsFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/agentSettingsFragment"
+        android:name="com.biasharaai.ui.settings.AgentSettingsFragment"
+        android:label="@string/agent_settings_title"
+        tools:layout="@layout/fragment_agent_settings" />
 
 </navigation>

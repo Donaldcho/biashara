@@ -56,4 +56,94 @@ interface TransactionDao {
         """,
     )
     fun observeCompletedPosSales(): Flow<List<Transaction>>
+
+    // ── Fraud Sentinel (A3) — Room-only rules ─────────────────────────────
+
+    /**
+     * POS sale transactions in the lookback window with at least one line priced below half of
+     * current product cost (cost &gt; 0).
+     */
+    @Query(
+        """
+        SELECT DISTINCT t.id FROM transactions t
+        INNER JOIN sale_line_items sl ON sl.transaction_id = t.id
+        INNER JOIN products p ON p.id = sl.product_id
+        WHERE t.type = 'INCOME' AND sl.quantity > 0 AND t.date >= :sinceMillis
+          AND p.cost > 0 AND sl.unit_price < (p.cost * 0.5)
+        """,
+    )
+    suspend fun transactionIdsWithBelowHalfCostSaleLinesSince(sinceMillis: Long): List<Long>
+
+    @Query("SELECT COUNT(*) FROM transactions WHERE type = 'RETURN' AND date >= :sinceMillis")
+    suspend fun countReturnsSince(sinceMillis: Long): Long
+
+    @Query(
+        """
+        SELECT id FROM transactions
+        WHERE type = 'INCOME' AND amount <= 0 AND date >= :sinceMillis
+        """,
+    )
+    suspend fun incomeTransactionIdsWithNonPositiveAmountSince(sinceMillis: Long): List<Long>
+
+    @Query(
+        """
+        SELECT DISTINCT t1.id FROM transactions t1
+        WHERE t1.receipt_number IS NOT NULL AND TRIM(t1.receipt_number) != ''
+          AND t1.date >= :sinceMillis
+          AND (
+            SELECT COUNT(*) FROM transactions t2
+            WHERE t2.receipt_number IS NOT NULL AND TRIM(t2.receipt_number) != ''
+              AND TRIM(t2.receipt_number) = TRIM(t1.receipt_number)
+              AND t2.date >= :sinceMillis
+          ) > 1
+        """,
+    )
+    suspend fun transactionIdsWithDuplicateReceiptNumberSince(sinceMillis: Long): List<Long>
+
+    // ── Cash flow sentinel (A5) ───────────────────────────────────────────
+
+    @Query(
+        """
+        SELECT IFNULL(SUM(amount), 0) FROM transactions
+        WHERE type = 'INCOME' AND date >= :startMillis AND date < :endExclusiveMillis
+        """,
+    )
+    suspend fun sumIncomeAmountBetween(startMillis: Long, endExclusiveMillis: Long): Double
+
+    @Query(
+        """
+        SELECT IFNULL(SUM(amount), 0) FROM transactions
+        WHERE type = 'EXPENSE' AND date >= :startMillis AND date < :endExclusiveMillis
+        """,
+    )
+    suspend fun sumExpenseAmountBetween(startMillis: Long, endExclusiveMillis: Long): Double
+
+    @Query(
+        """
+        SELECT IFNULL(SUM(amount), 0) FROM transactions
+        WHERE type = 'INCOME' AND payment_method = 'CREDIT'
+          AND date >= :startMillis AND date < :endExclusiveMillis
+        """,
+    )
+    suspend fun sumCreditIncomeAmountBetween(startMillis: Long, endExclusiveMillis: Long): Double
+
+    @Query(
+        """
+        SELECT COUNT(*) FROM transactions
+        WHERE type = 'INCOME' AND date >= :startMillis AND date < :endExclusiveMillis
+        """,
+    )
+    suspend fun countIncomeTransactionsBetween(startMillis: Long, endExclusiveMillis: Long): Long
+
+    // ── Customer relation (A6) — visit cadence from linked POS income rows ───────────────
+
+    /** INCOME rows tied to a customer (ordered oldest → newest) for visit-gap analysis. */
+    @Query(
+        """
+        SELECT date FROM transactions
+        WHERE customer_id = :customerId AND type = 'INCOME'
+        ORDER BY date ASC
+        """,
+    )
+    suspend fun getIncomeDatesForCustomer(customerId: Long): List<Long>
 }

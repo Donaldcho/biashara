@@ -11,6 +11,9 @@ interface ChatMemoryDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertMemory(row: AiBusinessMemory): Long
 
+    @Query("SELECT * FROM ai_business_memory ORDER BY created_at ASC LIMIT 2000")
+    suspend fun getAllMemoriesForExport(): List<AiBusinessMemory>
+
     @Query("SELECT * FROM ai_business_memory ORDER BY created_at DESC LIMIT :limit")
     suspend fun getRecentMemories(limit: Int): List<AiBusinessMemory>
 

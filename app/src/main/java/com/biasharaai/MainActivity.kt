@@ -2,6 +2,7 @@ package com.biasharaai
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.view.animation.DecelerateInterpolator
 import android.view.animation.PathInterpolator
@@ -14,12 +15,34 @@ import androidx.navigation.ui.setupWithNavController
 import com.biasharaai.databinding.ActivityMainBinding
 import com.biasharaai.locale.LanguagePreferences
 import com.biasharaai.ui.pos.ReceiptViewModel
+import androidx.lifecycle.lifecycleScope
+import com.biasharaai.notifications.NotificationScheduler
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+
+    /** Posted from the startup splash; must be removed in [onDestroy] to avoid touches / crashes after finish. */
+    private val splashFadeOutRunnable = Runnable {
+        if (isFinishing || isDestroyed) return@Runnable
+        binding.splashOverlay.animate()
+            .alpha(0f)
+            .setDuration(400)
+            .setInterpolator(DecelerateInterpolator())
+            .withEndAction {
+                if (isFinishing || isDestroyed) return@withEndAction
+                binding.splashOverlay.visibility = View.GONE
+                binding.splashOverlay.alpha = 1f
+            }
+            .start()
+    }
+
+    @Inject
+    lateinit var notificationScheduler: NotificationScheduler
 
     override fun onCreate(savedInstanceState: Bundle?) {
         LanguagePreferences.applyPersistedLocales(this)
@@ -36,7 +59,7 @@ class MainActivity : AppCompatActivity() {
             val graph = navController.navInflater.inflate(R.navigation.nav_graph)
             graph.setStartDestination(
                 if (LanguagePreferences.hasPersistedLocale(this)) {
-                    R.id.homeFragment
+                    R.id.agentFeedFragment
                 } else {
                     R.id.languageSelectionFragment
                 },
@@ -70,6 +93,27 @@ class MainActivity : AppCompatActivity() {
         handleOpenReceiptIntent(intent)
     }
 
+    override fun onResume() {
+        super.onResume()
+        lifecycleScope.launch {
+            try {
+                notificationScheduler.flushPendingDue()
+            } catch (e: Exception) {
+                Log.w(TAG, "flushPendingDue failed", e)
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        if (this::binding.isInitialized) {
+            binding.splashLogoIcon.animate().cancel()
+            binding.splashWordmark.animate().cancel()
+            binding.splashOverlay.animate().cancel()
+            binding.splashOverlay.removeCallbacks(splashFadeOutRunnable)
+        }
+        super.onDestroy()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -88,11 +132,6 @@ class MainActivity : AppCompatActivity() {
             R.id.receiptFragment,
             bundleOf(ReceiptViewModel.ARG_TRANSACTION_ID to tid),
         )
-    }
-
-    companion object {
-        const val EXTRA_OPEN_RECEIPT_TRANSACTION_ID: String =
-            "com.biasharaai.EXTRA_OPEN_RECEIPT_TRANSACTION_ID"
     }
 
     private fun applyRootLayoutDirectionFromLocale() {
@@ -134,26 +173,25 @@ class MainActivity : AppCompatActivity() {
             .setDuration(560)
             .setInterpolator(easeOut)
             .withEndAction {
+                if (isFinishing || isDestroyed) return@withEndAction
                 wordmark.animate()
                     .alpha(1f)
                     .translationY(0f)
                     .setDuration(360)
                     .setInterpolator(decel)
                     .withEndAction {
-                        overlay.postDelayed({
-                            overlay.animate()
-                                .alpha(0f)
-                                .setDuration(400)
-                                .setInterpolator(decel)
-                                .withEndAction {
-                                    overlay.visibility = View.GONE
-                                    overlay.alpha = 1f
-                                }
-                                .start()
-                        }, 480)
+                        if (isFinishing || isDestroyed) return@withEndAction
+                        overlay.postDelayed(splashFadeOutRunnable, 480)
                     }
                     .start()
             }
             .start()
+    }
+
+    companion object {
+        private const val TAG = "MainActivity"
+
+        const val EXTRA_OPEN_RECEIPT_TRANSACTION_ID: String =
+            "com.biasharaai.EXTRA_OPEN_RECEIPT_TRANSACTION_ID"
     }
 }

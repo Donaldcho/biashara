@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">BiasharaAI</string>
 
-    <string name="nav_home">Nyumbani</string>
+    <string name="nav_home">Leo</string>
     <string name="nav_inventory">Hifadhi</string>
     <string name="nav_chat">Mazungumzo</string>
     <string name="nav_insights">Uchambuzi</string>
@@ -116,5 +116,65 @@
     <string name="chat_fallback_generic">Ninaweza kusaidia kuhusu hifadhi, faida/hasara, matumizi na bidhaa zenye hifadhi ndogo. Jaribu kuuliza kuhusu moja ya hizi.</string>
     <string name="chat_error_generic">Samahani, hitilafu imetokea. Tafadhali jaribu tena.</string>
     <string name="chat_ai_timeout_with_summary">Mfano wa ndani ulichukua muda mrefu. Jibu la haraka kutoka data yako:\n\n%1$s</string>
+
+    <string name="agent_feed_greeting_morning">Habari za asubuhi, %1$s</string>
+    <string name="agent_feed_greeting_afternoon">Habari za mchana, %1$s</string>
+    <string name="agent_feed_greeting_evening">Habari za jioni, %1$s</string>
+    <string name="agent_feed_attention_none">Uko sawa kabisa</string>
+    <string name="agent_feed_empty_illustration_cd">Hakuna kinachohitaji haraka</string>
+    <string name="agent_feed_empty_message">Kila kitu kinaonekana vizuri! Biashara yako inaendeshwa vizuri.</string>
+    <string name="agent_action_review">Angalia</string>
+    <string name="agent_action_approve">Kubali ✓</string>
+    <string name="agent_action_reject">Kataa ✗</string>
+    <string name="agent_action_snooze">Ahirisha</string>
+    <string name="agent_action_dismiss">Ondoa</string>
+    <string name="agent_action_view">Tazama</string>
+    <string name="agent_action_execute_failed">Hatukuweza kukamilisha kitendo hicho.</string>
+    <string name="agent_action_retry">Jaribu tena</string>
+    <string name="agent_review_no_target">Hakuna skrini iliyounganishwa na kitendo hiki.</string>
+
+    <plurals name="agent_feed_attention">
+        <item quantity="one">Kitu %d kinahitaji umakini wako</item>
+        <item quantity="other">Vitu %d vinahitaji umakini wako</item>
+    </plurals>
+
+    <string name="notification_channel_agent_alerts">Tahadhari za biashara</string>
+    <string name="notification_channel_agent_alerts_desc">Ukumbusho wa stoo, udanganyifu, na mtiririko wa fedha kutoka kwa mawakala.</string>
+    <string name="settings_section_agents">Mawakala wa AI</string>
+    <string name="settings_agents_card_title">Shughuli za wakala</string>
+    <string name="settings_agents_card_body">Ona lini kila wakala alifanya kazi na panua safu ili kuona matokeo ya hivi karibuni.</string>
+    <string name="settings_btn_agent_activity">Fungua historia ya uendeshaji</string>
+    <string name="agent_settings_title">Historia ya uendeshaji wa wakala</string>
+    <string name="agent_settings_name_stock_guardian">Mlinzi wa stoo</string>
+    <string name="agent_settings_name_fraud_sentinel">Mlinzi wa udanganyifu</string>
+    <string name="agent_settings_name_pricing_agent">Wakala wa bei</string>
+    <string name="agent_settings_name_cash_flow">Mlinzi wa mtiririko wa fedha</string>
+    <string name="agent_settings_name_customer_relation">Uhusiano wa wateja</string>
+    <string name="agent_settings_name_weekly_review">Mapitio ya kila wiki</string>
+    <string name="agent_settings_name_opportunity_spotter">Mtafutaji wa fursa</string>
+    <string name="agent_settings_last_run_never">Kamwe</string>
+    <string name="agent_settings_last_run_just_now">Hivi sasa</string>
+    <string name="agent_settings_row_summary">Mara ya mwisho: %1$s · %2$s</string>
+    <string name="agent_settings_history_empty">Hakuna rekodi bado. Kipimo kilichoratibiwa kitaonekana hapa.</string>
+    <string name="agent_settings_history_line">%1$s · %2$s · %3$s</string>
+    <string name="agent_settings_duration_seconds">%1$dsek</string>
+    <string name="agent_settings_duration_minutes">%1$ddk</string>
+    <string name="agent_settings_duration_hours">%1$dsa</string>
+    <plurals name="agent_settings_minutes_ago">
+        <item quantity="one">Dakika %d iliyopita</item>
+        <item quantity="other">Dakika %d zilizopita</item>
+    </plurals>
+    <plurals name="agent_settings_hours_ago">
+        <item quantity="one">Saa %d iliyopita</item>
+        <item quantity="other">Saa %d zilizopita</item>
+    </plurals>
+    <plurals name="agent_settings_days_ago">
+        <item quantity="one">Siku %d iliyopita</item>
+        <item quantity="other">Siku %d zilizopita</item>
+    </plurals>
+    <plurals name="agent_settings_generated_actions">
+        <item quantity="one">Imetengeneza hatua %d</item>
+        <item quantity="other">Imetengeneza hatua %d</item>
+    </plurals>
 
 </resources>

@@ -43,7 +43,7 @@ class LanguageSelectionFragment : BaseFragment() {
         val options = NavOptions.Builder()
             .setPopUpTo(R.id.languageSelectionFragment, true)
             .build()
-        findNavController().navigate(R.id.homeFragment, null, options)
+        findNavController().navigate(R.id.agentFeedFragment, null, options)
     }
 
     override fun onDestroyView() {

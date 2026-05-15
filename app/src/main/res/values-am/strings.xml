@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">BiasharaAI</string>
 
-    <string name="nav_home">መነሻ</string>
+    <string name="nav_home">ዛሬ</string>
     <string name="nav_inventory">ክምችት</string>
     <string name="nav_chat">ውይይት</string>
     <string name="nav_insights">ግንዛቤዎች</string>
@@ -116,5 +116,64 @@
     <string name="chat_fallback_generic">በክምችት፣ ትርፍ/መጐዳት፣ ወጪ እና ዝቅተኛ ክምችት ላይ ልረዳዎ። ስለነዚህ ውስጥ አንዱ ይጠይቁ።</string>
     <string name="chat_error_generic">ይቅርታ፣ ስህተት ተፈጥሯል። እባክዎ እንደገና ይሞክሩ።</string>
     <string name="chat_ai_timeout_with_summary">መሣሪያው ረጅም ጊዜ ወሰደ። ከመዝገቦችዎ ፈጣን መልስ፦\n\n%1$s</string>
+
+    <string name="agent_feed_greeting_morning">መልካም ጠዋት፣ %1$s</string>
+    <string name="agent_feed_greeting_afternoon">መልካም ከሰዓት፣ %1$s</string>
+    <string name="agent_feed_greeting_evening">መልካም ምሽት፣ %1$s</string>
+    <string name="agent_feed_attention_none">ሁሉንም አጠናቀዋል</string>
+    <string name="agent_feed_empty_illustration_cd">ሁሉም በጥሩ ሁኔታ ነው</string>
+    <string name="agent_feed_empty_message">ሁሉም በጥሩ ሁኔታ ይመስላል! ንግድዎ በሚገባ እየሰራ ነው።</string>
+    <string name="agent_action_review">ግምገማ</string>
+    <string name="agent_action_approve">ያረጋግጡ ✓</string>
+    <string name="agent_action_reject">አትቀበሉ ✗</string>
+    <string name="agent_action_snooze">ለኋላ አድርግ</string>
+    <string name="agent_action_dismiss">አስወግድ</string>
+    <string name="agent_action_view">አሳይ</string>
+    <string name="agent_action_execute_failed">ድርጊቱን ማጠናቀቅ አልተቻለም።</string>
+    <string name="agent_action_retry">እንደገና ሞክር</string>
+    <string name="agent_review_no_target">ለዚህ ድርጊት የተገናኘ ማያ ገጽ የለም።</string>
+    <plurals name="agent_feed_attention">
+        <item quantity="one">%d ነገር ትኩረትዎን ይፈልጋል</item>
+        <item quantity="other">%d ነገሮች ትኩረትዎን ይፈልጋሉ</item>
+    </plurals>
+
+    <string name="notification_channel_agent_alerts">የንግድ ማስጠንቀቂያዎች</string>
+    <string name="notification_channel_agent_alerts_desc">ከወኪሎችዎ የክምችት፣ ማጭበርበር እና ገንዘብ ፍሰት አስታዋሾች።</string>
+    <string name="settings_section_agents">AI ወኪሎች</string>
+    <string name="settings_agents_card_title">የወኪል እንቅስቓሴ</string>
+    <string name="settings_agents_card_body">እያንዳንዱ ወኪል መጨረሻ ሲሰራ እና ረድፍን ዘርጋ ለቅርብ ውጤቶች።</string>
+    <string name="settings_btn_agent_activity">የሂደት ታሪክ ክፈት</string>
+    <string name="agent_settings_title">የወኪል ሂደት ታሪክ</string>
+    <string name="agent_settings_name_stock_guardian">የክምችት ጠባቂ</string>
+    <string name="agent_settings_name_fraud_sentinel">የማጭበርበር ጠባቂ</string>
+    <string name="agent_settings_name_pricing_agent">የዋጋ ወኪል</string>
+    <string name="agent_settings_name_cash_flow">የገንዘብ ፍሰት ጠባቂ</string>
+    <string name="agent_settings_name_customer_relation">የደንበኛ ግንኙነት</string>
+    <string name="agent_settings_name_weekly_review">ሳምንታዊ ግምገማ</string>
+    <string name="agent_settings_name_opportunity_spotter">የእድል ፈላጊ</string>
+    <string name="agent_settings_last_run_never">ፈጽሞ አይደለም</string>
+    <string name="agent_settings_last_run_just_now">አሁን</string>
+    <string name="agent_settings_row_summary">መጨረሻ ሩን፦ %1$s · %2$s</string>
+    <string name="agent_settings_history_empty">ምንም መዝገብ የለም። የቀጣዩ መርሐ ግብር እዚህ ይታያል።</string>
+    <string name="agent_settings_history_line">%1$s · %2$s · %3$s</string>
+    <string name="agent_settings_duration_seconds">%1$dሰ</string>
+    <string name="agent_settings_duration_minutes">%1$dደቂ</string>
+    <string name="agent_settings_duration_hours">%1$dሰዓ</string>
+    <plurals name="agent_settings_minutes_ago">
+        <item quantity="one">ከ%d ደቂቃ በፊት</item>
+        <item quantity="other">ከ%d ደቂቃዎች በፊት</item>
+    </plurals>
+    <plurals name="agent_settings_hours_ago">
+        <item quantity="one">ከ%d ሰዓት በፊት</item>
+        <item quantity="other">ከ%d ሰዓቶች በፊት</item>
+    </plurals>
+    <plurals name="agent_settings_days_ago">
+        <item quantity="one">ከ%d ቀን በፊት</item>
+        <item quantity="other">ከ%d ቀናት በፊት</item>
+    </plurals>
+    <plurals name="agent_settings_generated_actions">
+        <item quantity="one">%d እርምጃ ተፈጥሯል</item>
+        <item quantity="other">%d እርምጃዎች ተፈጥረዋል</item>
+    </plurals>
 
 </resources>

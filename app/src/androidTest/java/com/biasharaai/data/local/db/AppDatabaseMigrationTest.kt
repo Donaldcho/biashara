@@ -13,9 +13,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Validates **v3 → v15** migrations preserve existing product and transaction rows
+ * Validates **v3 → v19** migrations preserve existing product and transaction rows
  * and produce the POS schema (`sale_line_items`, extended `transactions`, `app_settings`,
- * `note_type` on `transactions`, `last_visit` on `customers`, loss columns on `alerts`).
+ * `note_type` on `transactions`, `last_visit` on `customers`, loss columns on `alerts`),
+ * chat session tables, and Phase 4a agent tables (`agent_actions`, `agent_settings`, `agent_run_log`)
+ * plus `products.last_stock_check_at`.
  *
  * Ships with **Migration(3, 5)** because the app historically shipped at DB v3; Prompt P1’s
  * **5 → 6** and **6 → 7** SQL matches the POS design once the DB reaches v5.
@@ -35,7 +37,7 @@ class AppDatabaseMigrationTest {
     }
 
     @Test
-    fun migrate3To15_preservesProductsAndTransactionsAndSeedsSettings() {
+    fun migrate3To19_preservesProductsAndTransactionsAndSeedsSettings() {
         helper.createDatabase(TEST_DB, 3).apply {
             // v3 schema (matches Room entities before POS — indices match Room naming)
             execSQL(
@@ -80,7 +82,7 @@ class AppDatabaseMigrationTest {
 
         val db = helper.runMigrationsAndValidate(
             TEST_DB,
-            15,
+            19,
             true,
             *DatabaseMigrations.ALL,
         )
@@ -176,6 +178,23 @@ class AppDatabaseMigrationTest {
         db.query("SELECT COUNT(*) FROM chat_session_messages").use { c ->
             assertTrue(c.moveToFirst())
             assertEquals(0, c.getInt(0))
+        }
+
+        db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='agent_actions'").use { c ->
+            assertTrue(c.moveToFirst())
+        }
+        db.query("SELECT master_switch FROM agent_settings WHERE id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(1, c.getInt(0))
+        }
+        db.query("PRAGMA table_info(products)").use { c ->
+            val cols = mutableListOf<String>()
+            while (c.moveToNext()) cols.add(c.getString(1))
+            assertTrue(cols.contains("last_stock_check_at"))
+        }
+
+        db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='pending_notifications'").use { c ->
+            assertTrue(c.moveToFirst())
         }
 
         db.close()

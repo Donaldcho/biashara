@@ -27,6 +27,15 @@ interface DebtDao {
     @Query("SELECT * FROM debts WHERE customer_id = :customerId ORDER BY created_at DESC")
     fun getDebtsByCustomer(customerId: Long): Flow<List<Debt>>
 
+    @Query("SELECT * FROM debts ORDER BY id ASC")
+    suspend fun getAllDebts(): List<Debt>
+
+    @Query("SELECT IFNULL(SUM(amount), 0) FROM debts WHERE amount > 0")
+    suspend fun getTotalOutstandingOnce(): Double
+
+    @Query("SELECT COUNT(DISTINCT customer_id) FROM debts WHERE amount > 0")
+    suspend fun countCustomersWithOutstandingDebt(): Long
+
     @Query("SELECT IFNULL(SUM(amount), 0) FROM debts WHERE amount > 0")
     fun getTotalOutstanding(): Flow<Double>
 
@@ -40,6 +49,20 @@ interface DebtDao {
 
     @Query("SELECT * FROM debts WHERE customer_id = :customerId ORDER BY created_at ASC")
     suspend fun getDebtsOldestFirst(customerId: Long): List<Debt>
+
+    /**
+     * Unpaid debts whose [Debt.dueDate] is strictly before [beforeMillisExclusive] (A6 — overdue follow-up).
+     */
+    @Query(
+        """
+        SELECT * FROM debts
+        WHERE amount > 0
+          AND due_date IS NOT NULL
+          AND due_date < :beforeMillisExclusive
+        ORDER BY customer_id ASC, due_date ASC
+        """,
+    )
+    suspend fun getOverdueDebtsBefore(beforeMillisExclusive: Long): List<Debt>
 
     @Update
     suspend fun updateDebt(debt: Debt)

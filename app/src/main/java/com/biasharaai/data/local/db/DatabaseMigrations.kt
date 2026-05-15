@@ -25,6 +25,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * - **14 → 15:** Chat sessions — `chat_sessions` + `chat_session_messages`; legacy `chat_transcript_turns`
  *   migrated into session `id=1` then dropped (Gallery-style history per thread).
  * - **15 → 16:** `chat_session_messages.feedback_vote` for lightweight assistant reply feedback (experiment).
+ * - **16 → 17:** Phase 4a — Prompt A1: `agent_actions`, `agent_settings` (singleton row), `agent_run_log`.
+ * - **17 → 18:** Phase 4a — Prompt A1: `products.last_stock_check_at` + `idx_products_stock` on `stock_quantity`.
  */
 object DatabaseMigrations {
 
@@ -314,6 +316,115 @@ object DatabaseMigrations {
         }
     }
 
+    /** Phase 4a — Prompt A1: autonomous agent queue + settings + run telemetry. */
+    val MIGRATION_16_17 = object : Migration(16, 17) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS agent_actions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    agent_type TEXT NOT NULL,
+                    urgency TEXT NOT NULL,
+                    execution_type TEXT NOT NULL DEFAULT 'REQUIRES_APPROVAL',
+                    headline TEXT NOT NULL,
+                    detail TEXT NOT NULL DEFAULT '',
+                    action_payload TEXT,
+                    action_verb TEXT,
+                    status TEXT NOT NULL DEFAULT 'PENDING',
+                    created_at INTEGER NOT NULL,
+                    expires_at INTEGER,
+                    related_entity_id INTEGER,
+                    related_entity_type TEXT
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS agent_settings (
+                    id INTEGER PRIMARY KEY NOT NULL DEFAULT 1,
+                    master_switch INTEGER NOT NULL DEFAULT 1,
+                    stock_guardian_enabled INTEGER NOT NULL DEFAULT 1,
+                    pricing_agent_enabled INTEGER NOT NULL DEFAULT 1,
+                    cash_flow_enabled INTEGER NOT NULL DEFAULT 1,
+                    customer_relation_enabled INTEGER NOT NULL DEFAULT 1,
+                    fraud_sentinel_enabled INTEGER NOT NULL DEFAULT 1,
+                    weekly_review_enabled INTEGER NOT NULL DEFAULT 1,
+                    opportunity_spotter_enabled INTEGER NOT NULL DEFAULT 1,
+                    stock_alert_threshold_days INTEGER NOT NULL DEFAULT 2,
+                    daily_summary_hour INTEGER NOT NULL DEFAULT 20,
+                    weekly_review_day_of_week INTEGER NOT NULL DEFAULT 1,
+                    quiet_hours_start INTEGER NOT NULL DEFAULT 22,
+                    quiet_hours_end INTEGER NOT NULL DEFAULT 7,
+                    auto_approve_low_dismiss INTEGER NOT NULL DEFAULT 1
+                )
+                """.trimIndent(),
+            )
+            db.execSQL("INSERT OR IGNORE INTO agent_settings (id) VALUES (1)")
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS agent_run_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    agent_type TEXT NOT NULL,
+                    ran_at INTEGER NOT NULL,
+                    duration_ms INTEGER NOT NULL,
+                    actions_generated INTEGER NOT NULL DEFAULT 0,
+                    outcome TEXT NOT NULL
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_agent_actions_status_created_at " +
+                    "ON agent_actions (status, created_at)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_agent_actions_agent_type ON agent_actions (agent_type)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_agent_run_log_agent_type_ran_at " +
+                    "ON agent_run_log (agent_type, ran_at)",
+            )
+        }
+    }
+
+    /**
+     * Phase 4a — Prompt A1: stock-check timestamp on products + index for stock guardian.
+     * `transactions` already has Room indices on `date` and `type` (see [Transaction]); no duplicate indexes.
+     */
+    val MIGRATION_17_18 = object : Migration(17, 18) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            if (!columnExists(db, "products", "last_stock_check_at")) {
+                db.execSQL(
+                    "ALTER TABLE products ADD COLUMN last_stock_check_at INTEGER NOT NULL DEFAULT 0",
+                )
+            }
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_products_stock_quantity ON products(stock_quantity)",
+            )
+        }
+    }
+
+    /** Phase 4d — Prompt A10: deferred push notifications during quiet hours. */
+    val MIGRATION_18_19 = object : Migration(18, 19) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS pending_notifications (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    title TEXT NOT NULL,
+                    body TEXT NOT NULL,
+                    urgency TEXT NOT NULL,
+                    fire_at INTEGER NOT NULL,
+                    created_at INTEGER NOT NULL
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_pending_notifications_fire_at " +
+                    "ON pending_notifications (fire_at)",
+            )
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_3_5,
         MIGRATION_5_6,
@@ -327,5 +438,8 @@ object DatabaseMigrations {
         MIGRATION_13_14,
         MIGRATION_14_15,
         MIGRATION_15_16,
+        MIGRATION_16_17,
+        MIGRATION_17_18,
+        MIGRATION_18_19,
     )
 }

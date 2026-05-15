@@ -32,6 +32,10 @@ class DebtRepository @Inject constructor(
 
     fun observeTotalOutstanding(): Flow<Double> = debtDao.getTotalOutstanding()
 
+    /** Overdue obligations grouped by customer (A6 — CustomerRelationWorker). */
+    suspend fun overdueDebtsByCustomerId(nowMillis: Long): Map<Long, List<Debt>> =
+        debtDao.getOverdueDebtsBefore(nowMillis).groupBy { it.customerId }
+
     /**
      * Settles the debt row and records matching income so cash-flow totals stay consistent (Prompt U6).
      */

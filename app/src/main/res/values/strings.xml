@@ -4,7 +4,7 @@
     <string name="deviceterra_wordmark" translatable="false">DEVICETERRA</string>
     <string name="splash_logo_content_description">Deviceterra logo</string>
 
-    <string name="nav_home">Home</string>
+    <string name="nav_home">Today</string>
     <string name="nav_inventory">Inventory</string>
     <string name="nav_chat">Chat</string>
     <string name="nav_insights">Insights</string>
@@ -154,6 +154,25 @@
     <string name="inference_enable_speculative_hint">When off, chat prompts ask for standard decoding. Speculative decoding is not exposed in this SDK build.</string>
     <string name="inference_defaults">Restore defaults</string>
     <string name="inference_configs_saved">Configurations saved. The model will reload on the next reply.</string>
+    <string name="settings_section_cloud_analysis">Cloud analysis</string>
+    <string name="settings_cloud_analysis_body">Optional: send shop data to your own HTTPS endpoint for heavy analytics or dashboards. Your on-device Gemma model is unchanged. Nothing is uploaded until you tap an upload action.</string>
+    <string name="settings_cloud_enable">Enable cloud uploads</string>
+    <string name="settings_cloud_endpoint_hint">Analytics URL (https only)</string>
+    <string name="settings_cloud_api_key_hint">API key (Bearer token)</string>
+    <string name="settings_cloud_api_key_saved">A key is already saved. Enter a new key only if you want to replace it.</string>
+    <string name="settings_cloud_btn_save">Save connection</string>
+    <string name="settings_cloud_btn_upload_json">Upload business data (JSON)</string>
+    <string name="settings_cloud_btn_upload_db">Upload full database (SQLite)</string>
+    <string name="settings_cloud_upload_json_confirm">Send a JSON snapshot (products, sales, customers, debts, alerts, and pre-aggregated sale facts) to your endpoint? Chat message text is not included.</string>
+    <string name="settings_cloud_upload_db_confirm_title">Upload the full database file?</string>
+    <string name="settings_cloud_upload_db_confirm_message">This sends the complete SQLite database, including chat sessions if present. Only proceed if you trust the destination and understand your privacy obligations.</string>
+    <string name="settings_cloud_saved">Cloud settings saved</string>
+    <string name="settings_cloud_upload_success">Upload completed</string>
+    <string name="settings_cloud_upload_failed">Upload failed: %1$s</string>
+    <string name="settings_cloud_missing_url">Enter an https:// URL first.</string>
+    <string name="settings_cloud_missing_key">Save an API key first (or enter one and tap Save connection).</string>
+    <string name="settings_cloud_not_enabled">Turn on \"Enable cloud uploads\" first.</string>
+    <string name="settings_cloud_uploading">Uploading…</string>
     <string name="settings_section_about">About</string>
     <string name="settings_section_regional">Regional</string>
     <string name="settings_currency_title">Shop currency</string>
@@ -380,6 +399,11 @@
     <string name="credit_remind_no_phone">Add a phone number for this customer to send a reminder.</string>
     <string name="credit_remind_fallback_sms">Hi %1$s, friendly reminder you have a balance of %2$s %3$.2f with us (%4$d days). Thanks.</string>
 
+    <!-- A6 — Customer relation agent -->
+    <string name="agent_customer_relation_debt_headline">Credit reminder: %1$s</string>
+    <string name="agent_customer_relation_visit_headline">We miss you: %1$s</string>
+    <string name="agent_customer_visit_fallback_sms">Hi %1$s, we have missed you at the shop — it has been %2$d days since your last visit. We would love to see you again.</string>
+
     <!-- Prompt P8 — transactions, receipt, returns -->
     <string name="transactions_title">Transactions</string>
     <string name="transactions_menu">Transactions</string>
@@ -470,6 +494,77 @@
     <plurals name="negotiation_products_selected_count">
         <item quantity="one">%d product selected</item>
         <item quantity="other">%d products selected</item>
+    </plurals>
+
+    <!-- Agent feed (Prompt A4) -->
+    <string name="agent_feed_greeting_morning">Good morning, %1$s</string>
+    <string name="agent_feed_greeting_afternoon">Good afternoon, %1$s</string>
+    <string name="agent_feed_greeting_evening">Good evening, %1$s</string>
+    <string name="agent_feed_attention_none">You\'re all caught up</string>
+    <string name="agent_feed_empty_emoji" translatable="false">✨</string>
+    <string name="agent_feed_empty_illustration_cd">All clear</string>
+    <string name="agent_feed_empty_message">Everything looks good! Your business is running smoothly.</string>
+    <string name="agent_action_review">Review</string>
+    <string name="agent_action_approve">Approve ✓</string>
+    <string name="agent_action_reject">Reject ✗</string>
+    <string name="agent_action_snooze">Snooze</string>
+    <string name="agent_action_dismiss">Dismiss</string>
+    <string name="agent_action_view">View</string>
+    <string name="agent_action_unknown_verb">This action type is not executable yet.</string>
+    <string name="agent_action_execute_failed">Could not complete that action.</string>
+    <string name="agent_weekly_review_headline">Weekly business review</string>
+    <string name="agent_weekly_review_chip_format">%1$s · %2$s</string>
+    <string name="agent_weekly_review_fallback">Here is your week in numbers — open Insights for charts and receipts.</string>
+    <string name="agent_opportunity_headline">Bundle and shelf ideas</string>
+    <string name="agent_opportunity_fallback">Keep paired movers visible at the till and mention the second item when customers buy the first.</string>
+    <string name="agent_action_retry">Retry</string>
+    <string name="agent_review_no_target">There is no linked screen for this action.</string>
+
+    <plurals name="agent_feed_attention">
+        <item quantity="one">%d thing needs your attention</item>
+        <item quantity="other">%d things need your attention</item>
+    </plurals>
+
+    <string name="notification_channel_agent_alerts">Business alerts</string>
+    <string name="notification_channel_agent_alerts_desc">Stock, fraud, and cash-flow reminders from your agents.</string>
+
+    <string name="settings_section_agents">AI agents</string>
+    <string name="settings_agents_card_title">Agent activity</string>
+    <string name="settings_agents_card_body">See when each agent last ran and expand a row for recent outcomes.</string>
+    <string name="settings_btn_agent_activity">Open agent run history</string>
+
+    <string name="agent_settings_title">Agent run history</string>
+    <string name="agent_settings_name_stock_guardian">Stock Guardian</string>
+    <string name="agent_settings_name_fraud_sentinel">Fraud Sentinel</string>
+    <string name="agent_settings_name_pricing_agent">Pricing agent</string>
+    <string name="agent_settings_name_cash_flow">Cash flow sentinel</string>
+    <string name="agent_settings_name_customer_relation">Customer relations</string>
+    <string name="agent_settings_name_weekly_review">Weekly review</string>
+    <string name="agent_settings_name_opportunity_spotter">Opportunity spotter</string>
+    <string name="agent_settings_last_run_never">Never</string>
+    <string name="agent_settings_last_run_just_now">Just now</string>
+    <string name="agent_settings_row_summary">Last run: %1$s · %2$s</string>
+    <string name="agent_settings_history_empty">No logged runs yet. The next scheduled pass will appear here.</string>
+    <string name="agent_settings_history_line">%1$s · %2$s · %3$s</string>
+    <string name="agent_settings_duration_seconds">%1$ds</string>
+    <string name="agent_settings_duration_minutes">%1$dm</string>
+    <string name="agent_settings_duration_hours">%1$dh</string>
+
+    <plurals name="agent_settings_minutes_ago">
+        <item quantity="one">%d minute ago</item>
+        <item quantity="other">%d minutes ago</item>
+    </plurals>
+    <plurals name="agent_settings_hours_ago">
+        <item quantity="one">%d hour ago</item>
+        <item quantity="other">%d hours ago</item>
+    </plurals>
+    <plurals name="agent_settings_days_ago">
+        <item quantity="one">%d day ago</item>
+        <item quantity="other">%d days ago</item>
+    </plurals>
+    <plurals name="agent_settings_generated_actions">
+        <item quantity="one">Generated %d action</item>
+        <item quantity="other">Generated %d actions</item>
     </plurals>
 
 </resources>

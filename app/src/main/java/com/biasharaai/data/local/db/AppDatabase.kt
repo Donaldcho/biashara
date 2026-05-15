@@ -15,8 +15,12 @@ import androidx.room.RoomDatabase
         AiBusinessMemory::class,
         ChatSessionEntity::class,
         ChatSessionMessageEntity::class,
+        AgentAction::class,
+        AgentSetting::class,
+        AgentRunLog::class,
+        PendingNotification::class,
     ],
-    version = 16,
+    version = 19,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -34,6 +38,14 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun chatMemoryDao(): ChatMemoryDao
 
     abstract fun chatSessionDao(): ChatSessionDao
+
+    abstract fun agentActionDao(): AgentActionDao
+
+    abstract fun agentSettingDao(): AgentSettingDao
+
+    abstract fun agentRunLogDao(): AgentRunLogDao
+
+    abstract fun pendingNotificationDao(): PendingNotificationDao
 
     companion object {
         const val NAME = "biashara.db"

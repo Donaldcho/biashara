@@ -142,7 +142,7 @@ class MigrationTest {
      * 500ms is the on-device target from the Phase 2 checklist.
      */
     @Test
-    fun migrateV3To16_preservesThousandProducts_underReasonableTime() {
+    fun migrateV3To18_preservesThousandProducts_underReasonableTime() {
         helper.createDatabase(TEST_DB_LARGE, 3).apply {
             execSQL(
                 """
@@ -189,7 +189,7 @@ class MigrationTest {
         val t0 = System.nanoTime()
         val db = helper.runMigrationsAndValidate(
             TEST_DB_LARGE,
-            16,
+            18,
             true,
             *DatabaseMigrations.ALL,
         )
@@ -202,6 +202,18 @@ class MigrationTest {
         db.query("SELECT name FROM products WHERE id = 500").use { c ->
             assertTrue(c.moveToFirst())
             assertEquals("SKU-500", c.getString(0))
+        }
+
+        db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='agent_actions'").use { c ->
+            assertTrue(c.moveToFirst())
+        }
+        db.query("SELECT id FROM agent_settings WHERE id = 1").use { c ->
+            assertTrue(c.moveToFirst())
+        }
+        db.query("PRAGMA table_info(products)").use { c ->
+            val cols = mutableListOf<String>()
+            while (c.moveToNext()) cols.add(c.getString(1))
+            assertTrue(cols.contains("last_stock_check_at"))
         }
 
         // Flake guard: physical devices often &lt; 500ms; emulators/CI vary widely.

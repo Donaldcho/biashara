@@ -38,4 +38,7 @@ interface AlertDao {
 
     @Query("DELETE FROM alerts WHERE created_at < :olderThanMillis")
     suspend fun deleteOldAlerts(olderThanMillis: Long): Int
+
+    @Query("SELECT * FROM alerts ORDER BY created_at DESC LIMIT 500")
+    suspend fun listRecentForExport(): List<Alert>
 }

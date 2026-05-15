@@ -9,6 +9,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.fragment.app.viewModels
+import androidx.navigation.fragment.findNavController
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -67,9 +68,11 @@ class SettingsFragment : BaseFragment() {
         displayAppVersion()
         setupButtons()
         setupInferenceConfigurations()
+        setupCloudAnalysis()
         setupOrderParserFromClipboard()
         setupVoiceInputSwitch()
         setupCurrency()
+        setupAgentRunHistoryNav()
         observeDownloadState()
         observeDownloadProgress()
         observeEvents()
@@ -118,6 +121,12 @@ class SettingsFragment : BaseFragment() {
                     binding.textCurrencyCurrent.text = names[idx]
                 }
             }
+        }
+    }
+
+    private fun setupAgentRunHistoryNav() {
+        binding.btnAgentActivity.setOnClickListener {
+            findNavController().navigate(R.id.action_settingsFragment_to_agentSettingsFragment)
         }
     }
 
@@ -275,6 +284,35 @@ class SettingsFragment : BaseFragment() {
                                 Snackbar.LENGTH_LONG,
                             ).show()
                         }
+
+                        is SettingsViewModel.Event.CloudSettingsSaved -> {
+                            Snackbar.make(
+                                binding.root,
+                                R.string.settings_cloud_saved,
+                                Snackbar.LENGTH_SHORT,
+                            ).show()
+                        }
+
+                        is SettingsViewModel.Event.CloudUploadSucceeded -> {
+                            Snackbar.make(
+                                binding.root,
+                                R.string.settings_cloud_upload_success,
+                                Snackbar.LENGTH_SHORT,
+                            ).show()
+                        }
+
+                        is SettingsViewModel.Event.CloudUploadFailed -> {
+                            val msg = when (event.message) {
+                                SettingsViewModel.CLOUD_ERR_NOT_ENABLED ->
+                                    getString(R.string.settings_cloud_not_enabled)
+                                SettingsViewModel.CLOUD_ERR_MISSING_URL ->
+                                    getString(R.string.settings_cloud_missing_url)
+                                SettingsViewModel.CLOUD_ERR_MISSING_KEY ->
+                                    getString(R.string.settings_cloud_missing_key)
+                                else -> getString(R.string.settings_cloud_upload_failed, event.message)
+                            }
+                            Snackbar.make(binding.root, msg, Snackbar.LENGTH_LONG).show()
+                        }
                     }
                 }
             }
@@ -287,6 +325,20 @@ class SettingsFragment : BaseFragment() {
                         getString(R.string.settings_benchmark_running)
                     } else {
                         getString(R.string.settings_btn_benchmark)
+                    }
+                }
+            }
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.isCloudUploading.collect { uploading ->
+                    binding.btnCloudUploadJson.isEnabled = !uploading
+                    binding.btnCloudUploadSqlite.isEnabled = !uploading
+                    binding.btnCloudAnalysisSave.isEnabled = !uploading
+                    binding.btnCloudUploadJson.text = if (uploading) {
+                        getString(R.string.settings_cloud_uploading)
+                    } else {
+                        getString(R.string.settings_cloud_btn_upload_json)
                     }
                 }
             }
@@ -404,6 +456,53 @@ class SettingsFragment : BaseFragment() {
             showInferenceConfigurationsDialog()
         }
         updateInferenceSectionVisibility()
+    }
+
+    private fun setupCloudAnalysis() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.cloudSettings.collect { s ->
+                    binding.switchCloudAnalysisEnabled.setOnCheckedChangeListener(null)
+                    if (binding.switchCloudAnalysisEnabled.isChecked != s.enabled) {
+                        binding.switchCloudAnalysisEnabled.isChecked = s.enabled
+                    }
+                    val url = s.endpointUrl
+                    if (binding.inputCloudEndpoint.text?.toString() != url) {
+                        binding.inputCloudEndpoint.setText(url)
+                    }
+                    binding.textCloudApiKeySaved.visibility =
+                        if (s.hasApiKey) View.VISIBLE else View.GONE
+                }
+            }
+        }
+        binding.btnCloudAnalysisSave.setOnClickListener {
+            val keyText = binding.inputCloudApiKey.text?.toString()?.trim().orEmpty()
+            viewModel.saveCloudAnalysis(
+                enabled = binding.switchCloudAnalysisEnabled.isChecked,
+                endpointUrl = binding.inputCloudEndpoint.text?.toString().orEmpty(),
+                newApiKeyIfNonBlank = keyText.ifBlank { null },
+            )
+            binding.inputCloudApiKey.text?.clear()
+        }
+        binding.btnCloudUploadJson.setOnClickListener {
+            MaterialAlertDialogBuilder(requireContext())
+                .setMessage(R.string.settings_cloud_upload_json_confirm)
+                .setPositiveButton(R.string.settings_cloud_btn_upload_json) { _, _ ->
+                    viewModel.uploadCloudAnalyticsJson()
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
+        binding.btnCloudUploadSqlite.setOnClickListener {
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.settings_cloud_upload_db_confirm_title)
+                .setMessage(R.string.settings_cloud_upload_db_confirm_message)
+                .setPositiveButton(R.string.settings_cloud_btn_upload_db) { _, _ ->
+                    viewModel.uploadCloudSqliteDatabase()
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
     }
 
     private fun updateInferenceSectionVisibility() {

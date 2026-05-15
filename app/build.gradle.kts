@@ -61,6 +61,7 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:$material")
     implementation("androidx.constraintlayout:constraintlayout:2.2.0")
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation("androidx.viewpager2:viewpager2:1.1.0")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutines")
@@ -92,6 +93,7 @@ dependencies {
     implementation("androidx.camera:camera-view:$camerax")
 
     implementation("com.google.code.gson:gson:2.11.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("io.coil-kt:coil:2.7.0")
 
     implementation("com.google.mlkit:barcode-scanning:17.3.0")

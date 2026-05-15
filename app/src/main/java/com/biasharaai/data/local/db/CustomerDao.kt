@@ -12,6 +12,9 @@ import kotlinx.coroutines.flow.Flow
 interface CustomerDao {
 
     @Query("SELECT * FROM customers ORDER BY name COLLATE NOCASE ASC")
+    suspend fun getCustomersList(): List<Customer>
+
+    @Query("SELECT * FROM customers ORDER BY name COLLATE NOCASE ASC")
     fun getAllCustomers(): Flow<List<Customer>>
 
     @Query("SELECT * FROM customers WHERE id = :id LIMIT 1")
@@ -40,4 +43,27 @@ interface CustomerDao {
 
     @Query("UPDATE customers SET last_visit = :millis WHERE id = :id")
     suspend fun updateLastVisit(id: Long, millis: Long)
+
+    @Query(
+        """
+        SELECT COUNT(*) FROM customers
+        WHERE created_at >= :startMillis AND created_at < :endExclusiveMillis
+        """,
+    )
+    suspend fun countCustomersCreatedBetween(startMillis: Long, endExclusiveMillis: Long): Long
+
+    /**
+     * Distinct buyers in the window who already had a customer profile **before** [weekStartMillis]
+     * (A7 “returning” heuristic vs new profiles created this week).
+     */
+    @Query(
+        """
+        SELECT COUNT(DISTINCT t.customer_id) FROM transactions t
+        INNER JOIN customers c ON c.id = t.customer_id
+        WHERE t.type = 'INCOME' AND t.customer_id IS NOT NULL
+          AND t.date >= :weekStartMillis AND t.date < :weekEndExclusiveMillis
+          AND c.created_at < :weekStartMillis
+        """,
+    )
+    suspend fun countReturningBuyerCustomersInWeek(weekStartMillis: Long, weekEndExclusiveMillis: Long): Long
 }
