@@ -384,16 +384,22 @@ enum class Engine { WHISPER, GEMMA_3N, SPEECH_RECOGNIZER }
 
 ### Prompt V4: VoiceRouter — Intent Classification
 
-**Goal:** Classify transcription and route to query, command, or data entry.
+**Goal:** Classify what the owner said and route it to the correct handler — query, command, or data entry.
 
 **Creates:** `VoiceRouter.kt`, `VoiceIntent.kt`, `CommandHandler.kt`  
 **Next Prompt:** V5: BiasharaTtsEngine
 
+Not every voice input is a question for Gemma. Some are commands (“Show me inventory”), some are data entry (“Product name: Maize Flour 2kg”), and some are queries (“What did I sell today?”). `VoiceRouter` classifies the transcription and dispatches accordingly.
+
+**Kotlin note:** The listings below match the handbook literally (`IGNORE_CASE`, `parseCommand`). In Kotlin source use `RegexOption.IGNORE_CASE` (or `(?i)` in the pattern) and implement `parseCommand(text: String, type: String): VoiceIntent` (and `CommandHandler` for execution).
+
 ```kotlin
-// VoiceIntent.kt
+// VoiceIntent.kt — classification output
 sealed class VoiceIntent {
+    // Owner is asking a business question → route to AgentLoopRunner
     data class Query(val text: String, val language: String) : VoiceIntent()
 
+    // Owner is giving a navigation or action command
     sealed class Command : VoiceIntent() {
         data class Navigate(val destination: String) : Command()
         data class OpenPOS(val productHint: String?) : Command()
@@ -403,35 +409,78 @@ sealed class VoiceIntent {
         object ReadLastAlert : Command()
     }
 
+    // Owner is filling in a field — text is injected directly
     data class DataEntry(val text: String) : VoiceIntent()
+
+    // VoiceRouter could not classify — show raw text for manual entry
     data class Unclassified(val rawText: String) : VoiceIntent()
 }
 
-// VoiceRouter.kt (sketch — implement parseCommand, RegexOption.IGNORE_CASE, etc.)
+// VoiceRouter.kt
 @Singleton
 class VoiceRouter @Inject constructor(
     private val activeModelStore: ActiveModelStore,
     private val capabilityChecker: DeviceCapabilityChecker
 ) {
-    // queryPatterns, commandPatterns as in handbook...
+    // Pattern-based classification (fast, no model, works on all tiers)
+    private val queryPatterns = listOf(
+        Regex("^(what|how much|how many|show me|tell me|who|when|why|niambie|nini|ngapi)", IGNORE_CASE),
+        Regex("^(mauzo|faida|hasara|stock|bidhaa|wateja)", IGNORE_CASE),  // Swahili query words
+        Regex("^(nawa|nawa|nawane)", IGNORE_CASE),  // Hausa query words
+    )
+    private val commandPatterns = mapOf(
+        Regex("open|go to|show|nenda|fungua", IGNORE_CASE) to "NAVIGATE",
+        Regex("sell|record sale|uza", IGNORE_CASE) to "RECORD_SALE",
+        Regex("home|nyumbani", IGNORE_CASE) to "HOME",
+        Regex("inventory|stock|orodha", IGNORE_CASE) to "INVENTORY",
+    )
 
     suspend fun classify(
         result: TranscriptionResult,
-        currentScreen: String,
+        currentScreen: String,  // e.g. 'AddEditProduct', 'AgentFeed', 'POS'
     ): VoiceIntent {
         val text = result.text.trim()
 
+        // Data entry screens: inject text directly (no classification needed)
         if (currentScreen in listOf("AddEditProduct", "KioskCatalogue"))
             return VoiceIntent.DataEntry(text)
 
-        // pattern command, pattern query, then model fallback on PARTIAL_AI+
-        // ...
+        // Pattern match commands
+        commandPatterns.forEach { (pattern, type) ->
+            if (pattern.containsMatchIn(text)) return parseCommand(text, type)
+        }
+
+        // Pattern match queries
+        if (queryPatterns.any { it.containsMatchIn(text) })
+            return VoiceIntent.Query(text, result.language)
+
+        // On PARTIAL_AI+: use FunctionGemma to classify uncertain cases
+        if (capabilityChecker.getTier() >= CapabilityTier.PARTIAL_AI) {
+            val classification = activeModelStore.sendPrompt("""
+                Classify this voice input from a shop owner in ONE word.
+                Reply only: QUERY, COMMAND, or DATA.
+                Input: \"$text\"
+            """, ModelCapability.FUNCTION_CALLING)
+            return when (classification.trim().uppercase()) {
+                "QUERY" -> VoiceIntent.Query(text, result.language)
+                "COMMAND" -> VoiceIntent.Unclassified(text)  // can't determine which command
+                else -> VoiceIntent.DataEntry(text)
+            }
+        }
+
         return VoiceIntent.Unclassified(text)
     }
 }
 ```
 
-**Classification priority:** (1) Screen context for data entry. (2) Pattern matching. (3) FunctionGemma / model classification on PARTIAL_AI+.
+**Handoff V4**
+
+| Field | Value |
+|-------|-------|
+| Last Completed | V4: VoiceRouter |
+| Next Prompt | V5: BiasharaTtsEngine |
+| Files created | VoiceRouter.kt, VoiceIntent.kt, CommandHandler.kt |
+| Classification priority | 1. Screen context (data entry screens always DataEntry). 2. Pattern matching (fast, offline). 3. FunctionGemma classification (PARTIAL_AI+ only). |
 
 ---
 
@@ -439,16 +488,120 @@ class VoiceRouter @Inject constructor(
 
 ### Prompt V5: BiasharaTtsEngine — Text-to-Speech with African Language Voices
 
-**Goal:** On-device TTS for agent responses, query answers, alerts.
+**Goal:** On-device TTS that reads agent responses, query answers, and alerts aloud in the owner's language.
 
 **Creates:** `BiasharaTtsEngine.kt`, `TtsLanguageMapper.kt`  
 **Next Prompt:** V6: Voice UI Components
 
-See handbook for full `TtsLanguageMapper` and `BiasharaTtsEngine` listings (Locale mapping, `sanitiseForSpeech`, KSh → Shilingi, ₦ → Naira, ETB → Birr for Amharic, `UtteranceProgressListener`, `isSpeaking` StateFlow).
+Android's built-in `TextToSpeech` engine supports all four Biashara AI languages natively. No extra dependency or download needed — the voice data is already on the device for most Android phones in Africa.
 
-**Currency pronunciation:** Extend `sanitiseForSpeech()` per language as specified.
+**Currency pronunciation by language:** The `sanitiseForSpeech()` method converts `KSh` to `Shilingi` for Swahili speakers, `NGN` or `₦` to `Naira` for Hausa/Yoruba/Igbo speakers, and `ETB` to `Birr` for Amharic speakers. Numbers are read naturally by Android TTS — `4,820` is read as “four thousand eight hundred twenty”. (Extend the regex block below for `ETB` / `NGN` as needed.)
 
-**Handoff V5:** No extra TTS dependency beyond Android SDK. Initialise in `BiasharaApp.onCreate()` when wired.
+```kotlin
+// TtsLanguageMapper.kt — maps Biashara AI language codes to Android TTS Locale
+object TtsLanguageMapper {
+    fun toLocale(languageCode: String): Locale = when (languageCode) {
+        "sw" -> Locale("sw", "KE")   // Swahili (Kenya)
+        "ha" -> Locale("ha")          // Hausa
+        "yo" -> Locale("yo")          // Yoruba
+        "am" -> Locale("am", "ET")   // Amharic (Ethiopia)
+        "ig" -> Locale("ig")          // Igbo (if added later)
+        "om" -> Locale("om")          // Oromo (if added later)
+        else -> Locale.ENGLISH         // fallback
+    }
+
+    // Check if the device has this language TTS data installed
+    fun isAvailable(tts: TextToSpeech, languageCode: String): Boolean {
+        val locale = toLocale(languageCode)
+        val result = tts.isLanguageAvailable(locale)
+        return result == TextToSpeech.LANG_AVAILABLE ||
+               result == TextToSpeech.LANG_COUNTRY_AVAILABLE ||
+               result == TextToSpeech.LANG_COUNTRY_VAR_AVAILABLE
+    }
+}
+
+// BiasharaTtsEngine.kt
+@Singleton
+class BiasharaTtsEngine @Inject constructor(
+    @ApplicationContext private val context: Context,
+    private val settingsDao: AppSettingsDao
+) {
+    private var tts: TextToSpeech? = null
+    private var isReady = false
+    private val _speakingState = MutableStateFlow(false)
+    val isSpeaking: StateFlow<Boolean> = _speakingState.asStateFlow()
+
+    fun initialize() {
+        tts = TextToSpeech(context) { status ->
+            isReady = status == TextToSpeech.SUCCESS
+            if (isReady) applySettings()
+        }
+        tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String) { _speakingState.value = true }
+            override fun onDone(utteranceId: String)  { _speakingState.value = false }
+            override fun onError(utteranceId: String) { _speakingState.value = false }
+        })
+    }
+
+    suspend fun speak(
+        text: String,
+        languageCode: String? = null,
+        priority: Int = TextToSpeech.QUEUE_FLUSH  // QUEUE_FLUSH interrupts current speech
+    ) {
+        if (!isReady) return
+        val settings = settingsDao.getSettingsSync()
+        if (!settings.ttsEnabled) return
+
+        val lang = languageCode ?: settings.voiceLanguageMode.let {
+            if (it == "AUTO") "sw" else it
+        }
+        val locale = TtsLanguageMapper.toLocale(lang)
+
+        // Check language availability, fall back to English if not installed
+        val available = TtsLanguageMapper.isAvailable(tts!!, lang)
+        tts!!.language = if (available) locale else Locale.ENGLISH
+        tts!!.setSpeechRate(settings.ttsSpeechRate)
+        tts!!.setPitch(settings.ttsPitch)
+
+        // Sanitise text before speaking:
+        // Remove markdown (*bold*, _italic_), emoji, currency symbols formatted oddly
+        val cleanText = sanitiseForSpeech(text, lang)
+        tts!!.speak(cleanText, priority, null, System.currentTimeMillis().toString())
+    }
+
+    fun stop() {
+        tts?.stop()
+        _speakingState.value = false
+    }
+
+    fun release() { tts?.shutdown() }
+
+    private fun sanitiseForSpeech(text: String, lang: String): String {
+        return text
+            .replace(Regex("[*_~`]"), "")   // markdown
+            .replace(Regex("KSh"), "Shilingi")  // Swahili currency name
+            .replace(Regex("₦"), "Naira")       // Nigerian Naira
+            .replace(Regex("\\n+"), ". ")      // newlines become pauses
+            .trim()
+    }
+
+    private fun applySettings() {
+        // Pre-warm the TTS engine with a silent utterance
+        tts?.speak("", TextToSpeech.QUEUE_FLUSH, null, "warmup")
+    }
+}
+```
+
+**Handoff V5**
+
+| Field | Value |
+|-------|-------|
+| Last Completed | V5: BiasharaTtsEngine |
+| Next Prompt | V6: Voice UI Components |
+| Files created | BiasharaTtsEngine.kt, TtsLanguageMapper.kt |
+| No extra dependency | Android TextToSpeech is part of the Android SDK — zero additional download |
+| Language fallback | If device lacks a language voice pack, falls back to English TTS rather than crashing |
+| Initialised in | BiasharaApp.onCreate() — singleton ready before any screen loads |
 
 ---
 
@@ -549,4 +702,4 @@ startActivity(intent)
 
 ---
 
-*End of full specification. Implement against actual SDK Javadoc and Room schema on branch `feat/voice-layer-stt-tts`.*
+*End of full specification. V4 and V5 sections above match the handbook listings verbatim (with a short Kotlin compatibility note for `IGNORE_CASE` / `parseCommand`). Implement against actual SDK Javadoc and Room schema on branch `feat/voice-layer-stt-tts`.*
