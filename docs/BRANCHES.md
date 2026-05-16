@@ -13,7 +13,7 @@ Keep it updated when you add long-lived integration lines or change the default 
 | List remote branches | `git branch -r` |
 | Fetch everything | `git fetch origin` |
 | Work on **stable line** (U prompts, POS, chat) | `git fetch origin && git checkout release/biashara-phase4` |
-| Work on **Voice layer** (Whisper STT + TTS, prompts V0–V9) | `git fetch origin && git checkout feat/voice-layer-stt-tts` — see `docs/VOICE_LAYER_HANDBOOK_V1.md` |
+| Work on **Voice layer** (Whisper STT + TTS, prompts V0–V9) | `git fetch origin && git checkout feat/voice-layer-stt-tts` — see [`docs/VOICE_LAYER_HANDBOOK_V1.md`](./VOICE_LAYER_HANDBOOK_V1.md) (alignment) and [`docs/VOICE_LAYER_HANDBOOK_V1_SPEC.md`](./VOICE_LAYER_HANDBOOK_V1_SPEC.md) (full spec) |
 | Work on **POS feature line** (historical) | `git fetch origin && git checkout feat/pos-module` |
 | Start a **new** task from latest integration | `git fetch origin && git checkout release/biashara-phase4 && git pull && git checkout -b feat/<short-topic>` |
 

@@ -6,6 +6,8 @@
 
 > *"The owner speaks. The app listens, thinks, and speaks back."*
 
+**Documents:** This file is the **short guide + repository alignment**. The **full V0–V9 specification** (verbatim structure, tables, acceptance criteria, extended code) is in **[`VOICE_LAYER_HANDBOOK_V1_SPEC.md`](./VOICE_LAYER_HANDBOOK_V1_SPEC.md)**.
+
 ---
 
 ## Repository alignment (BiasharaAI — read before V0)
