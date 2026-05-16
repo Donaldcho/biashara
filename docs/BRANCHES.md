@@ -13,6 +13,7 @@ Keep it updated when you add long-lived integration lines or change the default 
 | List remote branches | `git branch -r` |
 | Fetch everything | `git fetch origin` |
 | Work on **stable line** (U prompts, POS, chat) | `git fetch origin && git checkout release/biashara-phase4` |
+| Work on **Voice layer** (Whisper STT + TTS, prompts V0–V9) | `git fetch origin && git checkout feat/voice-layer-stt-tts` — see `docs/VOICE_LAYER_HANDBOOK_V1.md` |
 | Work on **POS feature line** (historical) | `git fetch origin && git checkout feat/pos-module` |
 | Start a **new** task from latest integration | `git fetch origin && git checkout release/biashara-phase4 && git pull && git checkout -b feat/<short-topic>` |
 
@@ -23,7 +24,8 @@ Keep it updated when you add long-lived integration lines or change the default 
 ```text
 main
  └── feat/pos-module          (POS / earlier integration — pushed earlier)
-       └── release/biashara-phase4   (stable line: U-track + POS + chat v15, …)
+       └── release/biashara-phase4   (stable line: U-track + POS + Phase 6 models/skills, …)
+             └── feat/voice-layer-stt-tts   (Voice layer v1 handbook — Whisper + TTS)
 ```
 
 - **`main`** — release-aligned default; treat as **protected** (PR + review + CI before merge).
