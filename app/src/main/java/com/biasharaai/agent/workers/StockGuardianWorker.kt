@@ -14,7 +14,10 @@ import com.biasharaai.data.local.db.AppSettingsDao
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** A3 — Stock Guardian: 7-day sales pace vs stock, Room-only (all device tiers). */
+/**
+ * A3 — Stock Guardian: 7-day sales pace vs stock, Room-only (all device tiers).
+ * X9: rules path (no LLM); inventory facts are available to other agents via [query_inventory].
+ */
 class StockGuardianWorker(
     appContext: Context,
     params: WorkerParameters,

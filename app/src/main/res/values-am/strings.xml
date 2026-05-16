@@ -80,6 +80,17 @@
     <string name="settings_delete_confirm_title">ሞዴሉን ይሰርዙ?</string>
     <string name="settings_delete_confirm_message">ሞዴሉ ዳግም እስኪወርድ ድረስ የ AI ባህሪያት አይገኙም።</string>
     <string name="settings_download_complete">ሞዴል በተሳካ ሁኔታ ወርዷል</string>
+    <string name="model_settings_title">የ AI ሞዴሎች</string>
+    <string name="settings_btn_manage_models">የ AI ሞዴሎችን ያስተዳድሩ</string>
+    <string name="model_settings_info">የ AI ሞዴል ያውርዱ፣ ይፈትሹ፣ ወይም ይቀይሩ።</string>
+    <string name="model_settings_chip_primary">ዋና</string>
+    <string name="model_settings_btn_set_primary">እንደ ዋና ያዘጋጁ</string>
+    <string name="model_settings_btn_benchmark">ፍጥነት ፈትሽ</string>
+    <string name="model_settings_benchmarking">ፍጥነት እየፈተሽ ነው…</string>
+    <string name="model_settings_benchmark_done">ፈተናው ተጠናቋል: %1$s t/s</string>
+    <string name="model_settings_benchmark_failed">ፈተናው አልተሳካም</string>
+    <string name="model_settings_primary_changed">ዋና ሞዴል ተቀይሯል</string>
+    <string name="model_settings_progress_detail">%1$d MB / %2$d MB · %3$d%%</string>
     <string name="settings_download_failed">ማውረድ አልተሳካም: %1$s</string>
     <string name="settings_section_about">ስለ</string>
     <string name="settings_app_version">ስሪት %1$s</string>

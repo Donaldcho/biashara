@@ -324,12 +324,12 @@ class PosFragment : BaseFragment() {
     }
 
     private fun observeScannerResult() {
-        val entry = findNavController().getBackStackEntry(R.id.posFragment)
-        entry.savedStateHandle.getLiveData<String>(RESULT_KEY_SCANNED_BARCODE)
+        val handle = findNavController().currentBackStackEntry?.savedStateHandle ?: return
+        handle.getLiveData<String>(RESULT_KEY_SCANNED_BARCODE)
             .observe(viewLifecycleOwner) { code ->
                 if (!code.isNullOrBlank()) {
                     viewModel.onScannedBarcode(code)
-                    entry.savedStateHandle.remove<String>(RESULT_KEY_SCANNED_BARCODE)
+                    handle.remove<String>(RESULT_KEY_SCANNED_BARCODE)
                 }
             }
     }

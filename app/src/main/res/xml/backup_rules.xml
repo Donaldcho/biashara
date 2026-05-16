@@ -1,2 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<full-backup-content />
+<full-backup-content>
+    <!-- Hugging Face read token — do not include in device backup / transfer. -->
+    <exclude domain="sharedpref" path="huggingface_auth.xml" />
+</full-backup-content>

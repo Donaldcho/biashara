@@ -73,8 +73,10 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun deleteModel() {
-        gemmaService.close()
-        modelDownloadManager.deleteModel()
+        viewModelScope.launch {
+            gemmaService.close()
+            modelDownloadManager.deleteModel()
+        }
     }
 
     /** Call after saving Edge-style inference UI so the next chat run reloads the engine. */
@@ -103,6 +105,20 @@ class SettingsViewModel @Inject constructor(
     fun retryDownload() {
         modelDownloadManager.resetAfterFailure()
         downloadModel()
+    }
+
+    fun redownloadModel() {
+        viewModelScope.launch {
+            try {
+                gemmaService.close()
+                modelDownloadManager.deleteModel()
+                modelDownloadManager.downloadModel()
+                _events.emit(Event.DownloadComplete)
+            } catch (e: Exception) {
+                Log.e("SettingsViewModel", "Model re-download failed", e)
+                _events.emit(Event.DownloadFailed(e.message ?: "Download failed"))
+            }
+        }
     }
 
     private val _isBenchmarking = MutableStateFlow(false)

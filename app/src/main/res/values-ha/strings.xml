@@ -80,6 +80,17 @@
     <string name="settings_delete_confirm_title">Goge tsari?</string>
     <string name="settings_delete_confirm_message">Fasalolin AI ba za su samu ba har sai an sake sauke tsari.</string>
     <string name="settings_download_complete">An sauke tsari cikin nasara</string>
+    <string name="model_settings_title">Tsare-tsaren AI</string>
+    <string name="settings_btn_manage_models">Sarrafa tsare-tsaren AI</string>
+    <string name="model_settings_info">Saukar da, gwada sauri, ko canza tsarin AI da ake amfani da shi.</string>
+    <string name="model_settings_chip_primary">Farko</string>
+    <string name="model_settings_btn_set_primary">Saita a matsayin farko</string>
+    <string name="model_settings_btn_benchmark">Gwada sauri</string>
+    <string name="model_settings_benchmarking">Ana gwada sauri…</string>
+    <string name="model_settings_benchmark_done">Gwaji ya kammala: %1$s t/s</string>
+    <string name="model_settings_benchmark_failed">Gwaji ya kasa</string>
+    <string name="model_settings_primary_changed">An canza tsarin farko</string>
+    <string name="model_settings_progress_detail">%1$d MB / %2$d MB · %3$d%%</string>
     <string name="settings_download_failed">Saukar ta gaza: %1$s</string>
     <string name="settings_section_about">Game da</string>
     <string name="settings_app_version">Sigar %1$s</string>

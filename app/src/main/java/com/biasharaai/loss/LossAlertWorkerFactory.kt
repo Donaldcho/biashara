@@ -4,11 +4,11 @@ import android.content.Context
 import androidx.work.ListenableWorker
 import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
+import com.biasharaai.agent.AgentAnomalySkillMapper
 import com.biasharaai.agent.AgentDecisionEngine
-import com.biasharaai.agent.AgentMutex
+import com.biasharaai.agent.AgentLoopRunner
 import com.biasharaai.agent.CoPurchaseAnalyser
 import com.biasharaai.agent.CustomerPatternAnalyser
-import com.biasharaai.agent.FraudRuleEngine
 import com.biasharaai.agent.PricingRuleEngine
 import com.biasharaai.agent.StockGuardianRepository
 import com.biasharaai.agent.WeeklyReviewBuilder
@@ -19,8 +19,8 @@ import com.biasharaai.agent.workers.OpportunitySpotterWorker
 import com.biasharaai.agent.workers.PricingAgentWorker
 import com.biasharaai.agent.workers.StockGuardianWorker
 import com.biasharaai.agent.workers.WeeklyReviewWorker
+import com.biasharaai.ai.ActiveModelStore
 import com.biasharaai.ai.CapabilityTier
-import com.biasharaai.ai.GemmaService
 import com.biasharaai.data.local.db.AgentActionDao
 import com.biasharaai.data.local.db.AgentSettingDao
 import com.biasharaai.data.local.db.CustomerDao
@@ -29,6 +29,7 @@ import com.biasharaai.data.local.db.AlertDao
 import com.biasharaai.data.local.db.AppSettingsDao
 import com.biasharaai.data.local.db.LossAlertEngine
 import com.biasharaai.data.local.db.TransactionDao
+import com.biasharaai.skills.SkillExecutor
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -36,13 +37,13 @@ import javax.inject.Singleton
 class LossAlertWorkerFactory @Inject constructor(
     private val lossAlertEngine: LossAlertEngine,
     private val alertDao: AlertDao,
-    private val gemmaService: GemmaService,
+    private val agentLoopRunner: AgentLoopRunner,
     private val capabilityTier: CapabilityTier,
-    private val agentMutex: AgentMutex,
     private val transactionDao: TransactionDao,
     private val stockGuardianRepository: StockGuardianRepository,
     private val pricingRuleEngine: PricingRuleEngine,
-    private val fraudRuleEngine: FraudRuleEngine,
+    private val skillExecutor: SkillExecutor,
+    private val anomalyMapper: AgentAnomalySkillMapper,
     private val agentActionDao: AgentActionDao,
     private val agentDecisionEngine: AgentDecisionEngine,
     private val agentSettingDao: AgentSettingDao,
@@ -52,6 +53,7 @@ class LossAlertWorkerFactory @Inject constructor(
     private val customerDao: CustomerDao,
     private val weeklyReviewBuilder: WeeklyReviewBuilder,
     private val coPurchaseAnalyser: CoPurchaseAnalyser,
+    private val activeModelStore: ActiveModelStore,
 ) : WorkerFactory() {
 
     override fun createWorker(
@@ -66,7 +68,7 @@ class LossAlertWorkerFactory @Inject constructor(
                     workerParameters,
                     lossAlertEngine,
                     alertDao,
-                    gemmaService,
+                    agentLoopRunner,
                     capabilityTier,
                 )
             StockGuardianWorker::class.java.name ->
@@ -87,9 +89,8 @@ class LossAlertWorkerFactory @Inject constructor(
                     agentActionDao,
                     agentDecisionEngine,
                     agentSettingDao,
-                    gemmaService,
+                    agentLoopRunner,
                     capabilityTier,
-                    agentMutex,
                 )
             CashFlowSentinelWorker::class.java.name ->
                 CashFlowSentinelWorker(
@@ -100,9 +101,8 @@ class LossAlertWorkerFactory @Inject constructor(
                     agentDecisionEngine,
                     agentSettingDao,
                     appSettingsDao,
-                    gemmaService,
+                    agentLoopRunner,
                     capabilityTier,
-                    agentMutex,
                 )
             CustomerRelationWorker::class.java.name ->
                 CustomerRelationWorker(
@@ -115,15 +115,15 @@ class LossAlertWorkerFactory @Inject constructor(
                     agentDecisionEngine,
                     agentSettingDao,
                     appSettingsDao,
-                    gemmaService,
+                    agentLoopRunner,
                     capabilityTier,
-                    agentMutex,
                 )
             FraudSentinelWorker::class.java.name ->
                 FraudSentinelWorker(
                     appContext,
                     workerParameters,
-                    fraudRuleEngine,
+                    skillExecutor,
+                    anomalyMapper,
                     agentActionDao,
                     agentDecisionEngine,
                     agentSettingDao,
@@ -133,9 +133,9 @@ class LossAlertWorkerFactory @Inject constructor(
                     appContext,
                     workerParameters,
                     weeklyReviewBuilder,
-                    gemmaService,
+                    activeModelStore,
+                    agentLoopRunner,
                     capabilityTier,
-                    agentMutex,
                     agentActionDao,
                     agentDecisionEngine,
                     agentSettingDao,
@@ -146,9 +146,9 @@ class LossAlertWorkerFactory @Inject constructor(
                     workerParameters,
                     coPurchaseAnalyser,
                     weeklyReviewBuilder,
-                    gemmaService,
+                    activeModelStore,
+                    agentLoopRunner,
                     capabilityTier,
-                    agentMutex,
                     agentActionDao,
                     agentDecisionEngine,
                     agentSettingDao,

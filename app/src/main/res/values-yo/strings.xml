@@ -80,6 +80,17 @@
     <string name="settings_delete_confirm_title">Pa àwòṣe run?</string>
     <string name="settings_delete_confirm_message">Àwọn ẹ̀yà AI kò ní sí títí a ó fi tún gbà àwòṣe.</string>
     <string name="settings_download_complete">A ti gbà àwòṣe ní àṣeyọrí</string>
+    <string name="model_settings_title">Àwọn Àwòṣe AI</string>
+    <string name="settings_btn_manage_models">Ṣàkóso àwọn àwòṣe AI</string>
+    <string name="model_settings_info">Gbà, ṣàyẹ̀wò, tàbí yí àwòṣe AI padà.</string>
+    <string name="model_settings_chip_primary">Àkọ́kọ́</string>
+    <string name="model_settings_btn_set_primary">Ṣètọ bí àkọ́kọ́</string>
+    <string name="model_settings_btn_benchmark">Ṣàyẹ̀wò ìyára</string>
+    <string name="model_settings_benchmarking">Ń ṣàyẹ̀wò ìyára…</string>
+    <string name="model_settings_benchmark_done">Àyẹ̀wò parí: %1$s t/s</string>
+    <string name="model_settings_benchmark_failed">Àyẹ̀wò kùnà</string>
+    <string name="model_settings_primary_changed">Àwòṣe àkọ́kọ́ ti yí padà</string>
+    <string name="model_settings_progress_detail">%1$d MB / %2$d MB · %3$d%%</string>
     <string name="settings_download_failed">Ìgbà kùnà: %1$s</string>
     <string name="settings_section_about">Nípa</string>
     <string name="settings_app_version">Ẹ̀dà %1$s</string>

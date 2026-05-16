@@ -1,26 +1,70 @@
 # Biashara AI Project Handoff Document
 
 ## Current Project State
-- **Last Completed Prompt:** Prompt **X0** — Phase 6 foundation: `model_descriptors`, `skill_descriptors`, `skill_pack_records` (Room **19→20**).
-- **Next Expected Prompt:** Prompt **X1** — Migrate `GemmaService` to LiteRT-LM **Engine / Conversation** API; introduce `ModelLoader`, `ActiveModelStore`, `BiasharaConversation`.
+- **Last Completed Prompt:** Prompt **X11** — `SkillPackManager` + `SkillPackVerifier` (ECDSA-signed JSON packs, OTA install, pack-bridged skills); trust anchor `assets/skill_pack_trust/signing_public.pem`.
+- **Next Expected Prompt:** Prompt **X12** — Testing suite (model swap, skills, loop, pack security, acceptance criteria).
 - **Phase:** **6** — Extended agents · swappable models · skills system (builds on **Phase 4** agents shipped on `release/biashara-phase4`).
 - **AppDatabase version:** **20** (`AppDatabase.kt`; latest **19→20** adds Phase 6 tables; prior chain through **18→19** `pending_notifications`, **16→17** agents, etc.)
 - **Active git line:** **`feat/phase6-model-skills`** (Phase 6 work); production line remains **`release/biashara-phase4`** until Phase 6 is merged.
 - **Key Notes (Phase 4 — A track):**
   - All agents are **additive** — no existing shipped code is deleted; extend schema and features in place.
   - **Phase 4a (A1–A4)** targets **zero Gemma dependency** so agent value applies on **all** device tiers (`RULES_BASED` / `PARTIAL_AI` / `FULL_AI`).
-  - **`GemmaService`** calls from agents must wrap inference in **`AgentMutex.mutex.withLock { … }`** (LiteRT-LM is not safe under concurrent calls).
+  - **`ActiveModelStore`** calls from agents must wrap inference in **`AgentMutex.mutex.withLock { … }`** (LiteRT-LM is not safe under concurrent calls). UI and non-agent code may still inject the deprecated **`GemmaService`** façade until migrated.
   - Every agent action requires **owner approval** unless **auto-approved** in settings (policy to be defined in A-track prompts).
 - **Phase 2 (U1–U10) — shipped (reference):** Intelligence upgrade complete through Prompt U10; conversational query layer, POS, debt/credit, loss alerts, order parser, tests — see sections **Phase 2 closure**, **Room Database**, and **Chat** below for file and schema detail.
 
-**Repository snapshot:** POS + Phase 2 + **Room 20** + Phase 4 agent stack + **Phase 6 X0** (model/skill/pack tables for registry & skills engine). `GemmaService` remains until **X1** (Engine API migration).
+**Repository snapshot:** POS + Phase 2 + **Room 20** + Phase 4 agent stack + **Phase 6 X0–X11** (model registry, multi-model downloads + **Model Settings** UI, skills engine, agent loop, FunctionGemma routing, signed skill packs).
+
+### Stability & integration (2026-05-16 — merge to `release/biashara-phase4`)
+
+`feat/phase6-model-skills` was branched from **`release/biashara-phase4`** / **`experiment/intelligent-chat-routing`** (same tip `dce857c`). Before merge, the following hardening landed on the feature branch:
+
+| Area | Change |
+|------|--------|
+| **Navigation** | `nav_graph`: explicit actions from `agentFeedFragment` → insights / add-edit product / receipt / chat; root-level `action_global_open_receipt` for deep links. `AgentFeedFragment` uses these action IDs (avoids `IllegalArgumentException` when navigating from agent feed to peers). |
+| **MainActivity** | Receipt intent handling: `post { }` + `runCatching` so `NavHostFragment` is ready. |
+| **BiasharaApp** | `modelRegistry.bootstrap()`, `skillRegistry.bootstrap()`, `skillPackManager.bootstrap()` each wrapped in `runCatching` + log (uncaught coroutine failures no longer kill the process). |
+| **PosFragment** | Barcode return path observes `currentBackStackEntry?.savedStateHandle` instead of `getBackStackEntry(R.id.posFragment)`. |
+| **ChatFragment** | Activity-result callbacks use `_binding?` (mic / speech / skill manifest snackbar) after view teardown. |
+| **Models** | `ModelDownloadManager.purgeLegacyModels`: keep all catalogue `.litertlm` files so Gemma 4 + FunctionGemma can coexist. |
+| **HF downloads** | Clearer HTTP **403** user message (gated FunctionGemma: accept Gemma license + token scope). |
+| **Backup / security** | `backup_rules.xml` + `data_extraction_rules.xml`: exclude `sharedpref` **`huggingface_auth.xml`** from cloud/full backup (HF read token). |
+| **Build** | `:app:compileDebugKotlin` succeeds on the feature line. |
 
 | Handoff (H) | |
 |---------|---|
-| **Last Completed** | Prompt **X0**: Phase 6 DB + HANDOFF (`model_descriptors`, `skill_descriptors`, `skill_pack_records`) |
-| **Next Prompt** | Prompt **X1**: Engine API migration (`ModelLoader`, `ActiveModelStore`, deprecate direct `GemmaService` usage) |
+| **Last Completed** | Prompt **X11**: `SkillPackManager` + signed OTA skill packs |
+| **Next Prompt** | Prompt **X12**: Phase 6 testing suite |
+| **Files created (X11)** | `skills/packs/SkillPackManifest.kt`, `SkillPackVerifier.kt`, `SkillPackManager.kt`, `PackBridgedSkill.kt`, `assets/skill_pack_trust/signing_public.pem`, `SkillPackVerifierTest.kt`, `SkillPackManagerTest.kt`, `SkillPackTestSupport.kt` |
+| **Files modified (X11)** | `SkillPackRecordDao.kt`, `SkillDescriptorDao.kt`, `SkillRegistry.kt`, `BiasharaApp.kt`, `HANDOFF.md` |
+| **Files created (X10)** | `FunctionGemmaRouter.kt`, `FunctionGemmaRouterTest.kt` |
+| **Files modified (X10)** | `models_catalogue.json`, `ModelRegistry.kt`, `ActiveModelStore.kt`, `AgentLoopRunner.kt`, `ModelSettingsViewModel.kt`, `AgentLoopRunnerTest.kt`, `HANDOFF.md` |
+| **Files created (X9)** | `AgentSystemPrompts.kt`, `AgentAnomalySkillMapper.kt`, `AgentAnomalySkillMapperTest.kt` |
+| **Files modified (X9)** | `AgentLoopRunner.kt`, all Phase 4 `*Worker.kt`, `LossAlertWorker.kt`, `LossAlertWorkerFactory.kt`, `AgentLoopRunnerTest.kt`, `HANDOFF.md` |
+| **Files created (X9)** | `AgentSystemPrompts.kt`, `AgentAnomalySkillMapper.kt`, `AgentAnomalySkillMapperTest.kt` |
+| **Files modified (X9)** | `AgentLoopRunner.kt`, all Phase 4 `*Worker.kt`, `LossAlertWorker.kt`, `LossAlertWorkerFactory.kt`, `AgentLoopRunnerTest.kt`, `HANDOFF.md` |
+| **Files created (X8)** | `AgentLoopRunner.kt`, `AgentLoopResult.kt`, `AgentToolCallRecord.kt`, `BiasharaSkillOpenApiTool.kt`, `SkillToolFactory.kt`, `AgentLoopRunnerTest.kt`, `BiasharaSkillOpenApiToolTest.kt`, `SkillToolFactoryTest.kt` |
+| **Files modified (X8)** | `ActiveModelStore.kt`, `ModelLoader.kt`, `HANDOFF.md` |
+| **Files created (X8)** | `AgentLoopRunner.kt`, `AgentLoopResult.kt`, `AgentToolCallRecord.kt`, `BiasharaSkillOpenApiTool.kt`, `SkillToolFactory.kt`, `AgentLoopRunnerTest.kt`, `BiasharaSkillOpenApiToolTest.kt`, `SkillToolFactoryTest.kt` |
+| **Files modified (X8)** | `ActiveModelStore.kt`, `ModelLoader.kt`, `HANDOFF.md` |
+| **Files created (X7)** | `builtin/ExtractReceiptDataSkill.kt`, `TranscribeVoiceSkill.kt`, `DetectAnomalySkill.kt`, `FindCopurchasePairsSkill.kt`, four matching `*Test.kt` |
+| **Files modified (X7)** | `skills_catalogue.json`, `SkillModule.kt`, `HANDOFF.md` |
+| **Files created (X7)** | `builtin/ExtractReceiptDataSkill.kt`, `TranscribeVoiceSkill.kt`, `DetectAnomalySkill.kt`, `FindCopurchasePairsSkill.kt`, four matching `*Test.kt` |
+| **Files modified (X7)** | `skills_catalogue.json`, `SkillModule.kt`, `HANDOFF.md` |
+| **Files created (X6)** | `SkillSalesHistory.kt`, `builtin/ForecastDemandSkill.kt`, `SuggestPriceSkill.kt`, `DraftMessageSkill.kt`, `UpdateDataSkill.kt`, `ForecastDemandSkillTest.kt`, `SuggestPriceSkillTest.kt`, `DraftMessageSkillTest.kt`, `UpdateDataSkillTest.kt` |
+| **Files modified (X6)** | `skills_catalogue.json`, `SkillArgs.kt`, `SkillModule.kt`, `HANDOFF.md` |
+| **Files created (X5)** | `SkillArgs.kt`, `builtin/QuerySalesSkill.kt`, `QueryInventorySkill.kt`, `CalculateProfitSkill.kt`, `QueryCustomersSkill.kt`, `QuerySalesSkillTest.kt` |
+| **Files modified (X5)** | `SkillModule.kt`, `SaleLineItemDao.kt`, `ProductDao.kt`, `SkillExecutorTest.kt`, `HANDOFF.md` |
+| **Files created (X4)** | `skills_catalogue.json`, `BiasharaSkill.kt`, `SkillResult.kt`, `SkillCatalogue.kt`, `SkillRegistry.kt`, `SkillExecutor.kt`, `builtin/PingSkill.kt`, `di/SkillModule.kt`, `SkillCatalogueTest.kt`, `SkillExecutorTest.kt` |
+| **Files modified (X4)** | `SkillDescriptorDao.kt`, `BiasharaApp.kt`, `HANDOFF.md` |
+| **Files created (X3)** | `ModelSettingsFragment.kt`, `ModelSettingsViewModel.kt`, `BenchmarkRunner.kt`, `fragment_model_settings.xml`, `item_model_card.xml` |
+| **Files modified (X3)** | `ActiveModelStore.kt` (`isForcedCpu()`), `ModelDescriptorDao.kt` (benchmark queries), `SettingsFragment.kt` (nav button), `fragment_settings.xml`, `nav_graph.xml`, `strings.xml` (all 5 locales), `HANDOFF.md` |
+| **Files created (X2)** | `assets/models_catalogue.json`, `ModelCatalogue.kt`, `ModelRegistry.kt`, `ModelCatalogueTest.kt` |
+| **Files modified (X2)** | `ModelDownloadManager.kt`, `ModelDescriptorDao.kt`, `BiasharaApp.kt`, `SettingsViewModel.kt`, `SettingsFragment.kt`, `HANDOFF.md` |
 | **Files created (X0)** | `ModelDescriptor.kt`, `SkillDescriptor.kt`, `SkillPackRecord.kt`, `ModelDescriptorDao.kt`, `SkillDescriptorDao.kt`, `SkillPackRecordDao.kt` |
 | **Files modified (X0)** | `AppDatabase.kt`, `DatabaseMigrations.kt`, `AppModule.kt`, `AppDatabaseMigrationTest.kt`, `HANDOFF.md` |
+| **Files created (X1)** | `ModelCapability.kt`, `ModelLoader.kt`, `BiasharaConversation.kt`, `ActiveModelStore.kt` |
+| **Files modified (X1)** | `GemmaService.kt`, `AppModule.kt`, `AgentMutex.kt`, `LossAlertWorker.kt`, `LossAlertWorkerFactory.kt`, agent workers (`WeeklyReviewWorker`, `PricingAgentWorker`, `CashFlowSentinelWorker`, `CustomerRelationWorker`, `OpportunitySpotterWorker`), `HANDOFF.md` |
 | **Last Completed (Phase 4 track)** | Prompt A10: Battery constraints, quiet hours, RunLog UI |
 | **Next Prompt (Phase 4 track)** | Prompt A11 — Testing suite *(parallel maintenance; Phase 6 branch may merge A11 later)* |
 | **Files modified (A10)** | `AgentOrchestrator.kt`, `AppDatabase.kt`, `DatabaseMigrations.kt`, `AppModule.kt`, `AgentRunLogDao.kt`, `BiasharaApp.kt`, `MainActivity.kt`, `AndroidManifest.xml`, `SettingsFragment.kt`, `fragment_settings.xml`, `nav_graph.xml`, `strings.xml` (all locales), `AppDatabaseMigrationTest.kt`, `HANDOFF.md` |
@@ -38,7 +82,7 @@
 | **Files created (A2–A3)** | **A2:** `AgentMutex`, `AgentOrchestrator`, `AgentDecisionEngine`, `AgentActionBuilder`, `AgentTypes`; stub `*Worker` classes. **A3:** `StockGuardianRepository.kt`, `FraudRuleEngine.kt`; real `StockGuardianWorker`, `FraudSentinelWorker`. |
 | **Final DB version (Room)** | **20** (`AppDatabase.kt`) |
 | **Phase 2 entities (Kotlin, representative)** | `Customer`, `Debt`, `Alert`, chat session/message entities, `AiBusinessMemory`, etc. (see Room section) |
-| **Prompt vs. this repo** | **A2** [AgentOrchestrator] schedules workers. **A3** Stock Guardian + Fraud Sentinel. **A4** [AgentFeedFragment]. **A5** [CashFlowSentinelWorker] daily ~[AgentSetting.dailySummaryHour] (±30m flex) + [PricingAgentWorker] daily (staggered +4h); [PricingRuleEngine]; PARTIAL_AI+ uses [GemmaService] inside [AgentMutex]. **A6** [CustomerPatternAnalyser] + [CustomerRelationWorker]: overdue debt SMS (priority) and visit-gap “we miss you” SMS; daily (+2h vs summary hour, ±30m flex); `SEND_SMS` payload (`phone`, `draftMessage`, optional `debtId`); PARTIAL_AI+ Gemma (debt prompt aligned with Phase 2 [DebtReminderViewModel]). **A7** [WeeklyReviewBuilder] + [WeeklyReviewWorker]: last completed ISO week stats → Gemma long prompt → feed card `AUTO_EXECUTE` / `SHOW_REVIEW` + stat chips JSON; [CoPurchaseAnalyser] + [OpportunitySpotterWorker]: top co-purchase pairs (≥3×) → Gemma bundle/shelf ideas; **FULL_AI + model only**; WorkManager **weekly** on [AgentSetting.weeklyReviewDayOfWeek] at [dailySummaryHour] while charging; opportunity run **+30 min** stagger; [AgentOrchestrator] injects [CapabilityTier] to cancel/skip schedules off FULL_AI. **A9** [AgentActionExecutor]: `SEND_SMS` → `smsto:` + `sms_body` (main thread, never auto-send); `UPDATE_PRICE` / payload-bearing `REVIEW_PRICE` → [ProductDao.updateProduct]; `OPEN_SCREEN` → [ExecutionResult.RequiresNavigation] + fragment completes navigation then `EXECUTED`; `SHOW_REVIEW` + `REVIEW_*` acknowledge → `EXECUTED`; [ExecutionResult] surfaces errors / unknown verbs to [AgentFeedViewModel]. **A10** [NotificationScheduler]: quiet hours → [PendingNotification] queue + flush on app resume; WorkManager constraints per agent (battery / charging / `NetworkType.NOT_REQUIRED`); [AgentSettingsFragment] shows last run + expandable 5-run history from [AgentRunLogDao]. **X0** (Phase 6): Room tables `model_descriptors`, `skill_descriptors`, `skill_pack_records` (**19→20**; external handbook “v9→v10” = same migration intent). |
+| **Prompt vs. this repo** | **A2** [AgentOrchestrator] schedules workers. **A3** Stock Guardian + Fraud Sentinel. **A4** [AgentFeedFragment]. **A5** [CashFlowSentinelWorker] daily ~[AgentSetting.dailySummaryHour] (±30m flex) + [PricingAgentWorker] daily (staggered +4h); [PricingRuleEngine]; PARTIAL_AI+ uses [ActiveModelStore] inside [AgentMutex]. **A6** [CustomerPatternAnalyser] + [CustomerRelationWorker]: overdue debt SMS (priority) and visit-gap “we miss you” SMS; daily (+2h vs summary hour, ±30m flex); `SEND_SMS` payload (`phone`, `draftMessage`, optional `debtId`); PARTIAL_AI+ Gemma (debt prompt aligned with Phase 2 [DebtReminderViewModel]). **A7** [WeeklyReviewBuilder] + [WeeklyReviewWorker]: last completed ISO week stats → Gemma long prompt → feed card `AUTO_EXECUTE` / `SHOW_REVIEW` + stat chips JSON; [CoPurchaseAnalyser] + [OpportunitySpotterWorker]: top co-purchase pairs (≥3×) → Gemma bundle/shelf ideas; **FULL_AI + model only**; WorkManager **weekly** on [AgentSetting.weeklyReviewDayOfWeek] at [dailySummaryHour] while charging; opportunity run **+30 min** stagger; [AgentOrchestrator] injects [CapabilityTier] to cancel/skip schedules off FULL_AI. **A9** [AgentActionExecutor]: `SEND_SMS` → `smsto:` + `sms_body` (main thread, never auto-send); `UPDATE_PRICE` / payload-bearing `REVIEW_PRICE` → [ProductDao.updateProduct]; `OPEN_SCREEN` → [ExecutionResult.RequiresNavigation] + fragment completes navigation then `EXECUTED`; `SHOW_REVIEW` + `REVIEW_*` acknowledge → `EXECUTED`; [ExecutionResult] surfaces errors / unknown verbs to [AgentFeedViewModel]. **A10** [NotificationScheduler]: quiet hours → [PendingNotification] queue + flush on app resume; WorkManager constraints per agent (battery / charging / `NetworkType.NOT_REQUIRED`); [AgentSettingsFragment] shows last run + expandable 5-run history from [AgentRunLogDao]. **X0** (Phase 6): Room tables `model_descriptors`, `skill_descriptors`, `skill_pack_records` (**19→20**; external handbook “v9→v10” = same migration intent). **X1**: `ModelLoader` + `ActiveModelStore` + deprecated `GemmaService` façade; workers + loss alerts use `sendPrompt`. **X2**: bundled catalogue → Room `model_descriptors`; `ModelRegistry.bootstrap()` on launch; downloads keyed by `modelId`. |
 
 ## Phase 4 — Autonomous agent handbook (A0–A11)
 
@@ -80,17 +124,17 @@ Phase 6 adds a **Model Registry** (swappable LiteRT-LM models), **Skills Engine*
 | Prompt | Focus | Main deliverables |
 |--------|-------|-------------------|
 | **X0** | Foundation | `model_descriptors`, `skill_descriptors`, `skill_pack_records` + migration **19→20** (**done** on `feat/phase6-model-skills`) |
-| **X1** | Engine API | `ModelLoader`, `ActiveModelStore`, `BiasharaConversation`; deprecate direct `GemmaService` for agents |
-| **X2** | Model registry | `ModelRegistry`, `ModelDownloadManager` v2, `models_catalogue.json` / `ModelCatalogue` |
-| **X3** | Model settings UI | `ModelSettingsFragment`, benchmarks, per-capability assignment |
-| **X4** | Skills core | `BiasharaSkill`, `SkillRegistry`, `SkillExecutor`, `SkillResult` |
-| **X5** | Data skills | `query_sales`, `query_inventory`, `calculate_profit`, `query_customers` |
-| **X6** | AI + action skills | `forecast_demand`, `suggest_price`, `draft_message`, `update_data` |
-| **X7** | Multimodal skills | `extract_receipt_data`, `transcribe_voice`, `detect_anomaly`, `find_copurchase_pairs` |
-| **X8** | Tool use loop | `AgentLoopRunner`, wire `SkillExecutor` + Engine tool registration |
-| **X9** | Worker upgrade | All 7 Phase 4 workers use agentic loop + system prompts |
-| **X10** | FunctionGemma | `FunctionGemmaRouter`, latency routing |
-| **X11** | Skill packs | `SkillPackManager`, `SkillPackVerifier`, OTA (Enterprise) |
+| **X1** | Engine API | `ModelLoader`, `ActiveModelStore`, `BiasharaConversation`; `GemmaService` deprecated façade; **agents + loss worker** use `ActiveModelStore.sendPrompt` (**done** on `feat/phase6-model-skills`) |
+| **X2** | Model registry | `ModelRegistry`, `ModelDownloadManager` v2, `models_catalogue.json` / `ModelCatalogue` (**done** on `feat/phase6-model-skills`) |
+| **X3** | Model settings UI | `ModelSettingsFragment`, benchmarks, per-capability assignment (**done** on `feat/phase6-model-skills`) |
+| **X4** | Skills core | `BiasharaSkill`, `SkillRegistry`, `SkillExecutor`, `SkillResult` (**done** on `feat/phase6-model-skills`) |
+| **X5** | Data skills | `query_sales`, `query_inventory`, `calculate_profit`, `query_customers` (**done** on `feat/phase6-model-skills`) |
+| **X6** | AI + action skills | `forecast_demand`, `suggest_price`, `draft_message`, `update_data` (**done**) |
+| **X7** | Multimodal skills | `extract_receipt_data`, `transcribe_voice`, `detect_anomaly`, `find_copurchase_pairs` (**done**) |
+| **X8** | Tool use loop | `AgentLoopRunner`, `SkillToolFactory`, `BiasharaSkillOpenApiTool`, `ActiveModelStore.runAgentLoop` (**done**) |
+| **X9** | Worker upgrade | All 7 Phase 4 workers use agentic loop + system prompts (**done**) |
+| **X10** | FunctionGemma | `FunctionGemmaRouter`, latency routing, ephemeral FUNCTION_CALLING engine (**done**) |
+| **X11** | Skill packs | `SkillPackManager`, `SkillPackVerifier`, OTA (Enterprise) (**done**) |
 | **X12** | Testing | Model swap, skills, loop, pack security, acceptance criteria |
 
 ### Phase 2 closure (Prompt U10)

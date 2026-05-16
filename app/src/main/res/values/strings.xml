@@ -135,6 +135,25 @@
     <string name="settings_delete_confirm_title">Delete model?</string>
     <string name="settings_delete_confirm_message">AI features will be unavailable until the model is re-downloaded.</string>
     <string name="settings_download_complete">Model downloaded successfully</string>
+    <!-- Phase 6 X3 — Model Settings screen -->
+    <string name="model_settings_title">AI Models</string>
+    <string name="settings_btn_manage_models">Manage AI models</string>
+    <string name="model_settings_info">Download, benchmark, or switch the on-device AI model. The primary model is used for all AI features.</string>
+    <string name="model_settings_chip_primary">Primary</string>
+    <string name="model_settings_btn_set_primary">Set as primary</string>
+    <string name="model_settings_btn_benchmark">Benchmark</string>
+    <string name="model_settings_benchmarking">Running benchmark…</string>
+    <string name="model_settings_benchmark_done">Benchmark done: %1$s t/s</string>
+    <string name="model_settings_benchmark_failed">Benchmark failed — model may not be loaded</string>
+    <string name="model_settings_primary_changed">Primary model updated</string>
+    <string name="model_settings_progress_detail">%1$d MB / %2$d MB · %3$d%%</string>
+    <string name="model_settings_hf_access_btn">Hugging Face access</string>
+    <string name="model_settings_hf_access_title">Hugging Face access token</string>
+    <string name="model_settings_hf_access_message">FunctionGemma is gated on Hugging Face. While logged in, open litert-community/functiongemma-270m-ft-mobile-actions and accept the Gemma license (required even with a read token). Then create a classic read token at huggingface.co/settings/tokens and paste it here.</string>
+    <string name="model_settings_hf_token_hint">hf_…</string>
+    <string name="model_settings_hf_token_saved">Hugging Face token saved</string>
+    <string name="model_settings_hf_token_cleared">Hugging Face token removed</string>
+    <string name="model_settings_requires_hf">Requires Hugging Face login + token</string>
     <string name="settings_download_failed">Download failed: %1$s</string>
     <string name="settings_section_inference">Configurations</string>
     <string name="settings_inference_card_summary">Match Google AI Edge Gallery: max tokens, Top‑K / Top‑P / temperature, CPU vs GPU, and prompt options. Saving reloads the on-device engine.</string>

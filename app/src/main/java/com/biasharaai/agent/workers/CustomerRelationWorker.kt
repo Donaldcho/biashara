@@ -6,12 +6,12 @@ import androidx.work.WorkerParameters
 import com.biasharaai.R
 import com.biasharaai.agent.AgentActionBuilder
 import com.biasharaai.agent.AgentDecisionEngine
-import com.biasharaai.agent.AgentMutex
+import com.biasharaai.agent.AgentLoopRunner
+import com.biasharaai.agent.AgentSystemPrompts
 import com.biasharaai.agent.AgentTypes
 import com.biasharaai.agent.CustomerPatternAnalyser
 import com.biasharaai.agent.OverdueCustomer
 import com.biasharaai.ai.CapabilityTier
-import com.biasharaai.ai.GemmaService
 import com.biasharaai.data.local.db.AgentActionDao
 import com.biasharaai.data.local.db.AgentSetting
 import com.biasharaai.data.local.db.AgentSettingDao
@@ -22,7 +22,6 @@ import com.biasharaai.data.local.db.Debt
 import com.biasharaai.data.local.db.DebtRepository
 import com.biasharaai.locale.LanguagePreferences
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.text.DateFormat
 import java.time.Instant
@@ -46,9 +45,8 @@ class CustomerRelationWorker(
     private val agentDecisionEngine: AgentDecisionEngine,
     private val agentSettingDao: AgentSettingDao,
     private val appSettingsDao: AppSettingsDao,
-    private val gemmaService: GemmaService,
+    private val agentLoopRunner: AgentLoopRunner,
     private val capabilityTier: CapabilityTier,
-    private val agentMutex: AgentMutex,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -96,7 +94,7 @@ class CustomerRelationWorker(
                 }
                 val primaryDebt = overdueDebts.maxBy { daysOverdue(it, zone, now) }
                 val total = overdueDebts.sumOf { it.amount }
-                val draft = if (canUseGemma() && gemmaService.isAvailable) {
+                val draft = if (canUseGemma()) {
                     try {
                         val body = draftDebtSmsWithGemma(customer, primaryDebt, overdueDebts, total, currency, maxDays, zone)
                         body.ifBlank {
@@ -128,7 +126,7 @@ class CustomerRelationWorker(
                 overdueDebts.isEmpty() &&
                 visitInfo.daysSinceLastVisit > visitInfo.avgGapDays * 1.5
             ) {
-                val draft = if (canUseGemma() && gemmaService.isAvailable) {
+                val draft = if (canUseGemma()) {
                     try {
                         val body = draftVisitSmsWithGemma(customer, visitInfo)
                         body.ifBlank {
@@ -191,7 +189,7 @@ class CustomerRelationWorker(
             "- ${money(d.amount)} $currency, due $due"
         }
         val primaryDueTxt = primaryDebt.dueDate?.let { dueFmt.format(Date(it)) }
-        val prompt = """
+        val legacyPrompt = """
 Write a short, polite, friendly SMS reminder in $customerLanguage.
 The message is from a small shop owner to a customer.
 Customer name: ${customer.name}.
@@ -201,21 +199,29 @@ Days past due (worst note): $maxDaysOverdue.
 ${if (allOverdue.size > 1) "Breakdown:\n$lines" else ""}
 Keep the message under 60 words. Do not use formal legal language.
         """.trimIndent()
-        return agentMutex.mutex.withLock {
-            gemmaService.generateResponse(prompt).trim()
-        }
+        val userMessage = """
+Draft a debt reminder SMS to ${customer.name}.
+Total overdue ${money(totalAmount)} $currency; worst note ${maxDaysOverdue} days past due.
+You may call draft_message or query_customers with overdueOnly=true.
+        """.trimIndent()
+        val system = AgentSystemPrompts.withLanguage(AgentSystemPrompts.CUSTOMER_RELATION, customerLanguage)
+        return agentLoopRunner.runOrSendPrompt(userMessage, system, legacyPrompt)
     }
 
     private suspend fun draftVisitSmsWithGemma(customer: Customer, visit: OverdueCustomer): String {
         val customerLanguage = languageNameForPrompt()
-        val prompt = """
+        val legacyPrompt = """
 Write a short, warm SMS in $customerLanguage from a small shop to a regular customer named ${customer.name}.
 They have not visited for about ${visit.daysSinceLastVisit} days; their usual gap between visits is about ${"%.0f".format(Locale.US, visit.avgGapDays)} days.
 Keep under 45 words. Friendly and respectful, not pushy sales language.
         """.trimIndent()
-        return agentMutex.mutex.withLock {
-            gemmaService.generateResponse(prompt).trim()
-        }
+        val userMessage = """
+Draft a "we miss you" SMS to ${customer.name}.
+Last visit ${visit.daysSinceLastVisit} days ago; usual gap ${"%.0f".format(Locale.US, visit.avgGapDays)} days.
+You may call draft_message with purpose=visit reminder.
+        """.trimIndent()
+        val system = AgentSystemPrompts.withLanguage(AgentSystemPrompts.CUSTOMER_RELATION, customerLanguage)
+        return agentLoopRunner.runOrSendPrompt(userMessage, system, legacyPrompt)
     }
 
     private fun languageNameForPrompt(): String {

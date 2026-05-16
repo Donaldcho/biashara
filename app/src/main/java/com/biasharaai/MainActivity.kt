@@ -124,14 +124,21 @@ class MainActivity : AppCompatActivity() {
         val tid = intent?.getLongExtra(EXTRA_OPEN_RECEIPT_TRANSACTION_ID, -1L) ?: -1L
         if (tid <= 0L) return
         intent?.removeExtra(EXTRA_OPEN_RECEIPT_TRANSACTION_ID)
-        val navHost =
-            supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as? NavHostFragment
-                ?: return
-        val nav = navHost.navController
-        nav.navigate(
-            R.id.receiptFragment,
-            bundleOf(ReceiptViewModel.ARG_TRANSACTION_ID to tid),
-        )
+        binding.root.post {
+            if (isFinishing || isDestroyed) return@post
+            val navHost =
+                supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as? NavHostFragment
+                    ?: return@post
+            val nav = navHost.navController
+            runCatching {
+                nav.navigate(
+                    R.id.action_global_open_receipt,
+                    bundleOf(ReceiptViewModel.ARG_TRANSACTION_ID to tid),
+                )
+            }.onFailure { e ->
+                Log.w(TAG, "Open receipt navigation failed", e)
+            }
+        }
     }
 
     private fun applyRootLayoutDirectionFromLocale() {

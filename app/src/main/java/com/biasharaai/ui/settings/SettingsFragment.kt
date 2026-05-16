@@ -180,7 +180,14 @@ class SettingsFragment : BaseFragment() {
         }
     }
 
+    private fun setupModelSettingsNav() {
+        binding.btnManageModels.setOnClickListener {
+            findNavController().navigate(R.id.action_settingsFragment_to_modelSettingsFragment)
+        }
+    }
+
     private fun setupButtons() {
+        setupModelSettingsNav()
         binding.btnDownloadModel.setOnClickListener {
             if (viewModel.downloadState.value == DownloadState.DOWNLOADED) {
                 // Re-download: confirm first
@@ -220,8 +227,7 @@ class SettingsFragment : BaseFragment() {
             .setTitle(R.string.settings_redownload_title)
             .setMessage(R.string.settings_redownload_message)
             .setPositiveButton(R.string.settings_btn_redownload) { _, _ ->
-                viewModel.deleteModel()
-                viewModel.downloadModel()
+                viewModel.redownloadModel()
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()

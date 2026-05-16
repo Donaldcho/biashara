@@ -80,6 +80,17 @@
     <string name="settings_delete_confirm_title">Futa mfano?</string>
     <string name="settings_delete_confirm_message">Vipengele vya AI havitapatikana hadi mfano upakuliwe tena.</string>
     <string name="settings_download_complete">Mfano umepakuliwa kwa mafanikio</string>
+    <string name="model_settings_title">Mifano ya AI</string>
+    <string name="settings_btn_manage_models">Simamia mifano ya AI</string>
+    <string name="model_settings_info">Pakua, pima kasi, au badilisha mfano wa AI unaotumika kwenye kifaa chako.</string>
+    <string name="model_settings_chip_primary">Msingi</string>
+    <string name="model_settings_btn_set_primary">Weka kama msingi</string>
+    <string name="model_settings_btn_benchmark">Pima kasi</string>
+    <string name="model_settings_benchmarking">Inapima kasi…</string>
+    <string name="model_settings_benchmark_done">Kipimo kimekamilika: %1$s t/s</string>
+    <string name="model_settings_benchmark_failed">Kipimo kilishindwa</string>
+    <string name="model_settings_primary_changed">Mfano mkuu umebadilishwa</string>
+    <string name="model_settings_progress_detail">%1$d MB / %2$d MB · %3$d%%</string>
     <string name="settings_download_failed">Upakuaji umeshindikana: %1$s</string>
     <string name="settings_section_about">Kuhusu</string>
     <string name="settings_app_version">Toleo %1$s</string>

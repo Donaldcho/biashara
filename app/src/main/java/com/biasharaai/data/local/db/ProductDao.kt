@@ -94,6 +94,16 @@ interface ProductDao {
     )
     fun getProductsOrderedForPos(): Flow<List<Product>>
 
+    @Query(
+        """
+        SELECT * FROM products
+        WHERE stock_quantity < :threshold
+        ORDER BY stock_quantity ASC, name COLLATE NOCASE ASC
+        LIMIT :limit
+        """,
+    )
+    suspend fun getLowStockProducts(threshold: Int, limit: Int): List<Product>
+
     @Query("UPDATE products SET stock_quantity = stock_quantity + :qty WHERE id = :id")
     suspend fun incrementStock(id: Long, qty: Int)
 

@@ -5,19 +5,18 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.biasharaai.agent.AgentActionBuilder
 import com.biasharaai.agent.AgentDecisionEngine
-import com.biasharaai.agent.AgentMutex
+import com.biasharaai.agent.AgentLoopRunner
+import com.biasharaai.agent.AgentSystemPrompts
 import com.biasharaai.agent.AgentTypes
 import com.biasharaai.agent.PricingRuleEngine
 import com.biasharaai.agent.PricingRuleKind
 import com.biasharaai.ai.CapabilityTier
-import com.biasharaai.ai.GemmaService
 import com.biasharaai.data.local.db.AgentActionDao
 import com.biasharaai.data.local.db.AgentSetting
 import com.biasharaai.data.local.db.AgentSettingDao
 import com.biasharaai.locale.LanguagePreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.sync.withLock
 import java.util.Locale
 
 /**
@@ -30,9 +29,8 @@ class PricingAgentWorker(
     private val agentActionDao: AgentActionDao,
     private val agentDecisionEngine: AgentDecisionEngine,
     private val agentSettingDao: AgentSettingDao,
-    private val gemmaService: GemmaService,
+    private val agentLoopRunner: AgentLoopRunner,
     private val capabilityTier: CapabilityTier,
-    private val agentMutex: AgentMutex,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -61,17 +59,21 @@ class PricingAgentWorker(
                 PricingRuleKind.MARGIN_ALERT -> "Tight margin"
             }
 
-            val rationale = if (canUseGemma() && gemmaService.isAvailable) {
+            val legacyPrompt = """
+                You are a pricing advisor for a small shop in Africa.
+                Respond in $language. Exactly one sentence. No bullet points.
+                Product: ${hit.product.name}. ${hit.factLine}
+                Give one practical pricing rationale.
+            """.trimIndent()
+            val userMessage = """
+                Product id ${hit.product.id}: ${hit.product.name}. ${hit.factLine}
+                Call suggest_price if you need a data-backed suggestion, then give one sentence rationale.
+            """.trimIndent()
+            val system = AgentSystemPrompts.withLanguage(AgentSystemPrompts.PRICING, language)
+
+            val rationale = if (canUseGemma()) {
                 try {
-                    val prompt = """
-                        You are a pricing advisor for a small shop in Africa.
-                        Respond in $language. Exactly one sentence. No bullet points.
-                        Product: ${hit.product.name}. ${hit.factLine}
-                        Give one practical pricing rationale.
-                    """.trimIndent()
-                    val raw = agentMutex.mutex.withLock {
-                        gemmaService.generateResponse(prompt).trim()
-                    }
+                    val raw = agentLoopRunner.runOrSendPrompt(userMessage, system, legacyPrompt)
                     val line = raw.lineSequence().firstOrNull { it.isNotBlank() } ?: raw
                     if (line.isBlank()) {
                         ruleLabel + ": " + hit.factLine

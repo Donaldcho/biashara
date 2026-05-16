@@ -22,6 +22,22 @@
         <action
             android:id="@+id/action_agentFeedFragment_to_supplierNegotiationFragment"
             app:destination="@id/supplierNegotiationFragment" />
+
+        <action
+            android:id="@+id/action_agentFeedFragment_to_insightsFragment"
+            app:destination="@id/insightsFragment" />
+
+        <action
+            android:id="@+id/action_agentFeedFragment_to_addEditProductFragment"
+            app:destination="@id/addEditProductFragment" />
+
+        <action
+            android:id="@+id/action_agentFeedFragment_to_receiptFragment"
+            app:destination="@id/receiptFragment" />
+
+        <action
+            android:id="@+id/action_agentFeedFragment_to_chatFragment"
+            app:destination="@id/chatFragment" />
     </fragment>
 
     <fragment
@@ -264,12 +280,27 @@
         <action
             android:id="@+id/action_settingsFragment_to_agentSettingsFragment"
             app:destination="@id/agentSettingsFragment" />
+
+        <action
+            android:id="@+id/action_settingsFragment_to_modelSettingsFragment"
+            app:destination="@id/modelSettingsFragment" />
     </fragment>
+
+    <fragment
+        android:id="@+id/modelSettingsFragment"
+        android:name="com.biasharaai.ui.settings.ModelSettingsFragment"
+        android:label="@string/model_settings_title"
+        tools:layout="@layout/fragment_model_settings" />
 
     <fragment
         android:id="@+id/agentSettingsFragment"
         android:name="com.biasharaai.ui.settings.AgentSettingsFragment"
         android:label="@string/agent_settings_title"
         tools:layout="@layout/fragment_agent_settings" />
+
+    <!-- Deep links / intents: safe to call from any destination without an IllegalArgumentException. -->
+    <action
+        android:id="@+id/action_global_open_receipt"
+        app:destination="@id/receiptFragment" />
 
 </navigation>

@@ -6,17 +6,17 @@ import androidx.work.WorkerParameters
 import com.biasharaai.R
 import com.biasharaai.agent.AgentActionBuilder
 import com.biasharaai.agent.AgentDecisionEngine
-import com.biasharaai.agent.AgentMutex
+import com.biasharaai.agent.AgentLoopRunner
+import com.biasharaai.agent.AgentSystemPrompts
 import com.biasharaai.agent.AgentTypes
 import com.biasharaai.agent.WeeklyReviewBuilder
+import com.biasharaai.ai.ActiveModelStore
 import com.biasharaai.ai.CapabilityTier
-import com.biasharaai.ai.GemmaService
 import com.biasharaai.data.local.db.AgentActionDao
 import com.biasharaai.data.local.db.AgentSetting
 import com.biasharaai.data.local.db.AgentSettingDao
 import com.biasharaai.locale.LanguagePreferences
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.time.ZoneId
 import java.util.Locale
@@ -29,9 +29,9 @@ class WeeklyReviewWorker(
     appContext: Context,
     params: WorkerParameters,
     private val weeklyReviewBuilder: WeeklyReviewBuilder,
-    private val gemmaService: GemmaService,
+    private val activeModelStore: ActiveModelStore,
+    private val agentLoopRunner: AgentLoopRunner,
     private val capabilityTier: CapabilityTier,
-    private val agentMutex: AgentMutex,
     private val agentActionDao: AgentActionDao,
     private val agentDecisionEngine: AgentDecisionEngine,
     private val agentSettingDao: AgentSettingDao,
@@ -43,7 +43,7 @@ class WeeklyReviewWorker(
         if (!settings.masterSwitch || !settings.weeklyReviewEnabled) {
             return@withContext Result.success()
         }
-        if (capabilityTier != CapabilityTier.FULL_AI || !gemmaService.isAvailable) {
+        if (capabilityTier != CapabilityTier.FULL_AI || !activeModelStore.isAvailable) {
             agentDecisionEngine.buildRunLog(AgentTypes.WEEKLY_REVIEW, startWall, 0, "SKIPPED_FULL_AI_ONLY")
             return@withContext Result.success()
         }
@@ -63,7 +63,7 @@ class WeeklyReviewWorker(
         val topRevenue = money(stats.topRevenue)
         val totalCredit = money(stats.totalCredit)
 
-        val prompt = """
+        val legacyPrompt = """
 You are the business advisor for ${stats.businessName}, a small shop.
 Respond in $language. Write a friendly weekly business review.
 Be specific, encouraging, and practical. Under 200 words.
@@ -84,9 +84,15 @@ Structure your response as:
 2. One sentence noting something to watch
 3. One specific, actionable recommendation for next week
         """.trimIndent()
+        val userMessage = """
+Weekly review for ${stats.businessName}. Use query_sales, calculate_profit, or query_customers if needed.
+Revenue $currency$weekRevenue vs last week $currency$lastWeekRevenue; ${stats.txCount} transactions.
+Top: ${stats.topProduct} (${stats.topQty} units). Slow: ${stats.slowProduct}. Credit outstanding $currency$totalCredit.
+        """.trimIndent()
+        val system = AgentSystemPrompts.withLanguage(AgentSystemPrompts.WEEKLY_REVIEW, language)
 
         val narrative = try {
-            agentMutex.mutex.withLock { gemmaService.generateResponse(prompt).trim() }
+            agentLoopRunner.runOrSendPrompt(userMessage, system, legacyPrompt)
         } catch (_: Exception) {
             agentDecisionEngine.buildRunLog(AgentTypes.WEEKLY_REVIEW, startWall, 0, "GEMMA_FAILED")
             return@withContext Result.success()

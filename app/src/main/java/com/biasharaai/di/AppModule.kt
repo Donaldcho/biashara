@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.biasharaai.ai.ActiveModelStore
 import com.biasharaai.ai.CapabilityResult
 import com.biasharaai.ai.CapabilityTier
 import com.biasharaai.ai.DeviceCapabilityChecker
@@ -137,14 +138,6 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideModelDownloadManager(@ApplicationContext context: Context): ModelDownloadManager =
-        ModelDownloadManager(context)
-
-    @Provides
-    @Singleton
-    fun provideGemmaService(
-        @ApplicationContext context: Context,
-        modelDownloadManager: ModelDownloadManager,
-        inferenceSettingsStore: InferenceSettingsStore,
-    ): GemmaService = GemmaService(context, modelDownloadManager, inferenceSettingsStore)
+    fun provideGemmaService(activeModelStore: ActiveModelStore): GemmaService =
+        GemmaService(activeModelStore)
 }

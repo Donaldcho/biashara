@@ -122,4 +122,28 @@ interface SaleLineItemDao {
         """,
     )
     suspend fun getTopCoPurchasePairs(sinceMillis: Long, minCoCount: Int = 3): List<CoPurchasePair>
+
+    /** Phase 6 X5 — gross margin on POS lines in a date window (cost from [products]). */
+    @Query(
+        """
+        SELECT IFNULL(SUM((sl.unit_price - IFNULL(p.cost, 0)) * sl.quantity), 0)
+        FROM sale_line_items sl
+        INNER JOIN transactions t ON t.id = sl.transaction_id
+        LEFT JOIN products p ON p.id = sl.product_id
+        WHERE t.type = 'INCOME' AND sl.quantity > 0
+          AND t.date >= :startMillis AND t.date < :endExclusiveMillis
+        """,
+    )
+    suspend fun sumGrossProfitBetween(startMillis: Long, endExclusiveMillis: Long): Double
+
+    @Query(
+        """
+        SELECT IFNULL(SUM(sl.line_total), 0)
+        FROM sale_line_items sl
+        INNER JOIN transactions t ON t.id = sl.transaction_id
+        WHERE t.type = 'INCOME' AND sl.quantity > 0
+          AND t.date >= :startMillis AND t.date < :endExclusiveMillis
+        """,
+    )
+    suspend fun sumPosRevenueBetween(startMillis: Long, endExclusiveMillis: Long): Double
 }

@@ -4,8 +4,9 @@ import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import com.biasharaai.agent.AgentLoopRunner
+import com.biasharaai.agent.AgentSystemPrompts
 import com.biasharaai.ai.CapabilityTier
-import com.biasharaai.ai.GemmaService
 import com.biasharaai.data.local.db.AlertDao
 import com.biasharaai.data.local.db.LossAlertEngine
 import com.biasharaai.locale.LanguagePreferences
@@ -19,7 +20,7 @@ class LossAlertWorker(
     params: WorkerParameters,
     private val lossAlertEngine: LossAlertEngine,
     private val alertDao: AlertDao,
-    private val gemmaService: GemmaService,
+    private val agentLoopRunner: AgentLoopRunner,
     private val capabilityTier: CapabilityTier,
 ) : CoroutineWorker(appContext, params) {
 
@@ -32,7 +33,6 @@ class LossAlertWorker(
             val languageName = languageDisplayNameForPrompt(localeTag)
             val translate =
                 capabilityTier == CapabilityTier.FULL_AI &&
-                    gemmaService.isAvailable &&
                     !localeTag.startsWith("en", ignoreCase = true)
 
             for (candidate in candidates) {
@@ -40,15 +40,20 @@ class LossAlertWorker(
                 if (alertDao.countActiveAlertsWithDedupeKey(key) > 0) continue
 
                 val localized = if (translate) {
-                    val prompt =
+                    val legacyPrompt =
                         "Translate this alert to $languageName in plain, friendly language for a " +
                             "small business owner. Include a short headline on the first line, then " +
                             "one or two sentences of explanation. Reply with only the translated text, " +
                             "no quotes or preamble.\n\n" +
                             candidate.title + "\n" + candidate.message
+                    val userMessage = "Translate this loss alert:\n${candidate.title}\n${candidate.message}"
+                    val system = AgentSystemPrompts.withLanguage(
+                        AgentSystemPrompts.LOSS_ALERT_TRANSLATE,
+                        languageName,
+                    )
                     try {
-                        gemmaService.resetSession()
-                        gemmaService.generateResponse(prompt).trim().take(800)
+                        agentLoopRunner.runOrSendPrompt(userMessage, system, legacyPrompt)
+                            .take(800)
                             .ifBlank { null }
                     } catch (_: Exception) {
                         null

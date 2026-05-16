@@ -80,11 +80,12 @@ class ChatFragment : BaseFragment() {
     private val speechLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { result ->
+        val edit = _binding?.editMessage ?: return@registerForActivityResult
         if (result.resultCode == Activity.RESULT_OK) {
             val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
             matches?.firstOrNull()?.let { transcript ->
-                binding.editMessage.append(
-                    if (binding.editMessage.text?.isNotBlank() == true) " $transcript" else transcript,
+                edit.append(
+                    if (edit.text?.isNotBlank() == true) " $transcript" else transcript,
                 )
             }
         }
@@ -93,9 +94,13 @@ class ChatFragment : BaseFragment() {
     private val audioPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
-        if (granted) launchSpeechRecognizer()
-        else Snackbar.make(
-            binding.root,
+        if (granted) {
+            launchSpeechRecognizer()
+            return@registerForActivityResult
+        }
+        val root = _binding?.root ?: return@registerForActivityResult
+        Snackbar.make(
+            root,
             R.string.chat_mic_permission_denied,
             Snackbar.LENGTH_SHORT,
         ).show()
@@ -406,8 +411,9 @@ class ChatFragment : BaseFragment() {
                 val url = input.text?.toString()?.trim().orEmpty()
                 if (url.isEmpty()) return@setPositiveButton
                 viewModel.refreshSkillManifestFromUrl(url) { ok ->
+                    val root = _binding?.root ?: return@refreshSkillManifestFromUrl
                     Snackbar.make(
-                        binding.root,
+                        root,
                         if (ok) R.string.chat_skills_loaded else R.string.chat_skills_load_failed,
                         Snackbar.LENGTH_SHORT,
                     ).show()

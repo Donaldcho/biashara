@@ -142,7 +142,7 @@ class AgentFeedFragment : BaseFragment() {
         val nav = findNavController()
         when (action.relatedEntityType?.uppercase()) {
             "DAY", "WEEK" -> {
-                nav.navigate(R.id.insightsFragment)
+                nav.navigate(R.id.action_agentFeedFragment_to_insightsFragment)
                 return true
             }
         }
@@ -152,18 +152,21 @@ class AgentFeedFragment : BaseFragment() {
         }
         return when (action.relatedEntityType?.uppercase()) {
             "PRODUCT" -> {
-                nav.navigate(R.id.addEditProductFragment, bundleOf("product_id" to id))
+                nav.navigate(
+                    R.id.action_agentFeedFragment_to_addEditProductFragment,
+                    bundleOf("product_id" to id),
+                )
                 true
             }
             "TRANSACTION" -> {
                 nav.navigate(
-                    R.id.receiptFragment,
+                    R.id.action_agentFeedFragment_to_receiptFragment,
                     bundleOf(ReceiptViewModel.ARG_TRANSACTION_ID to id),
                 )
                 true
             }
             "CUSTOMER" -> {
-                nav.navigate(R.id.chatFragment)
+                nav.navigate(R.id.action_agentFeedFragment_to_chatFragment)
                 true
             }
             else -> {

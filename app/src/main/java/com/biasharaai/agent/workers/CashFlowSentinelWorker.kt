@@ -5,10 +5,10 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.biasharaai.agent.AgentActionBuilder
 import com.biasharaai.agent.AgentDecisionEngine
-import com.biasharaai.agent.AgentMutex
+import com.biasharaai.agent.AgentLoopRunner
+import com.biasharaai.agent.AgentSystemPrompts
 import com.biasharaai.agent.AgentTypes
 import com.biasharaai.ai.CapabilityTier
-import com.biasharaai.ai.GemmaService
 import com.biasharaai.data.local.db.AgentActionDao
 import com.biasharaai.data.local.db.AgentSetting
 import com.biasharaai.data.local.db.AgentSettingDao
@@ -18,7 +18,6 @@ import com.biasharaai.data.local.db.TransactionDao
 import com.biasharaai.locale.LanguagePreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Locale
@@ -35,9 +34,8 @@ class CashFlowSentinelWorker(
     private val agentDecisionEngine: AgentDecisionEngine,
     private val agentSettingDao: AgentSettingDao,
     private val appSettingsDao: AppSettingsDao,
-    private val gemmaService: GemmaService,
+    private val agentLoopRunner: AgentLoopRunner,
     private val capabilityTier: CapabilityTier,
-    private val agentMutex: AgentMutex,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -94,20 +92,26 @@ class CashFlowSentinelWorker(
             else -> "Cash flow: daily summary"
         }
 
-        val narrative = if (canUseGemma() && gemmaService.isAvailable) {
+        val legacyPrompt = """
+            You are a business advisor for a small shop in Africa.
+            Respond in $language. Under 80 words. Warm, practical tone.
+            Today's trading summary for $businessName:
+            Revenue: $currency${money(revenue)}. Expenses: $currency${money(expenses)}.
+            Net: $currency${money(net)}. Credit extended: $currency${money(credit)}.
+            30-day average daily revenue: $currency${money(avgDailyRev)}.
+            Write one paragraph summarising today and give one practical tip.
+        """.trimIndent()
+        val userMessage = """
+            Summarise today's cash flow for $businessName.
+            Revenue $currency${money(revenue)}, expenses $currency${money(expenses)}, net $currency${money(net)}.
+            Credit extended $currency${money(credit)}. 30-day avg daily revenue $currency${money(avgDailyRev)}.
+            You may call query_sales or calculate_profit to verify before answering.
+        """.trimIndent()
+        val system = AgentSystemPrompts.withLanguage(AgentSystemPrompts.CASH_FLOW, language)
+
+        val narrative = if (canUseGemma()) {
             try {
-                val prompt = """
-                    You are a business advisor for a small shop in Africa.
-                    Respond in $language. Under 80 words. Warm, practical tone.
-                    Today's trading summary for $businessName:
-                    Revenue: $currency${money(revenue)}. Expenses: $currency${money(expenses)}.
-                    Net: $currency${money(net)}. Credit extended: $currency${money(credit)}.
-                    30-day average daily revenue: $currency${money(avgDailyRev)}.
-                    Write one paragraph summarising today and give one practical tip.
-                """.trimIndent()
-                val raw = agentMutex.mutex.withLock {
-                    gemmaService.generateResponse(prompt).trim()
-                }
+                val raw = agentLoopRunner.runOrSendPrompt(userMessage, system, legacyPrompt)
                 raw.ifBlank {
                     rulesOnlyNarrative(revenue, expenses, net, credit, avgDailyRev, urgency, currency)
                 }

@@ -1,0 +1,83 @@
+{
+  "catalogueVersion": 1,
+  "skills": [
+    {
+      "skillId": "ping",
+      "displayName": "Health check",
+      "schemaJson": "{\"type\":\"object\",\"properties\":{},\"additionalProperties\":false}",
+      "defaultEnabled": true
+    },
+    {
+      "skillId": "query_sales",
+      "displayName": "Query sales",
+      "schemaJson": "{\"type\":\"object\",\"properties\":{\"days\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":365}},\"required\":[\"days\"]}",
+      "defaultEnabled": true
+    },
+    {
+      "skillId": "query_inventory",
+      "displayName": "Query inventory",
+      "schemaJson": "{\"type\":\"object\",\"properties\":{\"lowStockOnly\":{\"type\":\"boolean\"}}}",
+      "defaultEnabled": true
+    },
+    {
+      "skillId": "calculate_profit",
+      "displayName": "Calculate profit",
+      "schemaJson": "{\"type\":\"object\",\"properties\":{\"days\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":365}},\"required\":[\"days\"]}",
+      "defaultEnabled": true
+    },
+    {
+      "skillId": "query_customers",
+      "displayName": "Query customers",
+      "schemaJson": "{\"type\":\"object\",\"properties\":{\"overdueOnly\":{\"type\":\"boolean\"}}}",
+      "defaultEnabled": true
+    },
+    {
+      "skillId": "forecast_demand",
+      "displayName": "Forecast demand",
+      "schemaJson": "{\"type\":\"object\",\"properties\":{\"productId\":{\"type\":\"integer\"},\"historyDays\":{\"type\":\"integer\",\"minimum\":7,\"maximum\":90}},\"required\":[\"productId\"]}",
+      "defaultEnabled": true
+    },
+    {
+      "skillId": "suggest_price",
+      "displayName": "Suggest price",
+      "schemaJson": "{\"type\":\"object\",\"properties\":{\"productId\":{\"type\":\"integer\"}},\"required\":[\"productId\"]}",
+      "defaultEnabled": true
+    },
+    {
+      "skillId": "draft_message",
+      "displayName": "Draft message",
+      "schemaJson": "{\"type\":\"object\",\"properties\":{\"purpose\":{\"type\":\"string\"},\"customerName\":{\"type\":\"string\"},\"context\":{\"type\":\"string\"},\"maxWords\":{\"type\":\"integer\",\"minimum\":20,\"maximum\":120}},\"required\":[\"purpose\",\"customerName\"]}",
+      "defaultEnabled": true
+    },
+    {
+      "skillId": "update_data",
+      "displayName": "Update data",
+      "schemaJson": "{\"type\":\"object\",\"properties\":{\"entity\":{\"type\":\"string\"},\"entityId\":{\"type\":\"integer\"},\"price\":{\"type\":\"number\"},\"cost\":{\"type\":\"number\"},\"stockQuantity\":{\"type\":\"integer\"}},\"required\":[\"entity\",\"entityId\"]}",
+      "defaultEnabled": true
+    },
+    {
+      "skillId": "extract_receipt_data",
+      "displayName": "Extract receipt data",
+      "schemaJson": "{\"type\":\"object\",\"properties\":{\"imagePath\":{\"type\":\"string\"},\"ocrText\":{\"type\":\"string\"}}}",
+      "defaultEnabled": true
+    },
+    {
+      "skillId": "transcribe_voice",
+      "displayName": "Transcribe voice",
+      "schemaJson": "{\"type\":\"object\",\"properties\":{\"durationMs\":{\"type\":\"integer\",\"minimum\":1000,\"maximum\":15000},\"localeTag\":{\"type\":\"string\"}}}",
+      "defaultEnabled": true
+    },
+    {
+      "skillId": "detect_anomaly",
+      "displayName": "Detect anomaly",
+      "schemaJson": "{\"type\":\"object\",\"properties\":{}}",
+      "defaultEnabled": true
+    },
+    {
+      "skillId": "find_copurchase_pairs",
+      "displayName": "Find co-purchase pairs",
+      "schemaJson": "{\"type\":\"object\",\"properties\":{\"days\":{\"type\":\"integer\",\"minimum\":7,\"maximum\":365},\"minCoCount\":{\"type\":\"integer\",\"minimum\":2,\"maximum\":20}}}",
+      "defaultEnabled": true
+    }
+  ]
+}
