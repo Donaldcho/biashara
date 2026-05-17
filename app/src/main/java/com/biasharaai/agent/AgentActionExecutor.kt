@@ -51,6 +51,7 @@ class AgentActionExecutor @Inject constructor(
                 "REVIEW_STOCK",
                 "REVIEW_TRANSACTION",
                 "REVIEW_CASH_FLOW",
+                "REVIEW_LEDGER",
                 "REVIEW_OPPORTUNITIES",
                 null,
                 "",

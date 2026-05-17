@@ -28,8 +28,19 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.biasharaai.R
+import com.biasharaai.ai.AudioCaptureHelper
 import com.biasharaai.ai.VoiceInputPreferences
 import com.biasharaai.ai.VoiceInputProcessor
+import com.biasharaai.data.local.db.AppSettingsDao
+import com.biasharaai.locale.LanguagePreferences
+import com.biasharaai.voice.BiasharaTtsEngine
+import com.biasharaai.voice.CommandHandler
+import com.biasharaai.voice.TranscriptionEngine
+import com.biasharaai.voice.TranscriptionResult
+import com.biasharaai.voice.VoiceIntent
+import com.biasharaai.voice.VoiceRouter
+import com.biasharaai.voice.VoiceScreenContext
+import com.biasharaai.voice.navigateFromVoiceTarget
 import coil.load
 import com.biasharaai.databinding.FragmentChatBinding
 import com.biasharaai.ui.base.BaseFragment
@@ -37,8 +48,10 @@ import com.google.android.material.chip.Chip
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
 import javax.inject.Inject
@@ -51,6 +64,18 @@ class ChatFragment : BaseFragment() {
 
     @Inject
     lateinit var voiceInputPreferences: VoiceInputPreferences
+
+    @Inject
+    lateinit var voiceRouter: VoiceRouter
+
+    @Inject
+    lateinit var commandHandler: CommandHandler
+
+    @Inject
+    lateinit var appSettingsDao: AppSettingsDao
+
+    @Inject
+    lateinit var biasharaTtsEngine: BiasharaTtsEngine
 
     private var _binding: FragmentChatBinding? = null
     private val binding get() = _binding!!
@@ -80,14 +105,11 @@ class ChatFragment : BaseFragment() {
     private val speechLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { result ->
-        val edit = _binding?.editMessage ?: return@registerForActivityResult
-        if (result.resultCode == Activity.RESULT_OK) {
-            val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-            matches?.firstOrNull()?.let { transcript ->
-                edit.append(
-                    if (edit.text?.isNotBlank() == true) " $transcript" else transcript,
-                )
-            }
+        if (result.resultCode != Activity.RESULT_OK) return@registerForActivityResult
+        val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+        val transcript = matches?.firstOrNull()?.trim().orEmpty()
+        if (transcript.isNotEmpty()) {
+            handleChatVoiceFromText(transcript, TranscriptionEngine.SPEECH_RECOGNIZER)
         }
     }
 
@@ -130,6 +152,7 @@ class ChatFragment : BaseFragment() {
         observeThinking()
         observeGenerating()
         observeVoiceInputPreference()
+        observeAssistantAutoRead()
     }
 
     private fun observeVoiceInputPreference() {
@@ -290,6 +313,34 @@ class ChatFragment : BaseFragment() {
     }
 
     private fun launchSpeechRecognizer() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            if (voiceInputProcessor.shouldUseOnDeviceAi() &&
+                AudioCaptureHelper.hasRecordPermission(requireContext())
+            ) {
+                val text = runCatching {
+                    voiceInputProcessor.transcribeWithAi(
+                        Locale.getDefault(),
+                        AudioCaptureHelper.DEFAULT_DURATION_MS,
+                    )
+                }.getOrNull()?.trim().orEmpty()
+                if (text.isNotEmpty()) {
+                    val result = TranscriptionResult(
+                        text = text,
+                        language = resolveVoiceLanguageTag(),
+                        confidence = 1f,
+                        isPartial = false,
+                        engine = TranscriptionEngine.WHISPER,
+                    )
+                    dispatchChatVoiceIntent(voiceRouter.classify(result, VoiceScreenContext.CHAT))
+                    return@launch
+                }
+            }
+            launchSystemSpeechRecognizer()
+        }
+    }
+
+    private fun launchSystemSpeechRecognizer() {
+        val root = _binding?.root ?: return
         try {
             val intent = voiceInputProcessor.createSpeechRecognizerIntent(
                 locale = Locale.getDefault(),
@@ -297,7 +348,95 @@ class ChatFragment : BaseFragment() {
             )
             speechLauncher.launch(intent)
         } catch (_: Exception) {
-            Snackbar.make(binding.root, R.string.chat_mic_unavailable, Snackbar.LENGTH_SHORT).show()
+            Snackbar.make(root, R.string.chat_mic_unavailable, Snackbar.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun handleChatVoiceFromText(raw: String, engine: TranscriptionEngine) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val text = raw.trim()
+            if (text.isEmpty()) return@launch
+            val result = TranscriptionResult(
+                text = text,
+                language = resolveVoiceLanguageTag(),
+                confidence = 1f,
+                isPartial = false,
+                engine = engine,
+            )
+            dispatchChatVoiceIntent(voiceRouter.classify(result, VoiceScreenContext.CHAT))
+        }
+    }
+
+    private suspend fun dispatchChatVoiceIntent(intent: VoiceIntent) {
+        when (intent) {
+            is VoiceIntent.Query -> sendImmediate(intent.text)
+            is VoiceIntent.Unclassified -> sendImmediate(intent.rawText)
+            is VoiceIntent.DataEntry -> {
+                val edit = _binding?.editMessage ?: return
+                val t = intent.text
+                edit.append(
+                    if (edit.text?.isNotBlank() == true) " $t" else t,
+                )
+            }
+            is VoiceIntent.Command -> {
+                val target = commandHandler.resolveNavigationTarget(intent)
+                val root = _binding?.root ?: return
+                findNavController().navigateFromVoiceTarget(
+                    target = target,
+                    onUnknownHint = { hint ->
+                        Snackbar.make(
+                            root,
+                            getString(R.string.chat_voice_unknown_command, hint),
+                            Snackbar.LENGTH_LONG,
+                        ).show()
+                    },
+                    onAlreadyAtChat = {
+                        Snackbar.make(root, R.string.chat_voice_already_chat, Snackbar.LENGTH_SHORT).show()
+                    },
+                )
+            }
+        }
+    }
+
+    private fun resolveVoiceLanguageTag(): String {
+        LanguagePreferences.getPersistedLocaleTag(requireContext())?.let { tag ->
+            val lang = tag.substringBefore('-', missingDelimiterValue = tag).lowercase(Locale.US)
+            if (lang.isNotBlank()) return lang
+        }
+        return Locale.getDefault().language
+    }
+
+    private fun preferredTtsLanguageCode(): String? {
+        val ctx = requireContext()
+        LanguagePreferences.getPersistedLocaleTag(ctx)?.let { tag ->
+            val lang = tag.substringBefore('-', missingDelimiterValue = tag).lowercase(Locale.US)
+            if (lang.isNotBlank()) return lang
+        }
+        return ctx.resources.configuration.locales[0]?.language?.lowercase(Locale.US)
+    }
+
+    private fun observeAssistantAutoRead() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                var wasGenerating = false
+                var lastSpokenAssistantId: Long? = null
+                combine(viewModel.messages, viewModel.isGenerating) { m, g -> Pair(m, g) }
+                    .collect { (msgs, gen) ->
+                        if (msgs.isEmpty()) lastSpokenAssistantId = null
+                        val finished = wasGenerating && !gen
+                        wasGenerating = gen
+                        if (!finished) return@collect
+                        val settings = withContext(Dispatchers.IO) {
+                            appSettingsDao.getSettingsSync()
+                        } ?: return@collect
+                        if (!settings.ttsEnabled || !settings.ttsAutoReadQueryAnswers) return@collect
+                        val last = msgs.lastOrNull() ?: return@collect
+                        if (last.isUser || last.text.isBlank() || last.stableId <= 0L) return@collect
+                        if (last.stableId == lastSpokenAssistantId) return@collect
+                        lastSpokenAssistantId = last.stableId
+                        biasharaTtsEngine.speak(last.text, preferredTtsLanguageCode())
+                    }
+            }
         }
     }
 
@@ -431,6 +570,10 @@ class ChatFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.messages.collect { messages ->
+                    val ttsOn = withContext(Dispatchers.IO) {
+                        appSettingsDao.getSettingsSync()?.ttsEnabled
+                    } == true
+                    chatAdapter.assistantTtsEnabled = ttsOn
                     chatAdapter.submitList(messages) {
                         if (messages.isNotEmpty()) {
                             binding.recyclerChat.smoothScrollToPosition(messages.size - 1)

@@ -31,7 +31,7 @@ class AgentLoopRunner @Inject constructor(
         val tools = skillToolFactory.buildToolProviders(toolLog)
         activeModelStore.runAgentLoop(
             userMessage = userMessage,
-            systemInstruction = systemInstruction,
+            systemInstruction = systemInstructionForRoute(systemInstruction, route),
             toolProviders = tools,
             toolCallsExecuted = toolLog,
             toolModelId = route.modelId,
@@ -53,7 +53,7 @@ class AgentLoopRunner @Inject constructor(
         val tools = skillToolFactory.buildToolProviders(toolLog)
         val loop = activeModelStore.runAgentLoop(
             userMessage = userMessage,
-            systemInstruction = systemInstruction,
+            systemInstruction = systemInstructionForRoute(systemInstruction, route),
             toolProviders = tools,
             toolCallsExecuted = toolLog,
             toolModelId = route.modelId,
@@ -72,5 +72,20 @@ class AgentLoopRunner @Inject constructor(
                 "Call a tool when you need factual data or an approved action. " +
                 "After tools return, use their JSON results — do not invent figures. " +
                 "Reply in the user's language. Be concise and actionable. Stop after one final answer."
+
+        private const val FUNCTION_GEMMA_PREFIX =
+            "You are a model that can do function calling with the following functions. " +
+                "Call the correct tool when you need shop data. " +
+                "After tools return, summarize using their JSON only — do not invent figures. "
     }
+
+    private fun systemInstructionForRoute(
+        base: String,
+        route: FunctionGemmaRouter.ToolLoopRoute,
+    ): String =
+        if (route.useFunctionFastPath) {
+            FUNCTION_GEMMA_PREFIX + base
+        } else {
+            base
+        }
 }

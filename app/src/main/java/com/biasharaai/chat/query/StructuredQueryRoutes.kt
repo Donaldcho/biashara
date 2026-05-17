@@ -6,6 +6,7 @@ import com.biasharaai.data.local.db.PosSaleLineFact
 import com.biasharaai.data.local.db.Product
 import com.biasharaai.data.local.db.Transaction
 import com.biasharaai.data.local.db.TransactionType
+import com.biasharaai.util.millisToLocalDate
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -225,7 +226,7 @@ internal suspend fun structuredQueryPart1(
     if (q.contains("best day") && (q.contains("ever") || q.contains("all time"))) {
         val best = txs.asSequence()
             .filter { it.type == TransactionType.INCOME && it.amount > 0 }
-            .groupBy { LocalDate.ofInstant(Instant.ofEpochMilli(it.date), zone) }
+            .groupBy { millisToLocalDate(it.date, zone) }
             .mapValues { (_, v) -> v.sumOf { it.amount } }
             .maxByOrNull { it.value }
         return if (best != null) {
@@ -239,7 +240,7 @@ internal suspend fun structuredQueryPart1(
         val (ms, me) = monthContaining(today).let { (a, b) -> dayRange(a).first to dayRange(b).second }
         val worst = txs.asSequence()
             .filter { it.type == TransactionType.INCOME && it.amount > 0 && it.date in ms..me }
-            .groupBy { LocalDate.ofInstant(Instant.ofEpochMilli(it.date), zone) }
+            .groupBy { millisToLocalDate(it.date, zone) }
             .mapValues { (_, v) -> v.sumOf { it.amount } }
             .minByOrNull { it.value }
         return if (worst != null) {
@@ -413,7 +414,7 @@ internal suspend fun structuredQueryPart1(
         val byMonth = txs.asSequence()
             .filter { it.type == TransactionType.INCOME && it.amount > 0 }
             .groupBy {
-                val d = LocalDate.ofInstant(Instant.ofEpochMilli(it.date), zone)
+                val d = millisToLocalDate(it.date, zone)
                 d.year * 100 + d.monthValue
             }
             .mapValues { (_, v) -> v.sumOf { it.amount } }
@@ -435,7 +436,7 @@ internal suspend fun structuredQueryPart1(
     if (hasAny("busiest season", "busiest month", "busy season")) {
         val byMonth = txs.asSequence()
             .filter { it.type == TransactionType.INCOME && it.amount > 0 }
-            .groupBy { LocalDate.ofInstant(Instant.ofEpochMilli(it.date), zone).monthValue }
+            .groupBy { millisToLocalDate(it.date, zone).monthValue }
             .mapValues { (_, v) -> v.sumOf { it.amount } }
             .maxByOrNull { it.value }
         return if (byMonth != null) {
@@ -824,7 +825,7 @@ internal suspend fun structuredQueryPart2(
     }
     if (hasAny("spent", "spend") && hasAny("most money", "most cash", "biggest day") && hasAny("day", "which day")) {
         val top = txs.filter { it.type == TransactionType.EXPENSE }
-            .groupBy { LocalDate.ofInstant(Instant.ofEpochMilli(it.date), zone) }
+            .groupBy { millisToLocalDate(it.date, zone) }
             .mapValues { (_, v) -> v.sumOf { it.amount } }
             .entries.sortedByDescending { it.value }.take(5)
         val txt = if (top.isEmpty()) "No expense rows found." else top.joinToString("; ") { "${it.key}: ${fmt(it.value)}" }

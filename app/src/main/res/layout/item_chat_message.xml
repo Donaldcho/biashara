@@ -84,6 +84,15 @@
                 android:textColor="?attr/colorOnSurface"
                 tools:text="Your revenue this month is KES 45,000 with expenses of KES 23,500." />
 
+            <com.biasharaai.voice.SpeakerButtonView
+                android:id="@+id/button_assistant_speak"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:contentDescription="@string/voice_ui_speak"
+                android:visibility="gone"
+                tools:visibility="visible" />
+
             <LinearLayout
                 android:id="@+id/row_ai_feedback"
                 android:layout_width="match_parent"

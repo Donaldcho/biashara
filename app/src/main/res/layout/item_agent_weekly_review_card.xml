@@ -93,8 +93,19 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:gravity="end"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
+
+                <com.biasharaai.voice.SpeakerButtonView
+                    android:id="@+id/button_speak_aloud"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:contentDescription="@string/agent_feed_listen_review" />
+
+                <Space
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/button_primary"

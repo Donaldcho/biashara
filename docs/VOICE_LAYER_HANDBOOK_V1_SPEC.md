@@ -70,6 +70,8 @@ Together they form a complete voice interaction loop: the owner speaks a busines
 
 **Instructions:** Read HANDOFF.md. Confirm Phase 6 complete (Prompt X12 done). Then:
 
+**BiasharaAI repo:** Room is already past v12 — implement this step as **`Migration(20, 21)`** (not `11_12`). Add **`AppSettings`** fields with **snake_case** `ColumnInfo` names to match `app_settings`. QNN dependencies resolve as **`com.qualcomm.qti`** on Maven Central.
+
 Add to `build.gradle.kts` (Module: app):
 
 ```kotlin
@@ -223,6 +225,8 @@ class AudioCaptureHelper @Inject constructor(
 **Creates:** `WhisperTranscriber.kt`, `WhisperModelManager.kt`, `TranscriptionResult.kt`  
 **Next Prompt:** V3: VoiceInputProcessor upgrade
 
+**BiasharaAI:** Types are under **`com.biasharaai.voice`** (`TranscriptionResult`, `TranscriptionEngine`) to avoid clashing with WhisperKit’s `com.argmaxinc.whisperkit.TranscriptionResult`. Use WhisperKit **`TextOutputCallback.MSG_TEXT_OUT`** + `CompletableDeferred` to bridge async callbacks into `Flow` emissions.
+
 **Language accuracy (WER guidance):** Swahili: Good (10–25%). Hausa: Good (10–25%). Yoruba: Moderate (25–50%). Amharic: Moderate (25–50%). For Yoruba and Amharic, Gemma 3n audio fallback on FULL_AI devices gives better results. VoiceInputProcessor handles routing.
 
 ```kotlin
@@ -312,6 +316,8 @@ class WhisperTranscriber @Inject constructor(
 
 **Modifies:** `VoiceInputProcessor.kt`  
 **Next Prompt:** V4: VoiceRouter
+
+**BiasharaAI:** Adds **`VoiceInputEvents.kt`** (`VoiceSttEngine`, `VoiceInputEvent`). Injects `WhisperTranscriber`, `AudioCaptureHelper`, `AppSettingsDao`, `CapabilityTier`. Gemma audio is a **stub** (`isGemmaAudioAvailable() == false`) until an AUDIO-capable LiteRT model exists; **`TranscribeVoiceSkill`** must not wrap `transcribeWithAi` in `AgentMutex` (Whisper already serialises).
 
 ```kotlin
 // VoiceInputProcessor.kt — upgraded (sketch)

@@ -1,5 +1,6 @@
 package com.biasharaai.ui.agent
 
+import android.speech.tts.TextToSpeech
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -13,13 +14,16 @@ import com.biasharaai.agent.AgentTypes
 import com.biasharaai.data.local.db.AgentAction
 import com.biasharaai.databinding.ItemAgentActionCardBinding
 import com.biasharaai.databinding.ItemAgentWeeklyReviewCardBinding
+import com.biasharaai.locale.LanguagePreferences
 import com.google.android.material.chip.Chip
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
+import java.util.Locale
 
 data class AgentActionCardUiModel(
     val action: AgentAction,
     val isExecuting: Boolean,
+    val ttsEnabled: Boolean,
 )
 
 private data class WeeklyChipJson(
@@ -85,6 +89,22 @@ class AgentActionCardAdapter(
             binding.rowButtons.isEnabled = !model.isExecuting
 
             bindButtons(action, model.isExecuting)
+            bindSpeakAloudDefault(model)
+        }
+
+        private fun bindSpeakAloudDefault(model: AgentActionCardUiModel) {
+            val action = model.action
+            val ctx = binding.root.context
+            val aloud = actionAloudText(action)
+            val b = binding.buttonSpeakAloud
+            if (model.ttsEnabled && aloud.isNotBlank()) {
+                b.bindSpeakTarget(aloud, ttsLanguageCode(ctx), TextToSpeech.QUEUE_FLUSH)
+                b.isVisible = true
+                b.isEnabled = !model.isExecuting
+            } else {
+                b.bindSpeakTarget("", null, TextToSpeech.QUEUE_FLUSH)
+                b.isVisible = false
+            }
         }
 
         private fun bindButtons(action: AgentAction, executing: Boolean) {
@@ -193,12 +213,15 @@ class AgentActionCardAdapter(
 
             binding.chipGroupStats.removeAllViews()
             val payload = action.actionPayload
+            val chipLines = mutableListOf<String>()
             if (!payload.isNullOrBlank()) {
                 runCatching {
                     val env = gson.fromJson(payload, WeeklyPayloadJson::class.java)
                     env.chips.forEach { c ->
+                        val line = ctx.getString(R.string.agent_weekly_review_chip_format, c.label, c.value)
+                        chipLines.add(line)
                         val chip = Chip(ctx).apply {
-                            text = ctx.getString(R.string.agent_weekly_review_chip_format, c.label, c.value)
+                            text = line
                             isCheckable = false
                             isClickable = false
                         }
@@ -207,6 +230,17 @@ class AgentActionCardAdapter(
                 }
             }
             binding.scrollChips.isVisible = binding.chipGroupStats.childCount > 0
+
+            val aloud = weeklyAloudText(action, chipLines)
+            val speak = binding.buttonSpeakAloud
+            if (model.ttsEnabled && aloud.isNotBlank()) {
+                speak.bindSpeakTarget(aloud, ttsLanguageCode(ctx), TextToSpeech.QUEUE_ADD)
+                speak.isVisible = true
+                speak.isEnabled = !model.isExecuting
+            } else {
+                speak.bindSpeakTarget("", null, TextToSpeech.QUEUE_ADD)
+                speak.isVisible = false
+            }
 
             binding.buttonPrimary.visibility = View.VISIBLE
             binding.buttonPrimary.text = ctx.getString(R.string.agent_action_view)
@@ -224,6 +258,33 @@ class AgentActionCardAdapter(
         AgentTypes.WEEKLY_REVIEW -> "📋"
         AgentTypes.OPPORTUNITY_SPOTTER -> "✨"
         else -> "🤖"
+    }
+
+    private fun actionAloudText(action: AgentAction): String =
+        listOf(action.headline.trim(), action.detail.trim())
+            .filter { it.isNotEmpty() }
+            .joinToString(". ")
+
+    private fun weeklyAloudText(action: AgentAction, chipLines: List<String>): String =
+        buildString {
+            append(action.headline.trim())
+            val det = action.detail.trim()
+            if (det.isNotEmpty()) {
+                append(". ")
+                append(det)
+            }
+            if (chipLines.isNotEmpty()) {
+                append(". ")
+                append(chipLines.joinToString(". "))
+            }
+        }
+
+    private fun ttsLanguageCode(ctx: android.content.Context): String? {
+        LanguagePreferences.getPersistedLocaleTag(ctx)?.let { tag ->
+            val lang = tag.substringBefore('-', missingDelimiterValue = tag).lowercase(Locale.US)
+            return lang.ifBlank { null }
+        }
+        return ctx.resources.configuration.locales[0]?.language?.lowercase(Locale.US)
     }
 
     private object Diff : DiffUtil.ItemCallback<AgentActionCardUiModel>() {

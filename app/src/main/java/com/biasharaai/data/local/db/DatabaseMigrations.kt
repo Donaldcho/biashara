@@ -27,6 +27,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  * - **15 → 16:** `chat_session_messages.feedback_vote` for lightweight assistant reply feedback (experiment).
  * - **16 → 17:** Phase 4a — Prompt A1: `agent_actions`, `agent_settings` (singleton row), `agent_run_log`.
  * - **17 → 18:** Phase 4a — Prompt A1: `products.last_stock_check_at` + `idx_products_stock` on `stock_quantity`.
+ * - **20 → 21:** Voice V0 — STT/TTS preference columns on `app_settings`.
+ * - **24 → 25:** Schema correction — renames mis-named `idx_ledger_*` indexes on `ledger_entries`
+ *   and `ledger_context` to the names Room auto-generates from entity `@Index` annotations so that
+ *   schema validation passes on devices that already migrated through the old 21→22 / 22→23 paths.
  */
 object DatabaseMigrations {
 
@@ -475,6 +479,350 @@ object DatabaseMigrations {
         }
     }
 
+    /** Voice layer — Prompt V0: voice input + TTS preference columns on singleton `app_settings`. */
+    val MIGRATION_20_21 = object : Migration(20, 21) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            if (!columnExists(db, "app_settings", "voice_input_enabled")) {
+                db.execSQL(
+                    "ALTER TABLE app_settings ADD COLUMN voice_input_enabled INTEGER NOT NULL DEFAULT 1",
+                )
+            }
+            if (!columnExists(db, "app_settings", "whisper_model_id")) {
+                db.execSQL(
+                    "ALTER TABLE app_settings ADD COLUMN whisper_model_id TEXT NOT NULL DEFAULT 'whisper-tiny'",
+                )
+            }
+            if (!columnExists(db, "app_settings", "silence_timeout_ms")) {
+                db.execSQL(
+                    "ALTER TABLE app_settings ADD COLUMN silence_timeout_ms INTEGER NOT NULL DEFAULT 2500",
+                )
+            }
+            if (!columnExists(db, "app_settings", "voice_language_mode")) {
+                db.execSQL(
+                    "ALTER TABLE app_settings ADD COLUMN voice_language_mode TEXT NOT NULL DEFAULT 'AUTO'",
+                )
+            }
+            if (!columnExists(db, "app_settings", "tts_enabled")) {
+                db.execSQL(
+                    "ALTER TABLE app_settings ADD COLUMN tts_enabled INTEGER NOT NULL DEFAULT 1",
+                )
+            }
+            if (!columnExists(db, "app_settings", "tts_speech_rate")) {
+                db.execSQL(
+                    "ALTER TABLE app_settings ADD COLUMN tts_speech_rate REAL NOT NULL DEFAULT 0.9",
+                )
+            }
+            if (!columnExists(db, "app_settings", "tts_pitch")) {
+                db.execSQL(
+                    "ALTER TABLE app_settings ADD COLUMN tts_pitch REAL NOT NULL DEFAULT 1.0",
+                )
+            }
+            if (!columnExists(db, "app_settings", "tts_auto_read_agent_alerts")) {
+                db.execSQL(
+                    "ALTER TABLE app_settings ADD COLUMN tts_auto_read_agent_alerts INTEGER NOT NULL DEFAULT 0",
+                )
+            }
+            if (!columnExists(db, "app_settings", "tts_auto_read_query_answers")) {
+                db.execSQL(
+                    "ALTER TABLE app_settings ADD COLUMN tts_auto_read_query_answers INTEGER NOT NULL DEFAULT 1",
+                )
+            }
+        }
+    }
+
+    /** Phase 9 L0 — unified business ledger + daily cash counts (append-only ledger). */
+    val MIGRATION_21_22 = object : Migration(21, 22) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS ledger_entries (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    occurred_at INTEGER NOT NULL,
+                    recorded_at INTEGER NOT NULL,
+                    type TEXT NOT NULL,
+                    direction TEXT NOT NULL,
+                    amount REAL NOT NULL,
+                    currency TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    notes TEXT,
+                    running_balance REAL NOT NULL,
+                    transaction_id INTEGER,
+                    service_delivery_id INTEGER,
+                    voucher_id TEXT,
+                    debt_id INTEGER,
+                    customer_id INTEGER,
+                    product_id INTEGER,
+                    service_item_id INTEGER,
+                    device_id TEXT NOT NULL,
+                    staff_name TEXT,
+                    sync_id TEXT NOT NULL,
+                    is_synced INTEGER NOT NULL DEFAULT 0
+                )
+                """.trimIndent(),
+            )
+            // Index names must match Room's auto-generated convention (index_<table>_<col>)
+            // so the schema validator doesn't throw on startup.
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_ledger_entries_occurred_at` ON ledger_entries(occurred_at)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_ledger_entries_direction` ON ledger_entries(direction)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_ledger_entries_type` ON ledger_entries(type)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_ledger_entries_customer_id` ON ledger_entries(customer_id)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_ledger_entries_transaction_id` ON ledger_entries(transaction_id)",
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS cash_counts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    counted_at INTEGER NOT NULL,
+                    expected_balance REAL NOT NULL,
+                    actual_balance REAL NOT NULL,
+                    difference REAL NOT NULL,
+                    notes TEXT,
+                    device_id TEXT NOT NULL
+                )
+                """.trimIndent(),
+            )
+        }
+    }
+
+    /** Ledger Intelligence v2 — owner/agent financial context for anomalies. */
+    val MIGRATION_22_23 = object : Migration(22, 23) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS ledger_context (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    related_ledger_entry_id INTEGER,
+                    related_anomaly_id TEXT,
+                    context_type TEXT NOT NULL,
+                    prompt TEXT NOT NULL,
+                    owner_answer TEXT,
+                    source TEXT NOT NULL,
+                    confidence REAL,
+                    applies_from_millis INTEGER,
+                    applies_to_millis INTEGER,
+                    created_at_millis INTEGER NOT NULL,
+                    resolved_at_millis INTEGER,
+                    superseded_at_millis INTEGER
+                )
+                """.trimIndent(),
+            )
+            // Index names must match Room's auto-generated convention and entity @Index declarations.
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_ledger_context_related_ledger_entry_id` ON ledger_context(related_ledger_entry_id)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_ledger_context_related_anomaly_id` ON ledger_context(related_anomaly_id)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_ledger_context_created_at_millis` ON ledger_context(created_at_millis)",
+            )
+        }
+    }
+
+    /** Ledger Intelligence v2 efficiency indexes for aggregate-heavy agent queries. */
+    val MIGRATION_23_24 = object : Migration(23, 24) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS idx_ledger_direction_occurred_at " +
+                    "ON ledger_entries(direction, occurred_at)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS idx_ledger_type_occurred_at " +
+                    "ON ledger_entries(type, occurred_at)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS idx_ledger_is_synced ON ledger_entries(is_synced)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS idx_ledger_sync_id ON ledger_entries(sync_id)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS idx_cash_counts_counted_at ON cash_counts(counted_at)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS idx_ledger_context_anomaly_active " +
+                    "ON ledger_context(related_anomaly_id, superseded_at_millis)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS idx_ledger_context_active_period " +
+                    "ON ledger_context(superseded_at_millis, applies_from_millis, applies_to_millis)",
+            )
+        }
+    }
+
+    /**
+     * Schema correction — renames the mis-named indexes that [MIGRATION_21_22] and [MIGRATION_22_23]
+     * created with shorthand `idx_*` names instead of Room's auto-generated `index_<table>_<col>`
+     * convention. Devices that already have the DB at v24 (with wrong names) get the correct indexes
+     * here; devices that migrated cleanly via the fixed 21→22 / 22→23 paths are unaffected because
+     * all DROP / CREATE statements are guarded with IF EXISTS / IF NOT EXISTS.
+     */
+    val MIGRATION_24_25 = object : Migration(24, 25) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // ── ledger_entries: drop old shorthand names ──────────────────────────────────
+            db.execSQL("DROP INDEX IF EXISTS idx_ledger_occurred")
+            db.execSQL("DROP INDEX IF EXISTS idx_ledger_direction")
+            db.execSQL("DROP INDEX IF EXISTS idx_ledger_type")
+            db.execSQL("DROP INDEX IF EXISTS idx_ledger_customer")
+            db.execSQL("DROP INDEX IF EXISTS idx_ledger_transaction")
+            // ── ledger_entries: create with Room-compatible names ─────────────────────────
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_ledger_entries_occurred_at` ON ledger_entries(occurred_at)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_ledger_entries_direction` ON ledger_entries(direction)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_ledger_entries_type` ON ledger_entries(type)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_ledger_entries_customer_id` ON ledger_entries(customer_id)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_ledger_entries_transaction_id` ON ledger_entries(transaction_id)",
+            )
+            // ── ledger_context: drop old shorthand names ──────────────────────────────────
+            db.execSQL("DROP INDEX IF EXISTS idx_ledger_context_anomaly")
+            db.execSQL("DROP INDEX IF EXISTS idx_ledger_context_created")
+            // ── ledger_context: create with Room-compatible names ─────────────────────────
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_ledger_context_related_ledger_entry_id` ON ledger_context(related_ledger_entry_id)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_ledger_context_related_anomaly_id` ON ledger_context(related_anomaly_id)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_ledger_context_created_at_millis` ON ledger_context(created_at_millis)",
+            )
+        }
+    }
+
+    /**
+     * Phase 7 K0 — Knowledge Base & Teaching System infrastructure tables.
+     * - **knowledge_chunks**: RAG text fragments with source path, language, and embedding BLOB.
+     * - **teaching_events**: records of user interactions with features (for mastery tracking).
+     * - **lesson_completions**: per-lesson completion records with score.
+     * - **feature_mastery**: aggregated mastery level per feature, drives contextual help UX.
+     */
+    val MIGRATION_25_26 = object : Migration(25, 26) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS knowledge_chunks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    content_text TEXT NOT NULL,
+                    source_path TEXT NOT NULL,
+                    language_code TEXT NOT NULL,
+                    chunk_index INTEGER NOT NULL DEFAULT 0,
+                    embedding_blob BLOB,
+                    created_at INTEGER NOT NULL
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_knowledge_chunks_source_path` ON knowledge_chunks(source_path)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_knowledge_chunks_language_code` ON knowledge_chunks(language_code)",
+            )
+
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS teaching_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    event_type TEXT NOT NULL,
+                    feature_id TEXT NOT NULL,
+                    skill_invoked TEXT,
+                    duration_ms INTEGER NOT NULL DEFAULT 0,
+                    outcome TEXT NOT NULL,
+                    created_at INTEGER NOT NULL
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_teaching_events_feature_id` ON teaching_events(feature_id)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_teaching_events_created_at` ON teaching_events(created_at)",
+            )
+
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS lesson_completions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    lesson_id TEXT NOT NULL,
+                    completed_at INTEGER NOT NULL,
+                    score REAL NOT NULL DEFAULT 0.0
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_lesson_completions_lesson_id` ON lesson_completions(lesson_id)",
+            )
+
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS feature_mastery (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    feature_id TEXT NOT NULL UNIQUE,
+                    mastery_level TEXT NOT NULL DEFAULT 'UNDISCOVERED',
+                    first_seen_at INTEGER NOT NULL,
+                    last_practiced_at INTEGER NOT NULL,
+                    practice_count INTEGER NOT NULL DEFAULT 0
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_feature_mastery_mastery_level` ON feature_mastery(mastery_level)",
+            )
+        }
+    }
+
+    /** Phase C — Prompt C0: cash movement evidence table (capture proof, no images). */
+    val MIGRATION_26_27 = object : Migration(26, 27) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS cash_movement_evidence (
+                    id                   INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    ledger_entry_id      INTEGER NOT NULL,
+                    capture_method       TEXT NOT NULL,
+                    proof_type           TEXT NOT NULL DEFAULT 'UNKNOWN',
+                    raw_text             TEXT,
+                    parsed_amount        REAL,
+                    parsed_reference     TEXT,
+                    parsed_counterparty  TEXT,
+                    parsed_date          INTEGER,
+                    parser_confidence    REAL NOT NULL DEFAULT 0.0,
+                    parser_engine        TEXT NOT NULL DEFAULT 'MANUAL',
+                    review_status        TEXT NOT NULL DEFAULT 'NEEDS_REVIEW',
+                    thumbnail_bytes      BLOB,
+                    thumbnail_size_bytes INTEGER NOT NULL DEFAULT 0,
+                    created_at           INTEGER NOT NULL,
+                    FOREIGN KEY(ledger_entry_id) REFERENCES ledger_entries(id) ON DELETE CASCADE
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_cash_movement_evidence_ledger_entry_id` " +
+                    "ON cash_movement_evidence(ledger_entry_id)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_cash_movement_evidence_parsed_reference` " +
+                    "ON cash_movement_evidence(parsed_reference)",
+            )
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_3_5,
         MIGRATION_5_6,
@@ -492,5 +840,12 @@ object DatabaseMigrations {
         MIGRATION_17_18,
         MIGRATION_18_19,
         MIGRATION_19_20,
+        MIGRATION_20_21,
+        MIGRATION_21_22,
+        MIGRATION_22_23,
+        MIGRATION_23_24,
+        MIGRATION_24_25,
+        MIGRATION_25_26,
+        MIGRATION_26_27,
     )
 }

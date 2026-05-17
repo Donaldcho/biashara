@@ -102,6 +102,13 @@
     <string name="voice_recording">Ó ń gbà sílẹ̀… Sọ̀rọ̀ báyìí.</string>
     <string name="voice_transcription_failed">Kò lè kọ ohùn sílẹ̀. Jọ̀wọ́ tún gbìyànjú.</string>
     <string name="voice_permission_denied">Ìyọ̀nda àṣẹ̀ maikíròfónù ni a nílò fún ìgbàrò ohùn.</string>
+    <string name="voice_ui_mic_idle">Ìgbàrò ohùn</string>
+    <string name="voice_ui_mic_listening">Ń gbọ́… sọ̀rọ̀ báyìí</string>
+    <string name="voice_ui_mic_processing">Ń ṣe àtúnpín ohùn…</string>
+    <string name="voice_ui_mic_error">Àṣìṣe ìgbàrò ohùn</string>
+    <string name="voice_ui_transcription_dismiss">Pa</string>
+    <string name="voice_ui_speak">Kí ka láti ohùn</string>
+    <string name="voice_ui_speak_stop">Dúró kíka</string>
 
     <!-- Cash Flow Insights (Prompt 9) -->
     <string name="insights_title">Ìṣàn Owó</string>
@@ -134,6 +141,7 @@
     <string name="agent_feed_attention_none">Gbogbo nǹkan ti tàn</string>
     <string name="agent_feed_empty_illustration_cd">Gbogbo rere</string>
     <string name="agent_feed_empty_message">Gbogbo nǹkan dára! Iṣẹ́ ọjà rẹ ń lọ dáadáa.</string>
+    <string name="agent_feed_listen_review">Gbọ́ àyẹ̀wò</string>
     <string name="agent_action_review">Ṣe àyẹ̀wò</string>
     <string name="agent_action_approve">Fọwọ́sí ✓</string>
     <string name="agent_action_reject">Kọ̀ ✗</string>

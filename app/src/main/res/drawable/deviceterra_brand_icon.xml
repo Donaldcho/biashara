@@ -1,34 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  Vector stand-in for the DEVICETERRA mark (icon bars).
-  To use your full raster logo: add res/drawable-nodpi/deviceterra_startup_logo.png
-  then in activity_main.xml set @id/splash_logo_icon android:src to @drawable/deviceterra_startup_logo
-  and set @id/splash_wordmark visibility to gone if the image already includes the wordmark.
--->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="280dp"
-    android:height="120dp"
-    android:viewportWidth="280"
-    android:viewportHeight="120">
+    android:width="132dp"
+    android:height="112dp"
+    android:viewportWidth="132"
+    android:viewportHeight="112">
     <path
-        android:fillColor="#0B3D6B"
-        android:pathData="M44,24 L188,24 Q206,24 206,42 L206,74 Q206,92 188,92 L44,92 Z" />
+        android:fillColor="#DBEAFE"
+        android:pathData="M28,12 L104,12 Q120,12 120,28 L120,84 Q120,100 104,100 L28,100 Q12,100 12,84 L12,28 Q12,12 28,12 Z" />
     <path
-        android:fillColor="#1565C0"
-        android:pathData="M44,34 L176,34 Q190,34 190,48 L190,68 Q190,82 176,82 L44,82 Z" />
+        android:fillColor="#2563EB"
+        android:pathData="M32,18 L100,18 Q114,18 114,32 L114,80 Q114,94 100,94 L32,94 Q18,94 18,80 L18,32 Q18,18 32,18 Z" />
     <path
-        android:fillColor="#42A5F5"
-        android:pathData="M44,44 L164,44 Q176,44 176,54 L176,62 Q176,72 164,72 L44,72 Z" />
+        android:fillColor="#14B8A6"
+        android:fillAlpha="0.92"
+        android:pathData="M78,18 L100,18 Q114,18 114,32 L114,80 Q114,94 100,94 L78,94 Z" />
     <path
-        android:fillColor="#90CAF9"
-        android:pathData="M44,54 L150,54 Q158,54 158,60 L158,64 Q158,70 150,70 L44,70 Z" />
+        android:fillColor="#FFFFFF"
+        android:pathData="M39,64 L49,64 Q53,64 53,68 L53,78 Q53,82 49,82 L39,82 Q35,82 35,78 L35,68 Q35,64 39,64 Z" />
     <path
-        android:fillColor="#64B5F6"
-        android:pathData="M30,38 m-6,0 a6,6 0 1,1 12,0 a6,6 0 1,1 -12,0" />
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.94"
+        android:pathData="M59,52 L69,52 Q73,52 73,56 L73,78 Q73,82 69,82 L59,82 Q55,82 55,78 L55,56 Q55,52 59,52 Z" />
     <path
-        android:fillColor="#64B5F6"
-        android:pathData="M24,58 m-5,0 a5,5 0 1,1 10,0 a5,5 0 1,1 -10,0" />
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.88"
+        android:pathData="M79,38 L89,38 Q93,38 93,42 L93,78 Q93,82 89,82 L79,82 Q75,82 75,78 L75,42 Q75,38 79,38 Z" />
     <path
-        android:fillColor="#64B5F6"
-        android:pathData="M32,74 m-4,0 a4,4 0 1,1 8,0 a4,4 0 1,1 -8,0" />
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M39,48 L57,42 L72,31 L92,27" />
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M39,48 m-5,0 a5,5 0 1,1 10,0 a5,5 0 1,1 -10,0" />
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M72,31 m-5,0 a5,5 0 1,1 10,0 a5,5 0 1,1 -10,0" />
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M92,27 m-5,0 a5,5 0 1,1 10,0 a5,5 0 1,1 -10,0" />
 </vector>

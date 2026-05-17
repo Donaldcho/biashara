@@ -8,6 +8,7 @@ import com.google.ai.edge.litertlm.Contents
 import com.google.ai.edge.litertlm.Engine
 import com.google.ai.edge.litertlm.EngineConfig
 import com.google.ai.edge.litertlm.ExperimentalApi
+import com.google.ai.edge.litertlm.ExperimentalFlags
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.ToolProvider
 import javax.inject.Inject
@@ -33,8 +34,13 @@ class ModelLoader @Inject constructor() {
      *
      * Caller owns lifecycle — must [Engine.close] when done.
      */
-    fun buildEngine(modelPath: String, tier: CapabilityTier, cfg: InferenceUiConfig): Engine {
-        val spec = InferenceRuntimeSpec.resolve(tier, cfg)
+    fun buildEngine(
+        modelPath: String,
+        tier: CapabilityTier,
+        cfg: InferenceUiConfig,
+        forFunctionToolModel: Boolean = false,
+    ): Engine {
+        val spec = InferenceRuntimeSpec.resolve(tier, cfg, forFunctionToolModel)
         val backend: Backend = if (spec.userForcesCpu) Backend.CPU() else Backend.GPU()
         Log.d(
             TAG,
@@ -62,6 +68,7 @@ class ModelLoader @Inject constructor() {
         systemInstruction: String,
         tools: List<ToolProvider> = emptyList(),
         automaticToolCalling: Boolean = true,
+        enableConversationConstrainedDecoding: Boolean = false,
     ): Conversation {
         val spec = InferenceRuntimeSpec.resolve(tier, cfg)
         val sampler = SamplerConfig(
@@ -69,13 +76,19 @@ class ModelLoader @Inject constructor() {
             topP = spec.sessionTopP.toDouble(),
             temperature = spec.sessionTemperature.toDouble(),
         )
-        return engine.createConversation(
-            ConversationConfig(
-                samplerConfig = sampler,
-                systemInstruction = Contents.of(systemInstruction),
-                tools = tools,
-                automaticToolCalling = automaticToolCalling,
-            ),
-        )
+        return try {
+            ExperimentalFlags.enableConversationConstrainedDecoding =
+                enableConversationConstrainedDecoding
+            engine.createConversation(
+                ConversationConfig(
+                    samplerConfig = sampler,
+                    systemInstruction = Contents.of(systemInstruction),
+                    tools = tools,
+                    automaticToolCalling = automaticToolCalling,
+                ),
+            )
+        } finally {
+            ExperimentalFlags.enableConversationConstrainedDecoding = false
+        }
     }
 }

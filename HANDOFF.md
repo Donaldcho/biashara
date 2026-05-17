@@ -1,11 +1,11 @@
 # Biashara AI Project Handoff Document
 
 ## Current Project State
-- **Last Completed Prompt:** Prompt **X11** — `SkillPackManager` + `SkillPackVerifier` (ECDSA-signed JSON packs, OTA install, pack-bridged skills); trust anchor `assets/skill_pack_trust/signing_public.pem`.
-- **Next Expected Prompt:** Prompt **X12** — Testing suite (model swap, skills, loop, pack security, acceptance criteria).
-- **Phase:** **6** — Extended agents · swappable models · skills system (builds on **Phase 4** agents shipped on `release/biashara-phase4`).
-- **AppDatabase version:** **20** (`AppDatabase.kt`; latest **19→20** adds Phase 6 tables; prior chain through **18→19** `pending_notifications`, **16→17** agents, etc.)
-- **Active git line:** **`feat/phase6-model-skills`** (Phase 6 work); production line remains **`release/biashara-phase4`** until Phase 6 is merged.
+- **Last Completed Prompt:** Phase C **C12** — Cash Movement Capture System **COMPLETE** (C0–C12). All parsers, fragments, repository, anomaly detection, nav graph wiring, and tests implemented.
+- **Next Expected Prompt:** Phase C is fully closed. Likely: cash quick-action bar wiring into `AgentFeedFragment` layout, or start of next major phase.
+- **AppDatabase version:** **27** (latest **26→27** `cash_movement_evidence` table; **25→26** Phase 7 KB tables; **24→25** schema correction; **20→21** voice/TTS prefs).
+- **Phase:** Phase C **Cash Movement Capture System** (**C0–C12 COMPLETE**); Phase 7 **Knowledge Base K0–K11 COMPLETE**; voice layer **V9** on **`feat/voice-layer-stt-tts`**; Phase 6 **X12** complete.
+- **Active git line:** **`feat/voice-layer-stt-tts`** (Voice V0+); production line **`release/biashara-phase4`**; Phase 6 feature line **`feat/phase6-model-skills`**.
 - **Key Notes (Phase 4 — A track):**
   - All agents are **additive** — no existing shipped code is deleted; extend schema and features in place.
   - **Phase 4a (A1–A4)** targets **zero Gemma dependency** so agent value applies on **all** device tiers (`RULES_BASED` / `PARTIAL_AI` / `FULL_AI`).
@@ -13,7 +13,50 @@
   - Every agent action requires **owner approval** unless **auto-approved** in settings (policy to be defined in A-track prompts).
 - **Phase 2 (U1–U10) — shipped (reference):** Intelligence upgrade complete through Prompt U10; conversational query layer, POS, debt/credit, loss alerts, order parser, tests — see sections **Phase 2 closure**, **Room Database**, and **Chat** below for file and schema detail.
 
-**Repository snapshot:** POS + Phase 2 + **Room 20** + Phase 4 agent stack + **Phase 6 X0–X11** (model registry, multi-model downloads + **Model Settings** UI, skills engine, agent loop, FunctionGemma routing, signed skill packs).
+**Repository snapshot:** POS + Phase 2 + **Room 26** (KB tables K0) + Phase 4 agents + Phase 6 X0–X12 + **Voice V0–V9** + **Phase 7 K0–K11 (complete)**.
+
+### Phase C — Cash Movement Capture System (on `feat/voice-layer-stt-tts`)
+
+| Step | Deliverable | Status |
+|------|-------------|--------|
+| C0 | `MIGRATION_26_27`; `CashMovementEvidence` entity + enums; `CashMovementEvidenceDao`; `StorageWatchdogWorker` | ✅ |
+| C1 | `RegexParser`, `ParsedFields`, `ProofTypeDetector` — 25+ unit tests in `RegexParserTest` | ✅ |
+| C2 | `CashParser` three-tier orchestrator (Regex → FunctionGemma → Full Gemma; `AgentMutex`) | ✅ |
+| C3 | `CashScanViewModel` + `CashScanUiState` (Idle/Scanning/Confirming/Saving/Saved/Error) | ✅ |
+| C4 | `CashScanFragment` + `fragment_cash_scan.xml` (CameraX 720p, `ImageCapture`, direction banner) | ✅ |
+| C5 | `ConfirmationFragment` + `ConfirmationViewModel` + `fragment_confirmation.xml` (direction chips, 15 categories, confidence bar) | ✅ |
+| C6 | `ManualEntryFragment` + `fragment_manual_entry.xml` (no camera, unverified-outflow toast) | ✅ |
+| C7 | `CashMovementRepository` — `@Transaction` atomic write of `LedgerEntry` + `CashMovementEvidence`; 50 KB thumbnail cap; duplicate-ref fraud log | ✅ |
+| C8 | `CashQuickActionBar` custom view + `view_cash_quick_action_bar.xml` (4 buttons: Scan In/Out green/red; Add In/Out outlines) | ✅ |
+| C9 | `SmsImportFragment` + `SmsImportViewModel` + `fragment_sms_import.xml` (clipboard auto-detect, Parse → Confirmation) | ✅ |
+| C10 | `EvidenceViewerBottomSheet` + `bottom_sheet_evidence_viewer.xml`; `LedgerEntryAdapter` shows 📄 badge on entries with evidence | ✅ |
+| C11 | `CashEvidenceAnomalyDetector` (large unverified outflow; repeated unverified outflows); wired into `FraudSentinelWorker` + `LossAlertWorkerFactory` | ✅ |
+| C12 | `RegexParserTest` (25 cases), `StorageWatchdogLogicTest`, `CashEvidenceAnomalyDetectorTest`; nav graph entries + global actions for all 4 cash fragments | ✅ |
+
+### Phase 7 — Knowledge Base & Teaching System **K0–K11** (complete on `feat/voice-layer-stt-tts`)
+
+| Step | Deliverable | Status |
+|------|-------------|--------|
+| K0 | `MIGRATION_25_26`: 4 KB tables; `EmbeddingEngine`; `VectorMath` | ✅ |
+| K1 | `assets/knowledge/{en,sw,fr,ar,pt,hi,zh}/` — 20 topics × 7 languages (140 `.md` files) | ✅ |
+| K2 | `KnowledgeChunk`, `TeachingEvent`, `LessonCompletion`, `FeatureMastery` entities + DAOs; `KnowledgeChunkParser`; `KnowledgeIngestor` | ✅ |
+| K3 | `KnowledgeRetriever` — semantic (cosine) + keyword fallback; `RetrievedChunk`; `buildContext()` | ✅ |
+| K4 | `QueryAppKnowledgeSkill` (id=`query_app_knowledge`); `TeachUserSkill` (id=`teach_user`); `skills_catalogue.json` entries; `SkillModule` wiring | ✅ |
+| K5 | `OwnerBehaviourTracker`; `FeatureMasteryRepository`; `TeachingEngine` | ✅ |
+| K6 | `MicroLesson` / `LessonStep` / `StepActionType`; `LessonLibrary` (20 features); `LessonRunner` | ✅ |
+| K7 | `ContextualHelpEngine` — screen→feature map; `ContextualHelp` data class | ✅ |
+| K8 | `OnboardingController` — SharedPrefs-backed 5-step onboarding | ✅ |
+| K9 | `KnowledgeManifest`; `KnowledgeOtaManager` (SHA256 verify, ZIP extract, reingest) | ✅ |
+| K10 | `LessonFragment` + `LessonViewModel`; `fragment_lesson.xml`; `ContextualHelpBottomSheet`; `bottom_sheet_contextual_help.xml` | ✅ |
+| K11 | `KnowledgeChunkParserTest`, `KnowledgeRetrieverTest`, `QueryAppKnowledgeSkillTest`, `TeachUserSkillTest`, `LessonLibraryTest`, `FeatureMasteryRepositoryTest`, `TeachingEngineTest` | ✅ |
+
+### Phase 9 — Prompt **L0** (complete)
+
+| Field | Value |
+|-------|-------|
+| **Last Completed** | **L0:** `MIGRATION_21_22`, `ledger_entries` + 5 indexes, `cash_counts`, `LedgerEntry` / `LedgerEntryType` / `LedgerDirection`, `LedgerEntryDao` (insert-only + `updateBalance` for sync), `CashCount` / `CashCountDao` |
+| **Next Prompt** | **L1:** `LedgerRepository` + `LedgerDescriptionBuilder` |
+| **Critical rule** | No `@Update` / `@Delete` on `LedgerEntryDao` except `updateBalance` (L9 sync recompute) |
 
 ### Stability & integration (2026-05-16 — merge to `release/biashara-phase4`)
 
@@ -31,10 +74,88 @@
 | **Backup / security** | `backup_rules.xml` + `data_extraction_rules.xml`: exclude `sharedpref` **`huggingface_auth.xml`** from cloud/full backup (HF read token). |
 | **Build** | `:app:compileDebugKotlin` succeeds on the feature line. |
 
+### Voice layer — Prompt **V9** (complete on `feat/voice-layer-stt-tts`)
+
+| Field | Value |
+|-------|-------|
+| **Last Completed** | **V9:** `VoiceSettingsFragment` / `VoiceSettingsViewModel` / `fragment_voice_settings.xml`; Settings hub card + `action_settingsFragment_to_voiceSettingsFragment`; Whisper + TTS controls; `ACTION_INSTALL_TTS_DATA`; `VoiceSettingsViewModelTest`; dual-write voice opt-in (prefs + Room) |
+| **Next Prompt** | **V10** (TBD) |
+
+### Voice layer — Prompt **V8** (complete on `feat/voice-layer-stt-tts`)
+
+| Field | Value |
+|-------|-------|
+| **Last Completed** | **V8:** `VoiceNavigator.kt`; `ChatFragment` + `VoiceRouter`/`CommandHandler`/`AppSettingsDao`/`BiasharaTtsEngine`; `item_chat_message.xml` / `ChatAdapter` assistant read-aloud; `fragment_pos.xml` / `PosFragment` voice search (`btn_voice_search`); strings `chat_voice_*`, `pos_voice_search_desc` |
+| **Next Prompt** | *(superseded by V9+)* |
+
+### Voice layer — Prompt **V7** (complete on `feat/voice-layer-stt-tts`)
+
+| Field | Value |
+|-------|-------|
+| **Last Completed** | **V7:** `item_agent_action_card.xml` / `item_agent_weekly_review_card.xml` + `AgentActionCardAdapter` (`SpeakerButtonView`, `QUEUE_FLUSH` / `QUEUE_ADD`); `AgentFeedViewModel`/`AgentFeedUiState` TTS flags; `AgentFeedFragment` + `BiasharaTtsEngine` CRITICAL auto-read; `SpeakerButtonView` queue mode + `setEnabled`; `agent_feed_listen_review` strings |
+| **Next Prompt** | *(superseded by V8+)* |
+
+### Voice layer — Prompt **V6** (complete on `feat/voice-layer-stt-tts`)
+
+| Field | Value |
+|-------|-------|
+| **Last Completed** | **V6:** `MicrophoneButtonView.kt`, `TranscriptionBannerView.kt`, `SpeakerButtonView.kt`; `view_microphone_button.xml`, `view_transcription_banner.xml`, `view_speaker_button.xml`; `attrs_voice_ui.xml`; `voice_teal`; `VoiceUiTtsEntryPoint`; `voice_ui_*` strings (5 locales); Chat composer still uses stock mic until V8 wiring |
+| **Next Prompt** | *(superseded by V7+)* |
+
+### Voice layer — Prompt **V5** (complete on `feat/voice-layer-stt-tts`)
+
+| Field | Value |
+|-------|-------|
+| **Last Completed** | **V5:** `TtsLanguageMapper.kt`, `BiasharaTtsEngine.kt` (`speak` / `stop` / `isSpeaking`, currency + markdown sanitisation), `TtsLanguageMapperTest.kt`; `BiasharaApp` calls `initialize()` |
+| **Next Prompt** | *(superseded by V6+)* |
+
+### Voice layer — Prompt **V4** (complete on `feat/voice-layer-stt-tts`)
+
+| Field | Value |
+|-------|-------|
+| **Last Completed** | **V4:** `VoiceIntent.kt`, `VoiceScreenContext.kt`, `VoiceNavigationTarget.kt`, `CommandHandler.kt`, `VoiceRouter.kt`, `VoiceRouterTest.kt`; POS phrases → `OpenPOS`; STT → router → `NavController` still to wire |
+| **Next Prompt** | *(superseded by V5+)* |
+
+### Voice layer — Prompt **V3** (complete on `feat/voice-layer-stt-tts`)
+
+| Field | Value |
+|-------|-------|
+| **Last Completed** | **V3:** `VoiceInputEvents.kt` (`VoiceInputEvent`, `VoiceSttEngine`), `VoiceInputProcessor` (`startListening`, `transcribeWithAi`, `usesOnDeviceAi`); `ChatFragment` + `TranscribeVoiceSkill` updates |
+| **Next Prompt** | *(superseded by V4+)* |
+
+### Voice layer — Prompt **V2** (complete on `feat/voice-layer-stt-tts`)
+
+| Field | Value |
+|-------|-------|
+| **Last Completed** | **V2:** `voice/WhisperTranscriber.kt`, `voice/WhisperModelManager.kt`, `voice/TranscriptionResult.kt`, `voice/PcmAudioUtil.kt`; `WhisperModelManagerTest` |
+| **Next Prompt** | *(superseded by V3+)* |
+| **Key note** | App `TranscriptionResult` lives in `com.biasharaai.voice` (SDK has its own `com.argmaxinc.whisperkit.TranscriptionResult`). |
+
+### Voice layer — Prompt **V1** (complete on `feat/voice-layer-stt-tts`)
+
+| Field | Value |
+|-------|-------|
+| **Last Completed** | **V1:** `AudioChunk`, `SilenceDetector`, `AudioCaptureHelper` **class** (`startRecording()` `Flow`, `recordForDuration()`, `stopRecording()`), Hilt + `AppSettingsDao` for `silenceTimeoutMs`; `SilenceDetectorTest` |
+| **Next Prompt** | *(superseded by V2+)* |
+| **Files created** | `ai/AudioChunk.kt`, `ai/SilenceDetector.kt`, `test/.../SilenceDetectorTest.kt` |
+| **Files modified** | `ai/AudioCaptureHelper.kt` (object → `@Singleton` class), `HANDOFF.md` |
+
+### Voice layer — Prompt **V0** (complete on `feat/voice-layer-stt-tts`)
+
+| Field | Value |
+|-------|-------|
+| **Last Completed** | **V0:** `com.argmaxinc:whisperkit`, Qualcomm QNN via **`com.qualcomm.qti`** (`qnn-runtime`, `qnn-litert-delegate`), `packaging.jniLibs.useLegacyPackaging`, `MODIFY_AUDIO_SETTINGS`, **`MIGRATION_20_21`**, `AppSettings` voice/TTS fields, Room **21** |
+| **Next Prompt** | *(superseded by V1+)* |
+| **Files modified** | `app/build.gradle.kts`, `AndroidManifest.xml`, `AppDatabase.kt`, `AppSettings.kt`, `DatabaseMigrations.kt`, `AppDatabaseMigrationTest.kt`, `HANDOFF.md` |
+
 | Handoff (H) | |
 |---------|---|
-| **Last Completed** | Prompt **X11**: `SkillPackManager` + signed OTA skill packs |
-| **Next Prompt** | Prompt **X12**: Phase 6 testing suite |
+| **Last Completed** | Prompt **K0**: Phase 7 setup — `MIGRATION_25_26`, `EmbeddingEngine.kt`, `VectorMath.kt`, `litert:1.2.0`, `assets/models/` |
+| **Next Prompt** | Phase 7 **K1** — Knowledge content creation (~400 `.md` files across 7 language directories) |
+| **Files created (K0)** | `ai/EmbeddingEngine.kt`, `ai/VectorMath.kt`, `assets/models/.gitkeep` |
+| **Files modified (K0)** | `build.gradle.kts` (litert dep), `AppDatabase.kt` (v26), `DatabaseMigrations.kt` (MIGRATION_25_26), `AppDatabaseMigrationTest.kt` (v25→v26 test), `HANDOFF.md` |
+| **Last Completed (X12)** | Prompt **X12**: Phase 6 testing suite — model swap, pack security, acceptance criteria |
+| **Files created (X12)** | `ai/ModelSwapTest.kt`, `skills/packs/PackSecurityAcceptanceTest.kt`, `agent/Phase6AcceptanceCriteriaTest.kt` |
 | **Files created (X11)** | `skills/packs/SkillPackManifest.kt`, `SkillPackVerifier.kt`, `SkillPackManager.kt`, `PackBridgedSkill.kt`, `assets/skill_pack_trust/signing_public.pem`, `SkillPackVerifierTest.kt`, `SkillPackManagerTest.kt`, `SkillPackTestSupport.kt` |
 | **Files modified (X11)** | `SkillPackRecordDao.kt`, `SkillDescriptorDao.kt`, `SkillRegistry.kt`, `BiasharaApp.kt`, `HANDOFF.md` |
 | **Files created (X10)** | `FunctionGemmaRouter.kt`, `FunctionGemmaRouterTest.kt` |
@@ -80,7 +201,7 @@
 | **Files created (A4)** | `AgentFeedFragment.kt`, `AgentFeedViewModel.kt`, `AgentActionCardAdapter.kt`, `AgentActionExecutor.kt`, `fragment_agent_feed.xml`, `item_agent_action_card.xml` |
 | **Files removed (A4)** | `HomeFragment.kt`, `HomeViewModel.kt`, `fragment_home.xml` (replaced by agent feed) |
 | **Files created (A2–A3)** | **A2:** `AgentMutex`, `AgentOrchestrator`, `AgentDecisionEngine`, `AgentActionBuilder`, `AgentTypes`; stub `*Worker` classes. **A3:** `StockGuardianRepository.kt`, `FraudRuleEngine.kt`; real `StockGuardianWorker`, `FraudSentinelWorker`. |
-| **Final DB version (Room)** | **20** (`AppDatabase.kt`) |
+| **Final DB version (Room)** | **21** (`AppDatabase.kt`; **20→21** voice/TTS columns on `app_settings`) |
 | **Phase 2 entities (Kotlin, representative)** | `Customer`, `Debt`, `Alert`, chat session/message entities, `AiBusinessMemory`, etc. (see Room section) |
 | **Prompt vs. this repo** | **A2** [AgentOrchestrator] schedules workers. **A3** Stock Guardian + Fraud Sentinel. **A4** [AgentFeedFragment]. **A5** [CashFlowSentinelWorker] daily ~[AgentSetting.dailySummaryHour] (±30m flex) + [PricingAgentWorker] daily (staggered +4h); [PricingRuleEngine]; PARTIAL_AI+ uses [ActiveModelStore] inside [AgentMutex]. **A6** [CustomerPatternAnalyser] + [CustomerRelationWorker]: overdue debt SMS (priority) and visit-gap “we miss you” SMS; daily (+2h vs summary hour, ±30m flex); `SEND_SMS` payload (`phone`, `draftMessage`, optional `debtId`); PARTIAL_AI+ Gemma (debt prompt aligned with Phase 2 [DebtReminderViewModel]). **A7** [WeeklyReviewBuilder] + [WeeklyReviewWorker]: last completed ISO week stats → Gemma long prompt → feed card `AUTO_EXECUTE` / `SHOW_REVIEW` + stat chips JSON; [CoPurchaseAnalyser] + [OpportunitySpotterWorker]: top co-purchase pairs (≥3×) → Gemma bundle/shelf ideas; **FULL_AI + model only**; WorkManager **weekly** on [AgentSetting.weeklyReviewDayOfWeek] at [dailySummaryHour] while charging; opportunity run **+30 min** stagger; [AgentOrchestrator] injects [CapabilityTier] to cancel/skip schedules off FULL_AI. **A9** [AgentActionExecutor]: `SEND_SMS` → `smsto:` + `sms_body` (main thread, never auto-send); `UPDATE_PRICE` / payload-bearing `REVIEW_PRICE` → [ProductDao.updateProduct]; `OPEN_SCREEN` → [ExecutionResult.RequiresNavigation] + fragment completes navigation then `EXECUTED`; `SHOW_REVIEW` + `REVIEW_*` acknowledge → `EXECUTED`; [ExecutionResult] surfaces errors / unknown verbs to [AgentFeedViewModel]. **A10** [NotificationScheduler]: quiet hours → [PendingNotification] queue + flush on app resume; WorkManager constraints per agent (battery / charging / `NetworkType.NOT_REQUIRED`); [AgentSettingsFragment] shows last run + expandable 5-run history from [AgentRunLogDao]. **X0** (Phase 6): Room tables `model_descriptors`, `skill_descriptors`, `skill_pack_records` (**19→20**; external handbook “v9→v10” = same migration intent). **X1**: `ModelLoader` + `ActiveModelStore` + deprecated `GemmaService` façade; workers + loss alerts use `sendPrompt`. **X2**: bundled catalogue → Room `model_descriptors`; `ModelRegistry.bootstrap()` on launch; downloads keyed by `modelId`. |
 
@@ -119,7 +240,7 @@ Eleven delivery prompts (**A1–A11**) plus **A0** (tracker/setup) build the aut
 
 ### Phase 6 — Model registry & skills handbook (X0–X12)
 
-Phase 6 adds a **Model Registry** (swappable LiteRT-LM models), **Skills Engine** (tool-use / `BiasharaSkill`), multi-step **agentic loop**, optional **FunctionGemma** fast path, and **Skill Packs** (signed OTA). It **migrates inference** from the legacy `GemmaService` / LlmInference-style usage to the **Engine / Conversation** API (**X1**). Canonical Room version on this repo: **20** after **X0** (external doc “v9→v10” = same step relative to an older baseline).
+Phase 6 adds a **Model Registry** (swappable LiteRT-LM models), **Skills Engine** (tool-use / `BiasharaSkill`), multi-step **agentic loop**, optional **FunctionGemma** fast path, and **Skill Packs** (signed OTA). It **migrates inference** from the legacy `GemmaService` / LlmInference-style usage to the **Engine / Conversation** API (**X1**). Canonical Room version after **X0** was **20**; the **voice** branch adds **21** (**20→21**: `app_settings` voice/TTS columns).
 
 | Prompt | Focus | Main deliverables |
 |--------|-------|-------------------|
@@ -135,7 +256,7 @@ Phase 6 adds a **Model Registry** (swappable LiteRT-LM models), **Skills Engine*
 | **X9** | Worker upgrade | All 7 Phase 4 workers use agentic loop + system prompts (**done**) |
 | **X10** | FunctionGemma | `FunctionGemmaRouter`, latency routing, ephemeral FUNCTION_CALLING engine (**done**) |
 | **X11** | Skill packs | `SkillPackManager`, `SkillPackVerifier`, OTA (Enterprise) (**done**) |
-| **X12** | Testing | Model swap, skills, loop, pack security, acceptance criteria |
+| **X12** | Testing | Model swap, skills, loop, pack security, acceptance criteria (**done**) |
 
 ### Phase 2 closure (Prompt U10)
 
@@ -161,7 +282,7 @@ Phase 6 adds a **Model Registry** (swappable LiteRT-LM models), **Skills Engine*
 ### Prior phases (reference)
 - **Phase 2 — Intelligence Layer Upgrade:** Features such as loss prevention alerts (U5), receipt OCR (U4), conversational chat layer, and related Room fields shipped under the upgrade track; prefer **additive** follow-ups only.
 - **POS / Phase 1–3:** `PosFragment`, cart, payments, returns, end-of-day AI, etc. — treat as **confirmed working** unless a prompt explicitly revisits them.
-- **Build / test stack:** `AppDatabaseMigrationTest` and **`MigrationTest`** (Prompt U9) validate **v3→v20** and focused Phase-2 chains; **`CustomerDaoTest`**, **`DebtDaoTest`**, **`AlertDaoTest`**, **`LossAlertEngineTest`**, **`Phase2PerformanceAuditTest`** (instrumented); **`ReceiptParserTest`**, **`OrderParserViewModelTest`** (JVM). **`fallbackToDestructiveMigration()`** is **not** used in `AppModule` — migrations are explicit. Run `.\scripts\preflight-build.ps1` before Gradle builds (see **Prerequisites** below).
+- **Build / test stack:** `AppDatabaseMigrationTest` and **`MigrationTest`** (Prompt U9) validate **v3→v21** and focused Phase-2 chains; **`CustomerDaoTest`**, **`DebtDaoTest`**, **`AlertDaoTest`**, **`LossAlertEngineTest`**, **`Phase2PerformanceAuditTest`** (instrumented); **`ReceiptParserTest`**, **`OrderParserViewModelTest`** (JVM). **`fallbackToDestructiveMigration()`** is **not** used in `AppModule` — migrations are explicit. Run `.\scripts\preflight-build.ps1` before Gradle builds (see **Prerequisites** below).
 - **Libraries (snapshot):** ML Kit (OCR, image labeling for Ask Image), WorkManager, Gson, Room testing, Turbine — see sections below for feature mapping.
 
 ## Prerequisites Before Any Gradle / IDE Build
@@ -210,7 +331,7 @@ Phase 6 adds a **Model Registry** (swappable LiteRT-LM models), **Skills Engine*
 
 ## Local Language Voice Input (Prompt 8 — done)
 - `AudioCaptureHelper`: PCM capture (16kHz, mono, 16-bit).
-- `VoiceInputProcessor`: Gemma 3n multimodal on FULL_AI, SpeechRecognizer fallback.
+- `VoiceInputProcessor`: WhisperKit when initialised, future Gemma audio on **FULL_AI**, else `SpeechRecognizer`.
 - `AddEditProductFragment`: Dual-path mic button, RECORD_AUDIO permission, recording indicator.
 
 ## Financial Insights Generator (Prompt 9 — done)
@@ -283,7 +404,7 @@ CapabilityResult → CapabilityTier
 ModelDownloadManager (singleton)
 GemmaService (singleton, deps: Context, CapabilityTier, ModelDownloadManager)
 DemandForecaster (singleton, dep: GemmaService)
-VoiceInputProcessor (singleton, deps: GemmaService, CapabilityTier)
+VoiceInputProcessor (singleton, deps: WhisperTranscriber, AudioCaptureHelper, AppSettingsDao, CapabilityTier)
 CashFlowAnalyzer (singleton, dep: GemmaService)
 PricingAdvisor (singleton, deps: GemmaService, ProductDao, CapabilityTier)
 ReceiptParser (singleton, dep: GemmaService)
@@ -299,13 +420,13 @@ LabelProductEnricher (singleton, dep: GemmaService)
 - **Model download**: Gemma 4 E2B (text-only, ~2.58GB) from HuggingFace litert-community (no auth). URL: `https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm`. File saved as `getFilesDir()/models/gemma-4-E2B-it.litertlm`. Min free storage: 3.5GB.
 - **AI Chat**: `ChatFragment` in bottom nav (shared `ChatViewModel` with `ChatHistoryFragment`). Multi-session Room storage (`chat_sessions` / `chat_session_messages`), Gallery-style attach-image (ML Kit → text summary), optional Wikipedia augment, maps intent, URL-loaded skill chips. Injects live inventory + financial data into every AI prompt. Falls back to rules-based keyword matching when AI inference fails.
 - **AudioModelOptions**: Commented out in `GemmaService.kt` — Gemma 4 E2B LiteRT is text-only.
-- **VoiceInputProcessor**: `usesOnDeviceAi = false` — always uses Android `SpeechRecognizer`.
+- **VoiceInputProcessor**: routes **WhisperKit** (`WhisperTranscriber.isAvailable`) → future **Gemma audio** (stub) → **`SpeechRecognizer`**. `usesOnDeviceAi` is true when the resolved engine is not `SPEECH_RECOGNIZER`. `startListening()` emits `VoiceInputEvent` (no `AudioCaptureHelper` start for speech-only fallback).
 
 ### Model History (for next agent reference)
 1. **Gemma 3n E2B** (multimodal, ~3.4GB) from Google Drive — Too slow on mobile devices.
 2. **Gemma 4 E2B** (text-only, ~2.58GB) from HuggingFace — ✅ **Current active model**. Fastest for on-device inference (2.3B effective params via PLE architecture). Best for simple business Q&A tasks.
 - **Google Drive download notes** (if reverting to Gemma 3n): Must use `drive.usercontent.google.com` (NOT `drive.google.com/uc`). File ID: `1YIEIATRoOKlnP72BR5y1ZWyPNASh54F3`.
-- **To re-enable multimodal**: Uncomment `AudioModelOptions` in `GemmaService.kt`, set `usesOnDeviceAi` to `capabilityTier == FULL_AI && gemmaService.isAvailable` in `VoiceInputProcessor.kt`.
+- **To re-enable Gemma multimodal audio**: wire an `ModelCapability.AUDIO` LiteRT model into `ActiveModelStore`, then implement `VoiceInputProcessor.isGemmaAudioAvailable()` + `transcribePcmWithGemma()` (today they are stubs; STT uses WhisperKit or system recognizer).
 
 ## Final Handoff Documentation
 
@@ -356,7 +477,7 @@ LabelProductEnricher (singleton, dep: GemmaService)
 | **Behavior** | POS customer chip opens `CustomerSelectorBottomSheet` (search, last visit, new customer dialog). `CustomerSuggestionEngine` loads top repeat-purchase products (see `SaleLineItemDao.topProductIdsForCustomer`); on **FULL_AI** + model, optional Gemma one-liner in `text_suggestion_subtitle`. Suggestion chips add product at list price and hide when the product is already in cart. `SaleRepository` sets `Transaction.customerId` and `CustomerDao.updateLastVisit` after a successful sale. |
 | **Files created** | `CustomerRepository.kt` (`data/local/db`) |
 | **Files modified** | `CustomerSelectorBottomSheet.kt`, `fragment_customer_selector.xml`, `PosFragment.kt`, `fragment_pos.xml` (+ land / `sw600dp`), `PosViewModel.kt`, `Customer.kt`, `CustomerDao.kt`, `SaleLineItemDao.kt`, `CustomerSuggestionEngine.kt`, `SaleRepository.kt`, `DatabaseMigrations.kt`, `AppDatabase.kt`, `AppDatabaseMigrationTest.kt`, `strings.xml`, `HANDOFF.md` |
-| **Tests** | `AppDatabaseMigrationTest.migrate3To20_preservesProductsAndTransactionsAndSeedsSettings` — v3→v20; `PRAGMA table_info(customers)` includes `last_visit`. |
+| **Tests** | `AppDatabaseMigrationTest.migrate3To21_preservesProductsAndTransactionsAndSeedsSettings` — v3→v21; `PRAGMA table_info(customers)` includes `last_visit`. |
 
 ## Phase 2A — Prompt U3 (Smart pricing engine)
 
@@ -379,7 +500,7 @@ LabelProductEnricher (singleton, dep: GemmaService)
 | **Behavior** | `LossAlertEngine` runs four Room-backed detectors (low stock without recent POS lines, 7-day-then-3-day-quiet sales gap, line `unit_price` &lt; 70% of list `price`, high expense day vs trailing 30-day average). `LossAlertWorker` (WorkManager **24h** unique periodic) inserts `Alert` rows with `dedupe_key` skip-if-active. **FULL_AI** + model + non-English locale: Gemma caches translation in `localized_message`. `HomeFragment` shows cards (`AlertCardAdapter`) with Review (inventory / edit product / receipt / insights) and Dismiss. `BiasharaApp` implements `Configuration.Provider` with `LossAlertWorkerFactory`; manifest removes default WorkManager initializer. |
 | **Files created** | `LossAlertTypes.kt`, `LossAlertDao.kt`, `LossAlertEngine.kt`, `LossAlertWorker.kt`, `LossAlertWorkerFactory.kt`, `LossAlertScheduler.kt`, `HomeViewModel.kt`, `AlertCardAdapter.kt`, `item_alert_card.xml`, `ic_loss_alert.xml` |
 | **Files modified** | `Alert.kt`, `AlertDao.kt`, `AppDatabase.kt`, `DatabaseMigrations.kt`, `AppModule.kt`, `BiasharaApp.kt`, `HomeFragment.kt`, `fragment_home.xml`, `AndroidManifest.xml`, `strings.xml`, `AppDatabaseMigrationTest.kt`, `HANDOFF.md` |
-| **Tests** | `AppDatabaseMigrationTest.migrate3To20_preservesProductsAndTransactionsAndSeedsSettings` — v3→v20; `PRAGMA table_info(alerts)` includes U5 columns. |
+| **Tests** | `AppDatabaseMigrationTest.migrate3To21_preservesProductsAndTransactionsAndSeedsSettings` — v3→v21; `PRAGMA table_info(alerts)` includes U5 columns. |
 
 ## Phase 2A — Prompt U6 (Debt and credit tracker)
 

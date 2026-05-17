@@ -9,4 +9,5 @@ object AgentTypes {
     const val FRAUD_SENTINEL = "FRAUD_SENTINEL"
     const val WEEKLY_REVIEW = "WEEKLY_REVIEW"
     const val OPPORTUNITY_SPOTTER = "OPPORTUNITY_SPOTTER"
+    const val LEDGER_ANOMALY = "LEDGER_ANOMALY"
 }

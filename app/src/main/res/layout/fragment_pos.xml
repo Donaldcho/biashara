@@ -11,7 +11,7 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/biashara_forest"
+        android:background="@drawable/bg_forest_hero_gradient"
         android:orientation="vertical"
         android:paddingHorizontal="16dp"
         android:paddingTop="12dp"
@@ -84,6 +84,17 @@
             android:layout_weight="1"
             android:iconifiedByDefault="false"
             android:queryHint="@string/pos_search_hint" />
+
+            <ImageButton
+                android:id="@+id/btn_voice_search"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/pos_voice_search_desc"
+                android:padding="8dp"
+                android:visibility="gone"
+                app:srcCompat="@drawable/ic_mic"
+                app:tint="?attr/colorControlNormal" />
 
             <ImageButton
                 android:id="@+id/btn_scan"

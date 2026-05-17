@@ -1,7 +1,6 @@
 package com.biasharaai.skills.builtin
 
 import android.content.Context
-import com.biasharaai.agent.AgentMutex
 import com.biasharaai.ai.AudioCaptureHelper
 import com.biasharaai.ai.VoiceInputProcessor
 import com.biasharaai.skills.BiasharaSkill
@@ -9,18 +8,16 @@ import com.biasharaai.skills.SkillArgsParser
 import com.biasharaai.skills.SkillResult
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** X7 — Microphone capture + on-device transcription when a multimodal audio model is available. */
+/** X7 — Microphone capture + on-device transcription when Whisper (or future Gemma audio) is available. */
 @Singleton
 class TranscribeVoiceSkill @Inject constructor(
     @ApplicationContext private val context: Context,
     private val voiceInputProcessor: VoiceInputProcessor,
-    private val agentMutex: AgentMutex,
 ) : BiasharaSkill {
     override val id: String = ID
     override val displayName: String = "Transcribe voice"
@@ -35,11 +32,11 @@ class TranscribeVoiceSkill @Inject constructor(
         val localeTag = SkillArgsParser.stringArg(args, "localeTag")
         val locale = localeTag?.let { Locale.forLanguageTag(it) } ?: Locale.getDefault()
 
-        if (!voiceInputProcessor.usesOnDeviceAi) {
+        if (!voiceInputProcessor.shouldUseOnDeviceAi()) {
             return@withContext SkillResult.Failure(
                 "REQUIRES_UI",
-                "On-device audio transcription needs a multimodal model. Use Settings → Voice input " +
-                    "(system speech) or install an AUDIO-capable model when available.",
+                "On-device STT requires WhisperKit to be initialised (voice settings / first load) " +
+                    "or a future Gemma audio model. Otherwise use the in-app mic with system speech.",
             )
         }
 
@@ -51,9 +48,7 @@ class TranscribeVoiceSkill @Inject constructor(
         }
 
         val text = runCatching {
-            agentMutex.mutex.withLock {
-                voiceInputProcessor.transcribeWithAi(locale, durationMs.toLong())
-            }
+            voiceInputProcessor.transcribeWithAi(locale, durationMs.toLong())
         }.getOrNull()
 
         if (text.isNullOrBlank()) {

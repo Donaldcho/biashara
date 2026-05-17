@@ -102,6 +102,13 @@
     <string name="voice_recording">Inarekodia… Sema sasa.</string>
     <string name="voice_transcription_failed">Haikuweza kunakili sauti. Tafadhali jaribu tena.</string>
     <string name="voice_permission_denied">Ruhusa ya maikrofoni inahitajika kwa ingizo la sauti.</string>
+    <string name="voice_ui_mic_idle">Ingizo la sauti</string>
+    <string name="voice_ui_mic_listening">Inasikiliza… sema sasa</string>
+    <string name="voice_ui_mic_processing">Inachakata sauti…</string>
+    <string name="voice_ui_mic_error">Hitilafu ya ingizo la sauti</string>
+    <string name="voice_ui_transcription_dismiss">Ondoa</string>
+    <string name="voice_ui_speak">Soma kwa sauti</string>
+    <string name="voice_ui_speak_stop">Acha kusoma</string>
 
     <!-- Cash Flow Insights (Prompt 9) -->
     <string name="insights_title">Mtiririko wa Fedha</string>
@@ -134,6 +141,7 @@
     <string name="agent_feed_attention_none">Uko sawa kabisa</string>
     <string name="agent_feed_empty_illustration_cd">Hakuna kinachohitaji haraka</string>
     <string name="agent_feed_empty_message">Kila kitu kinaonekana vizuri! Biashara yako inaendeshwa vizuri.</string>
+    <string name="agent_feed_listen_review">Sikiliza muhtasari</string>
     <string name="agent_action_review">Angalia</string>
     <string name="agent_action_approve">Kubali ✓</string>
     <string name="agent_action_reject">Kataa ✗</string>

@@ -18,7 +18,16 @@ import com.biasharaai.agent.workers.FraudSentinelWorker
 import com.biasharaai.agent.workers.OpportunitySpotterWorker
 import com.biasharaai.agent.workers.PricingAgentWorker
 import com.biasharaai.agent.workers.StockGuardianWorker
+import com.biasharaai.agent.workers.LedgerAnomalyAgentWorker
 import com.biasharaai.agent.workers.WeeklyReviewWorker
+import com.biasharaai.cash.workers.StorageWatchdogWorker
+import com.biasharaai.data.local.db.CashMovementEvidenceDao
+import com.biasharaai.data.local.db.LedgerEntryDao
+import com.biasharaai.ledger.LedgerBackfillRunner
+import com.biasharaai.ledger.LedgerBalanceRecomputer
+import com.biasharaai.ledger.intelligence.LedgerIntelligenceRepository
+import com.biasharaai.ledger.workers.LedgerBackfillWorker
+import com.biasharaai.ledger.workers.LedgerBalanceRecomputeWorker
 import com.biasharaai.ai.ActiveModelStore
 import com.biasharaai.ai.CapabilityTier
 import com.biasharaai.data.local.db.AgentActionDao
@@ -29,6 +38,7 @@ import com.biasharaai.data.local.db.AlertDao
 import com.biasharaai.data.local.db.AppSettingsDao
 import com.biasharaai.data.local.db.LossAlertEngine
 import com.biasharaai.data.local.db.TransactionDao
+import com.biasharaai.cash.CashEvidenceAnomalyDetector
 import com.biasharaai.skills.SkillExecutor
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -54,6 +64,12 @@ class LossAlertWorkerFactory @Inject constructor(
     private val weeklyReviewBuilder: WeeklyReviewBuilder,
     private val coPurchaseAnalyser: CoPurchaseAnalyser,
     private val activeModelStore: ActiveModelStore,
+    private val ledgerBackfillRunner: LedgerBackfillRunner,
+    private val ledgerBalanceRecomputer: LedgerBalanceRecomputer,
+    private val ledgerEntryDao: LedgerEntryDao,
+    private val ledgerIntelligenceRepository: LedgerIntelligenceRepository,
+    private val cashMovementEvidenceDao: CashMovementEvidenceDao,
+    private val cashEvidenceAnomalyDetector: CashEvidenceAnomalyDetector,
 ) : WorkerFactory() {
 
     override fun createWorker(
@@ -103,6 +119,7 @@ class LossAlertWorkerFactory @Inject constructor(
                     appSettingsDao,
                     agentLoopRunner,
                     capabilityTier,
+                    ledgerIntelligenceRepository,
                 )
             CustomerRelationWorker::class.java.name ->
                 CustomerRelationWorker(
@@ -127,6 +144,7 @@ class LossAlertWorkerFactory @Inject constructor(
                     agentActionDao,
                     agentDecisionEngine,
                     agentSettingDao,
+                    cashEvidenceAnomalyDetector,
                 )
             WeeklyReviewWorker::class.java.name ->
                 WeeklyReviewWorker(
@@ -152,6 +170,34 @@ class LossAlertWorkerFactory @Inject constructor(
                     agentActionDao,
                     agentDecisionEngine,
                     agentSettingDao,
+                )
+            LedgerBackfillWorker::class.java.name ->
+                LedgerBackfillWorker(
+                    appContext,
+                    workerParameters,
+                    ledgerBackfillRunner,
+                )
+            LedgerBalanceRecomputeWorker::class.java.name ->
+                LedgerBalanceRecomputeWorker(
+                    appContext,
+                    workerParameters,
+                    ledgerBalanceRecomputer,
+                )
+            LedgerAnomalyAgentWorker::class.java.name ->
+                LedgerAnomalyAgentWorker(
+                    appContext,
+                    workerParameters,
+                    ledgerEntryDao,
+                    agentActionDao,
+                    agentDecisionEngine,
+                    agentSettingDao,
+                    appSettingsDao,
+                )
+            StorageWatchdogWorker::class.java.name ->
+                StorageWatchdogWorker(
+                    appContext,
+                    workerParameters,
+                    cashMovementEvidenceDao,
                 )
             else -> null
         }

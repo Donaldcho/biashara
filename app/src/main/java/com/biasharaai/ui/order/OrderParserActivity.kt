@@ -40,7 +40,10 @@ class OrderParserActivity : AppCompatActivity() {
         setSupportActionBar(binding.toolbar)
         binding.toolbar.setNavigationOnClickListener { finish() }
 
-        val text = intent.getStringExtra(Intent.EXTRA_TEXT)?.trim().orEmpty()
+        val text = intent.getStringExtra(Intent.EXTRA_TEXT)
+            ?.trim()
+            ?.take(OrderParserViewModel.MAX_SHARED_TEXT_CHARS)
+            .orEmpty()
         if (text.isEmpty()) {
             Toast.makeText(this, R.string.order_parser_no_text, Toast.LENGTH_SHORT).show()
             finish()
@@ -95,6 +98,7 @@ class OrderParserActivity : AppCompatActivity() {
         "NO_MODEL" -> getString(R.string.order_parser_error_no_model)
         "PARSE_FAILED" -> getString(R.string.order_parser_error_parse)
         "OFFLINE" -> getString(R.string.order_parser_offline_message)
+        "TOO_LONG" -> getString(R.string.order_parser_text_too_long)
         else -> code
     }
 

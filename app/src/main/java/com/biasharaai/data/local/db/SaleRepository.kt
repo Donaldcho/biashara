@@ -27,6 +27,7 @@ class SaleRepository @Inject constructor(
     private val productDao: ProductDao,
     private val debtDao: DebtDao,
     private val customerDao: CustomerDao,
+    private val ledgerRepository: LedgerRepository,
 ) {
 
     /**
@@ -113,6 +114,9 @@ class SaleRepository @Inject constructor(
                 productDao.incrementStock(item.product.id, -item.quantity)
             }
 
+            val committedTx = tx.copy(id = txId)
+            val lineItems = saleLineItemDao.getLineItemsForTransactionOnce(txId)
+
             if (!draft.splitMode && draft.primaryTab == PrimaryPaymentTab.CREDIT) {
                 val cid = checkNotNull(customerId)
                 val debtDescription = buildString {
@@ -124,7 +128,7 @@ class SaleRepository @Inject constructor(
                         append(n)
                     }
                 }
-                debtDao.insertDebt(
+                val debtId = debtDao.insertDebt(
                     Debt(
                         customerId = cid,
                         amount = grandTotal,
@@ -133,6 +137,20 @@ class SaleRepository @Inject constructor(
                         createdAt = System.currentTimeMillis(),
                     ),
                 )
+                val customerName = customerDao.getCustomerById(cid)?.name ?: "Customer"
+                ledgerRepository.recordCreditExtended(
+                    Debt(
+                        id = debtId,
+                        customerId = cid,
+                        amount = grandTotal,
+                        description = debtDescription,
+                        dueDate = draft.creditDueDateMillis,
+                        createdAt = System.currentTimeMillis(),
+                    ),
+                    customerName,
+                )
+            } else {
+                ledgerRepository.recordProductSale(committedTx, lineItems, customerId)
             }
 
             if (customerId != null) {
@@ -256,6 +274,8 @@ class SaleRepository @Inject constructor(
                     debtDao.reduceAmount(cid, returnGrandTotal)
                 }
             }
+
+            ledgerRepository.recordReturn(original, returnGrandTotal, returnTxId)
 
             returnTxId
         }

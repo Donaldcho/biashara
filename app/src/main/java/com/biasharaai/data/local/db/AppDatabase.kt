@@ -22,8 +22,16 @@ import androidx.room.RoomDatabase
         ModelDescriptor::class,
         SkillDescriptor::class,
         SkillPackRecord::class,
+        LedgerEntry::class,
+        CashCount::class,
+        LedgerContext::class,
+        KnowledgeChunk::class,
+        TeachingEvent::class,
+        LessonCompletion::class,
+        FeatureMastery::class,
+        CashMovementEvidence::class,
     ],
-    version = 20,
+    version = 27,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -55,6 +63,22 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun skillDescriptorDao(): SkillDescriptorDao
 
     abstract fun skillPackRecordDao(): SkillPackRecordDao
+
+    abstract fun ledgerEntryDao(): LedgerEntryDao
+
+    abstract fun cashCountDao(): CashCountDao
+
+    abstract fun ledgerContextDao(): LedgerContextDao
+
+    abstract fun knowledgeChunkDao(): KnowledgeChunkDao
+
+    abstract fun teachingEventDao(): TeachingEventDao
+
+    abstract fun lessonCompletionDao(): LessonCompletionDao
+
+    abstract fun featureMasteryDao(): FeatureMasteryDao
+
+    abstract fun cashMovementEvidenceDao(): CashMovementEvidenceDao
 
     companion object {
         const val NAME = "biashara.db"

@@ -5,7 +5,7 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 /**
- * Single-row app-wide settings (POS receipts, tax, printer). Row `id` is always `1`.
+ * Single-row app-wide settings (POS receipts, tax, printer, voice/TTS prefs). Row `id` is always `1`.
  */
 @Entity(tableName = "app_settings")
 data class AppSettings(
@@ -31,4 +31,22 @@ data class AppSettings(
     val bluetoothPrinterAddress: String? = null,
     @ColumnInfo(name = "printer_paper_width", defaultValue = "58")
     val printerPaperWidth: Int = 58,
+    @ColumnInfo(name = "voice_input_enabled", defaultValue = "1")
+    val voiceInputEnabled: Boolean = true,
+    @ColumnInfo(name = "whisper_model_id", defaultValue = "whisper-tiny")
+    val whisperModelId: String = "whisper-tiny",
+    @ColumnInfo(name = "silence_timeout_ms", defaultValue = "2500")
+    val silenceTimeoutMs: Int = 2500,
+    @ColumnInfo(name = "voice_language_mode", defaultValue = "AUTO")
+    val voiceLanguageMode: String = "AUTO",
+    @ColumnInfo(name = "tts_enabled", defaultValue = "1")
+    val ttsEnabled: Boolean = true,
+    @ColumnInfo(name = "tts_speech_rate", defaultValue = "0.9")
+    val ttsSpeechRate: Double = 0.9,
+    @ColumnInfo(name = "tts_pitch", defaultValue = "1.0")
+    val ttsPitch: Double = 1.0,
+    @ColumnInfo(name = "tts_auto_read_agent_alerts", defaultValue = "0")
+    val ttsAutoReadAgentAlerts: Boolean = false,
+    @ColumnInfo(name = "tts_auto_read_query_answers", defaultValue = "1")
+    val ttsAutoReadQueryAnswers: Boolean = true,
 )

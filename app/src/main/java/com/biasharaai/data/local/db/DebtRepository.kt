@@ -21,6 +21,7 @@ class DebtRepository @Inject constructor(
     private val debtDao: DebtDao,
     private val customerDao: CustomerDao,
     private val transactionDao: TransactionDao,
+    private val ledgerRepository: LedgerRepository,
 ) {
     fun observeTotalOutstandingForCustomer(customerId: Long): Flow<Double> =
         debtDao.observeTotalOutstandingForCustomer(customerId)
@@ -40,11 +41,14 @@ class DebtRepository @Inject constructor(
      * Settles the debt row and records matching income so cash-flow totals stay consistent (Prompt U6).
      */
     suspend fun markDebtRepaid(debtId: Long) {
-        val debt = debtDao.getDebtById(debtId) ?: return
-        if (debt.amount <= 0.0) return
-        val amount = debt.amount
         database.withTransaction {
-            debtDao.markPaid(debtId)
+            val debt = debtDao.getDebtById(debtId) ?: return@withTransaction
+            if (debt.amount <= 0.0) return@withTransaction
+            val settled = debtDao.markPaid(debtId)
+            if (settled != 1) return@withTransaction
+            val amount = debt.amount
+            val customerName = customerDao.getCustomerById(debt.customerId)?.name ?: "Customer"
+            ledgerRepository.recordDebtRepaid(debt, customerName, amount)
             transactionDao.insertTransaction(
                 Transaction(
                     type = TransactionType.INCOME,

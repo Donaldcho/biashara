@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
-    <!-- Hugging Face read token — do not include in device backup / transfer. -->
+    <!-- Secrets -->
     <exclude domain="sharedpref" path="huggingface_auth.xml" />
+    <exclude domain="sharedpref" path="cloud_analysis_prefs.xml" />
+    <exclude domain="sharedpref" path="inference_edge_gallery_prefs.xml" />
+
+    <!-- Business PII / operational data (restore via in-app export if needed) -->
+    <exclude domain="database" path="biashara.db" />
+    <exclude domain="database" path="biashara.db-shm" />
+    <exclude domain="database" path="biashara.db-wal" />
 </full-backup-content>

@@ -46,6 +46,12 @@ android {
         viewBinding = true
         buildConfig = true
     }
+
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
 }
 
 dependencies {
@@ -66,6 +72,7 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutines")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:$coroutines")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:$coroutines")
 
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycle")
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:$lifecycle")
@@ -86,6 +93,13 @@ dependencies {
     // (e.g. gemma-4-E2B-it.litertlm). The runtime applies the chat template internally, so the
     // host app must pass plain user text and let the engine handle the start/end-of-turn markers.
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.11.0")
+    // LiteRT core runtime — TFLite Interpreter API for general ML models (MiniLM-L6-v2 embeddings).
+    // litertlm-android builds on LiteRT but does not expose the Interpreter class on its own.
+    implementation("com.google.ai.edge.litert:litert:1.2.0")
+
+    // Voice V0 — Argmax WhisperKit (on-device STT, CPU/OpenAI models). QNN NPU libs omitted so
+    // cold start does not load Qualcomm delegates on non-Snapdragon devices (SIGABRT at launch).
+    implementation("com.argmaxinc:whisperkit:0.3.3")
 
     implementation("androidx.camera:camera-core:$camerax")
     implementation("androidx.camera:camera-camera2:$camerax")
@@ -97,6 +111,7 @@ dependencies {
     implementation("io.coil-kt:coil:2.7.0")
 
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
+    implementation("com.google.zxing:core:3.5.3")
 
     // Phase 2 — Prompt U0 (see HANDOFF.md; do not remove)
     // ML Kit Text Recognition (Receipt OCR — F2)

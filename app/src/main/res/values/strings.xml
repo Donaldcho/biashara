@@ -208,6 +208,13 @@
     <string name="voice_recording">Recording… Speak now.</string>
     <string name="voice_transcription_failed">Could not transcribe audio. Please try again.</string>
     <string name="voice_permission_denied">Microphone permission is required for voice input.</string>
+    <string name="voice_ui_mic_idle">Voice input</string>
+    <string name="voice_ui_mic_listening">Listening… speak now</string>
+    <string name="voice_ui_mic_processing">Processing speech…</string>
+    <string name="voice_ui_mic_error">Voice input error</string>
+    <string name="voice_ui_transcription_dismiss">Dismiss transcription</string>
+    <string name="voice_ui_speak">Read aloud</string>
+    <string name="voice_ui_speak_stop">Stop reading</string>
 
     <!-- Cash Flow Insights (Prompt 9) -->
     <string name="insights_title">Cash Flow Insights</string>
@@ -266,11 +273,36 @@
     <string name="chat_suggest_inventory_count">How many products do I have?</string>
     <string name="chat_mic_description">Speak your question</string>
     <string name="chat_mic_prompt">Ask Biashara AI…</string>
+    <string name="chat_voice_unknown_command">Could not open "%1$s". Open the right screen from the menu or rephrase.</string>
+    <string name="chat_voice_already_chat">You are already in Chat.</string>
     <string name="chat_mic_unavailable">Voice input is not available on this device.</string>
     <string name="chat_mic_permission_denied">Microphone permission denied.</string>
-    <string name="settings_section_voice_input">Voice input</string>
+    <string name="settings_section_voice_input">Voice &amp; speech</string>
+    <string name="settings_voice_speech_summary">Microphone, on-device speech recognition, and spoken replies.</string>
+    <string name="settings_voice_open">Voice &amp; microphone settings</string>
     <string name="settings_voice_input_title">Allow voice input</string>
-    <string name="settings_voice_input_summary">When on, you can use the microphone in Chat and when naming products. Transcription uses your device’s speech service; on many devices that may send short audio clips to Google for recognition. Off by default.</string>
+    <string name="settings_voice_input_summary">Shows the microphone in Chat, POS search, and product naming when the switch above is on. On-device recognition is used when a model is prepared below; otherwise the system recognizer may run (on many devices that can send short audio to Google for processing).</string>
+    <string name="voice_settings_title">Voice &amp; speech</string>
+    <string name="voice_settings_intro">Download the speech recognition model once on Wi‑Fi if prompted, then use Prepare below. Adjust read-aloud speed and when the app speaks automatically.</string>
+    <string name="voice_settings_whisper_section">Speech recognition (Whisper)</string>
+    <string name="voice_settings_whisper_model">Model size</string>
+    <string name="voice_settings_language_mode">Recognition language</string>
+    <string name="voice_settings_silence_summary">End of phrase after %.2f s silence</string>
+    <string name="voice_settings_whisper_status_ready">On-device model loaded — ready to transcribe.</string>
+    <string name="voice_settings_whisper_status_not_loaded">Model not loaded — tap Prepare to download and load (needs network the first time).</string>
+    <string name="voice_settings_whisper_prepare">Prepare / download model</string>
+    <string name="voice_settings_whisper_preparing">Preparing…</string>
+    <string name="voice_settings_whisper_ready">Speech model is ready.</string>
+    <string name="voice_settings_whisper_failed">Could not prepare speech model: %1$s</string>
+    <string name="voice_settings_tts_section">Read aloud (text-to-speech)</string>
+    <string name="voice_settings_tts_enable">Enable spoken replies</string>
+    <string name="voice_settings_tts_rate_value">Speech rate %.2f</string>
+    <string name="voice_settings_tts_pitch_value">Pitch %.2f</string>
+    <string name="voice_settings_tts_auto_agent">Auto-read critical agent alerts</string>
+    <string name="voice_settings_tts_auto_chat">Auto-read assistant answers in Chat</string>
+    <string name="voice_settings_install_tts">Install text-to-speech languages</string>
+    <string name="voice_settings_test_tts">Play test phrase</string>
+    <string name="voice_settings_tts_test_phrase">Biashara AI voice check. If you hear this, read aloud is working.</string>
     <string name="chat_session_default_title">Chat</string>
     <string name="chat_new_session_title">New chat</string>
     <string name="chat_photo_message_placeholder">[Photo attached — describe what you see]</string>
@@ -328,6 +360,7 @@
     <string name="pos_customer_since">Customer since %1$s</string>
     <string name="pos_customer_never_visited">No visits recorded yet</string>
     <string name="pos_search_hint">Search products…</string>
+    <string name="pos_voice_search_desc">Voice search</string>
     <string name="pos_scan_to_add_desc">Scan barcode to add to cart</string>
     <string name="pos_stock_badge">Stock: %1$d</string>
     <string name="pos_product_thumb_desc">Product image</string>
@@ -404,6 +437,35 @@
 
     <string name="insights_tab_flow">Cash flow</string>
     <string name="insights_tab_credit">Credit</string>
+    <string name="insights_tab_ledger">Ledger</string>
+
+    <!-- Phase 9 — Unified Business Ledger -->
+    <string name="ledger_running_balance">Balance: %1$s</string>
+    <string name="ledger_money_in">In: %1$s</string>
+    <string name="ledger_money_out">Out: %1$s</string>
+    <string name="ledger_pending_credit">Pending credit: %1$s</string>
+    <string name="ledger_search_hint">Search ledger</string>
+    <string name="ledger_empty">No ledger entries yet. Sales and expenses will appear here automatically.</string>
+    <string name="ledger_fab_actions">Ledger actions</string>
+    <string name="ledger_action_manual">Manual entry</string>
+    <string name="ledger_action_cash_count">Cash count</string>
+    <string name="ledger_action_export">Export CSV</string>
+    <string name="ledger_export_subject">Biashara AI ledger export</string>
+    <string name="ledger_export_chooser">Share ledger</string>
+    <string name="ledger_manual_title">Manual entry</string>
+    <string name="ledger_cash_count_title">Cash count</string>
+    <string name="ledger_direction_in">Money in</string>
+    <string name="ledger_direction_out">Money out</string>
+    <string name="ledger_amount_hint">Amount</string>
+    <string name="ledger_description_hint">Description</string>
+    <string name="ledger_notes_hint">Notes (optional)</string>
+    <string name="ledger_actual_cash_hint">Actual cash in drawer</string>
+    <string name="ledger_expected_cash">Expected in drawer: %1$s</string>
+    <string name="ledger_cash_count_save">Record cash count</string>
+    <string name="ledger_invalid_amount">Enter a valid amount</string>
+    <string name="ledger_invalid_description">Enter a description</string>
+    <string name="ledger_saved">Entry recorded</string>
+    <string name="ledger_cash_count_saved">Cash count recorded</string>
 
     <string name="credit_total_outstanding_label">Total outstanding</string>
     <string name="credit_no_outstanding">No unpaid debts.</string>
@@ -468,6 +530,7 @@
 
     <!-- Prompt U7 — Supplier negotiation assistant (FULL_AI only) -->
     <string name="home_prepare_supplier_visit_title">Prepare supplier visit</string>
+    <string name="home_open_ledger">Business ledger</string>
     <string name="home_prepare_supplier_visit_subtitle">Generate a culturally appropriate negotiation script before you meet a supplier (on-device AI).</string>
     <string name="inventory_menu_prepare_supplier_visit">Prepare supplier visit</string>
     <string name="negotiation_tier_required_message">This feature requires a higher-end device. It is available on devices with 4GB+ RAM.</string>
@@ -496,6 +559,7 @@
     <string name="order_parser_error_no_model">Download the AI model in Settings to parse orders.</string>
     <string name="order_parser_error_parse">Could not parse a product list from that message.</string>
     <string name="order_parser_offline_message">You are offline. Connect to a network, then try again.</string>
+    <string name="order_parser_text_too_long">That message is too long to parse. Share a shorter order (under 8,000 characters).</string>
     <string name="order_parser_tier_rules_only_message">Order-from-message needs the on-device AI model and a capable device (not rules-only mode). Try again after upgrading hardware or downloading the model in Settings.</string>
     <string name="order_parser_record_sale">Record sale</string>
     <string name="order_parser_find_product">Find product</string>
@@ -523,6 +587,7 @@
     <string name="agent_feed_empty_emoji" translatable="false">✨</string>
     <string name="agent_feed_empty_illustration_cd">All clear</string>
     <string name="agent_feed_empty_message">Everything looks good! Your business is running smoothly.</string>
+    <string name="agent_feed_listen_review">Listen to review</string>
     <string name="agent_action_review">Review</string>
     <string name="agent_action_approve">Approve ✓</string>
     <string name="agent_action_reject">Reject ✗</string>
@@ -546,6 +611,11 @@
 
     <string name="notification_channel_agent_alerts">Business alerts</string>
     <string name="notification_channel_agent_alerts_desc">Stock, fraud, and cash-flow reminders from your agents.</string>
+
+    <string name="settings_section_business">Business</string>
+    <string name="settings_ledger_card_title">General ledger</string>
+    <string name="settings_ledger_card_body">Running balance, money in/out, manual entries, and cash counts. Sales and expenses are recorded automatically.</string>
+    <string name="settings_btn_open_ledger">Open ledger</string>
 
     <string name="settings_section_agents">AI agents</string>
     <string name="settings_agents_card_title">Agent activity</string>
@@ -585,5 +655,100 @@
         <item quantity="one">Generated %d action</item>
         <item quantity="other">Generated %d actions</item>
     </plurals>
+
+    <string-array name="voice_whisper_model_ids">
+        <item>whisper-tiny</item>
+        <item>whisper-base</item>
+        <item>whisper-tiny-en</item>
+        <item>whisper-base-en</item>
+    </string-array>
+    <string-array name="voice_whisper_model_labels">
+        <item>Multilingual tiny (fast)</item>
+        <item>Multilingual base</item>
+        <item>English tiny</item>
+        <item>English base</item>
+    </string-array>
+    <string-array name="voice_language_mode_values">
+        <item>AUTO</item>
+        <item>sw</item>
+        <item>en</item>
+        <item>am</item>
+        <item>ha</item>
+        <item>yo</item>
+    </string-array>
+    <string-array name="voice_language_mode_labels">
+        <item>Automatic</item>
+        <item>Kiswahili</item>
+        <item>English</item>
+        <item>Amharic</item>
+        <item>Hausa</item>
+        <item>Yoruba</item>
+    </string-array>
+
+    <!-- Knowledge / Teaching (Phase 7 K10) -->
+    <string name="lesson_title_placeholder">Lesson</string>
+    <string name="lesson_step_count">Step %1$d of %2$d</string>
+    <string name="lesson_next">Next</string>
+    <string name="lesson_done">Done</string>
+    <string name="lesson_skip">Skip lesson</string>
+    <string name="lesson_complete_title">Lesson complete!</string>
+    <string name="lesson_complete_body">You\'ve finished this lesson. Keep using the feature to build your confidence.</string>
+    <string name="help_title">Help</string>
+    <string name="help_start_lesson">Start lesson</string>
+    <string name="help_close">Close</string>
+    <string name="help_no_content">No help available for this screen.</string>
+
+
+    <!-- Cash Movement Capture — Phase C -->
+    <string name="cash_scan_capture_button">Capture document</string>
+    <string name="cash_scan_processing">Reading document…</string>
+    <string name="cash_scan_done">Done!</string>
+    <string name="cash_scan_title_money_in">Scan proof of money in</string>
+    <string name="cash_scan_title_money_out">Scan proof of money out</string>
+    <string name="cash_scan_ocr_failed">Could not read the document. Try again or enter manually.</string>
+    <string name="cash_confirm_title">Confirm entry</string>
+    <string name="cash_confirm_amount_hint">Amount</string>
+    <string name="cash_confirm_reference_hint">Reference / Transaction ID</string>
+    <string name="cash_confirm_counterparty_hint">From / To (name or phone)</string>
+    <string name="cash_confirm_notes_hint">Notes (optional)</string>
+    <string name="cash_confirm_save">Save entry</string>
+    <string name="cash_confirm_direction_in">Money In</string>
+    <string name="cash_confirm_direction_out">Money Out</string>
+    <string name="cash_manual_title">Manual cash entry</string>
+    <string name="cash_manual_save">Save</string>
+    <string name="cash_unverified_toast">Saving unverified cash-out. Attach proof later.</string>
+    <string name="cash_sms_import_title">Paste M-Pesa SMS</string>
+    <string name="cash_sms_import_hint">Paste the full SMS text here…</string>
+    <string name="cash_sms_import_parse">Parse</string>
+    <string name="cash_sms_import_clipboard_detected">M-Pesa SMS detected in clipboard. Tap to paste.</string>
+    <string name="cash_evidence_title">Capture proof</string>
+    <string name="cash_quick_scan_in">Scan In</string>
+    <string name="cash_quick_scan_out">Scan Out</string>
+    <string name="cash_quick_add_in">Add In</string>
+    <string name="cash_quick_add_out">Add Out</string>
+    <string name="cash_quick_print_qr">Print QR Cards</string>
+    <string name="qr_generator_title">QR Category Cards</string>
+    <string name="qr_generator_subtitle">Scan these cards to auto-fill cash entries. Print and post them near each payment point.</string>
+    <string name="qr_card_share">Share</string>
+    <string name="qr_card_qr_desc">QR code for this category</string>
+    <string name="cash_category_sale_product">Product sale</string>
+    <string name="cash_category_sale_service">Service income</string>
+    <string name="cash_category_debt_repaid">Debt repaid</string>
+    <string name="cash_category_other_income">Other income</string>
+    <string name="cash_category_loan_received">Loan received</string>
+    <string name="cash_category_grant">Grant / donation</string>
+    <string name="cash_category_owner_injection">Owner capital</string>
+    <string name="cash_category_expense">Business expense</string>
+    <string name="cash_category_stock_purchase">Stock purchase</string>
+    <string name="cash_category_refund">Refund given</string>
+    <string name="cash_category_salary">Salary / wages</string>
+    <string name="cash_category_utility">Utilities (KPLC, water…)</string>
+    <string name="cash_category_transport">Transport / fuel</string>
+    <string name="cash_category_rent">Rent</string>
+    <string name="cash_category_owner_draw">Owner withdrawal</string>
+    <string name="cash_evidence_capture_method">Captured via: %1$s</string>
+    <string name="cash_evidence_confidence">Parser confidence: %1$d%%</string>
+    <string name="cash_evidence_raw_text">Raw text</string>
+    <string name="cash_evidence_has_proof">📄</string>
 
 </resources>

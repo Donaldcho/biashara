@@ -71,10 +71,11 @@ class SkillPackManager @Inject constructor(
     }
 
     suspend fun uninstall(packId: String) = withContext(Dispatchers.IO) {
+        requireValidPackId(packId)
         skillRegistry.unregisterPack(packId)
         skillDescriptorDao.deleteByPackId(packId)
         skillPackRecordDao.delete(packId)
-        File(packsDirectory, "$packId.json").delete()
+        packFile(packId).delete()
     }
 
     suspend fun listInstalled(): List<SkillPackRecord> = withContext(Dispatchers.IO) {
@@ -91,14 +92,16 @@ class SkillPackManager @Inject constructor(
             isActive = true,
             signatureValid = signatureValid,
         )
-        File(packsDirectory, "${manifest.packId}.json").writeBytes(gson.toJson(manifest).toByteArray())
+        requireValidPackId(manifest.packId)
+        packFile(manifest.packId).writeBytes(gson.toJson(manifest).toByteArray())
         skillPackRecordDao.upsert(record)
         activatePack(manifest.packId)
         return record
     }
 
     private suspend fun activatePack(packId: String) {
-        val file = File(packsDirectory, "$packId.json")
+        requireValidPackId(packId)
+        val file = packFile(packId)
         if (!file.isFile) error("Pack file missing for $packId")
         val manifest = parseManifest(file.readBytes())
         registerPackSkills(manifest)
@@ -138,7 +141,11 @@ class SkillPackManager @Inject constructor(
     }.getOrNull()
 
     private fun downloadUtf8(url: String): ByteArray {
-        val connection = URL(url.trim()).openConnection() as HttpURLConnection
+        val trimmed = url.trim()
+        require(trimmed.startsWith("https://", ignoreCase = true)) {
+            "Skill pack URL must use HTTPS"
+        }
+        val connection = URL(trimmed).openConnection() as HttpURLConnection
         connection.connectTimeout = 20_000
         connection.readTimeout = 30_000
         connection.requestMethod = "GET"
@@ -147,14 +154,41 @@ class SkillPackManager @Inject constructor(
             if (connection.responseCode != HttpURLConnection.HTTP_OK) {
                 error("HTTP ${connection.responseCode}")
             }
-            return connection.inputStream.use { it.readBytes() }
+            val maxBytes = MAX_DOWNLOAD_BYTES
+            connection.inputStream.use { input ->
+                val buffer = ByteArray(8_192)
+                val out = java.io.ByteArrayOutputStream()
+                var total = 0
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    total += read
+                    if (total > maxBytes) error("Skill pack download exceeds ${maxBytes / 1024}KB limit")
+                    out.write(buffer, 0, read)
+                }
+                return out.toByteArray()
+            }
         } finally {
             connection.disconnect()
         }
     }
 
+    private fun requireValidPackId(packId: String) {
+        require(PACK_ID_REGEX.matches(packId)) { "Invalid skill pack id: $packId" }
+    }
+
+    private fun packFile(packId: String): File {
+        requireValidPackId(packId)
+        val dir = packsDirectory.canonicalFile
+        val file = File(dir, "$packId.json").canonicalFile
+        require(file.parentFile == dir) { "Invalid pack path for $packId" }
+        return file
+    }
+
     companion object {
         private const val TAG = "SkillPackManager"
         const val PACKS_DIR = "skill_packs"
+        private val PACK_ID_REGEX = Regex("^[a-z0-9][a-z0-9._-]{0,63}$")
+        private const val MAX_DOWNLOAD_BYTES = 2 * 1024 * 1024
     }
 }

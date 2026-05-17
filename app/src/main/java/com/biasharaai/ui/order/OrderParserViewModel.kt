@@ -1,11 +1,11 @@
 package com.biasharaai.ui.order
 
 import android.content.Context
+import android.net.ConnectivityManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.biasharaai.R
 import com.biasharaai.ai.GemmaService
-import com.biasharaai.net.NetworkStatus
 import com.biasharaai.data.local.db.AppSettingsDao
 import com.biasharaai.data.local.db.Product
 import com.biasharaai.data.local.db.ProductDao
@@ -81,13 +81,18 @@ class OrderParserViewModel @Inject constructor(
     fun startParse(sharedText: String) {
         viewModelScope.launch {
             _uiState.value = OrderParserUiState.Loading
+            val cm = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            if (cm?.activeNetwork == null) {
+                _uiState.value = OrderParserUiState.Error("OFFLINE")
+                return@launch
+            }
             val trimmed = sharedText.trim()
             if (trimmed.isEmpty()) {
                 _uiState.value = OrderParserUiState.Error("EMPTY")
                 return@launch
             }
-            if (!NetworkStatus.hasDefaultNetwork(appContext)) {
-                _uiState.value = OrderParserUiState.Error("OFFLINE")
+            if (trimmed.length > MAX_SHARED_TEXT_CHARS) {
+                _uiState.value = OrderParserUiState.Error("TOO_LONG")
                 return@launch
             }
             try {
@@ -219,6 +224,9 @@ Message: $trimmed
     }
 
     companion object {
+        /** Cap shared SEND text before prompting on-device Gemma. */
+        const val MAX_SHARED_TEXT_CHARS = 8_000
+
         fun extractJsonArray(raw: String): String {
             val t = raw.trim()
             val start = t.indexOf('[')

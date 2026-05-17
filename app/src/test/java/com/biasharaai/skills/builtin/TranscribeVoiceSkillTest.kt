@@ -1,10 +1,9 @@
 package com.biasharaai.skills.builtin
 
 import android.content.Context
-import com.biasharaai.agent.AgentMutex
 import com.biasharaai.ai.VoiceInputProcessor
 import com.biasharaai.skills.SkillResult
-import io.mockk.every
+import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -22,8 +21,8 @@ class TranscribeVoiceSkillTest {
     fun setUp() {
         context = mockk(relaxed = true)
         voiceInputProcessor = mockk()
-        every { voiceInputProcessor.usesOnDeviceAi } returns false
-        skill = TranscribeVoiceSkill(context, voiceInputProcessor, AgentMutex())
+        coEvery { voiceInputProcessor.shouldUseOnDeviceAi() } returns false
+        skill = TranscribeVoiceSkill(context, voiceInputProcessor)
     }
 
     @Test

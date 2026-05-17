@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Voice layer: route audio / reduce competing playback during capture (see VOICE_LAYER_HANDBOOK). -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Bluetooth (ESC/POS thermal printers). Legacy APIs ≤ API 30; CONNECT / SCAN from API 31. -->

@@ -16,7 +16,7 @@ The template below references generic version numbers and class names. In **this
 
 | Handbook template | This repository |
 |---------------------|-----------------|
-| `AppDatabase` v11 → v12 | **`AppDatabase` is version 20.** Add voice/TTS columns with **`Migration(20, 21)`** (and matching `AppSettings` / Room entity fields). |
+| `AppDatabase` v11 → v12 | **Baseline before V0:** Room **20** (Phase 6). **V0** ships **`MIGRATION_20_21`** → Room **21**. DB column names use **snake_case** on `app_settings` (`voice_input_enabled`, …) to match existing POS settings. Qualcomm artifacts on Maven Central use group **`com.qualcomm.qti`** (not `com.qualcomm.qnn`). |
 | `HANDOFF.md` — "Last Completed: X12" | Complete or explicitly defer **Prompt X12** in `HANDOFF.md` before treating Phase 6 as closed for voice prerequisites. |
 | `com.biashara.voice.*` in XML examples | Use **`com.biasharaai.voice.*`** (applicationId / namespace). |
 | `InsightsFragment`, `ConversationalQueryViewModel`, `fragment_insights.xml` | Conversational Q&A lives in **`ChatFragment`** + **`ChatViewModel`**. Insights are **`CashFlowInsightsFragment`** (+ tabs). Map **V8** to the screens you wire (chat is the natural home for voice Q&A). |
@@ -136,9 +136,9 @@ Streaming **16 kHz mono PCM**; `Flow<AudioChunk>`; `SilenceDetector` (RMS → dB
 
 ## V2 — `WhisperTranscriber`
 
-`TranscriptionResult`, `TranscriptionEngine` enum (`WHISPER`, `GEMMA_3N`, `SPEECH_RECOGNIZER`).  
-`WhisperTranscriber`: init WhisperKit; `transcribeStream(Flow<AudioChunk>, languageHint?)`; **`AgentMutex`** around LiteRT-heavy calls.  
-`WhisperModelManager`: downloads under `filesDir/whisper/{modelId}/` (reuse patterns from `ModelDownloadManager` where sensible).
+**Package:** `com.biasharaai.voice` — `TranscriptionResult`, `TranscriptionEngine` (distinct from WhisperKit’s `com.argmaxinc.whisperkit.TranscriptionResult`).  
+`WhisperTranscriber`: `initialize()` → `loadModel()` + `init(16k, mono, streaming)`; `transcribeStream(Flow<AudioChunk>, languageHint?)`; **`AgentMutex.mutex`** around each `WhisperKit.transcribe` + callback bridge (`MSG_TEXT_OUT`).  
+`WhisperModelManager`: maps `whisper_model_id` → `WhisperKit.Builder` constants; `filesDir/whisper/` layout for diagnostics / future mirrors (SDK performs HF download in `loadModel()`).
 
 **Languages (WER expectations):** Swahili / Hausa: good; Yoruba / Amharic: moderate — prefer Gemma multimodal path on **FULL_AI** when available (V3).
 
@@ -146,9 +146,9 @@ Streaming **16 kHz mono PCM**; `Flow<AudioChunk>`; `SilenceDetector` (RMS → dB
 
 ## V3 — `VoiceInputProcessor` upgrade
 
-Single entry: `startListening() -> Flow<VoiceInputEvent>`.  
-Engines: **WHISPER**, **GEMMA_3N**, **SPEECH_RECOGNIZER**.  
-Routing: yo/am + FULL_AI → Gemma 3n; else Whisper if initialised; else `SpeechRecognizer` intent path.
+`VoiceSttEngine` (**WHISPER** / **GEMMA_3N** / **SPEECH_RECOGNIZER**) + sealed **`VoiceInputEvent`**.  
+**Routing:** yo/am + **FULL_AI** + future Gemma **AUDIO** model → Gemma path; else Whisper if initialised; else system recognizer intent.  
+**API:** `startListening(): Flow<VoiceInputEvent>`; **`transcribeWithAi()`** for one-shot (product name, chat mic, skills). **`ChatFragment`** mirrors add-product: on-device capture when `usesOnDeviceAi`.
 
 ---
 

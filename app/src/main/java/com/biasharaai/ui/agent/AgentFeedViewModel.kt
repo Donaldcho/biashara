@@ -33,6 +33,8 @@ data class AgentFeedUiState(
     val dateLine: String,
     val attentionLabel: String,
     val rows: List<AgentActionCardUiModel>,
+    val ttsEnabled: Boolean = false,
+    val ttsAutoReadCriticalAlerts: Boolean = false,
 )
 
 sealed interface AgentFeedEvent {
@@ -62,7 +64,8 @@ class AgentFeedViewModel @Inject constructor(
         executingId,
     ) { actions, settings, execId ->
         val sorted = sortByUrgencyThenDate(actions)
-        val rows = sorted.map { AgentActionCardUiModel(it, it.id == execId) }
+        val ttsOn = settings?.ttsEnabled == true
+        val rows = sorted.map { AgentActionCardUiModel(it, it.id == execId, ttsOn) }
         val biz = settings?.businessName?.takeIf { it.isNotBlank() }
             ?: appContext.getString(R.string.app_name)
         val cal = Calendar.getInstance()
@@ -90,6 +93,8 @@ class AgentFeedViewModel @Inject constructor(
             dateLine = dateLine,
             attentionLabel = attentionLabel,
             rows = rows,
+            ttsEnabled = ttsOn,
+            ttsAutoReadCriticalAlerts = settings?.ttsAutoReadAgentAlerts == true,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -99,6 +104,8 @@ class AgentFeedViewModel @Inject constructor(
             dateLine = "",
             attentionLabel = "",
             rows = emptyList(),
+            ttsEnabled = false,
+            ttsAutoReadCriticalAlerts = false,
         ),
     )
 
@@ -109,8 +116,12 @@ class AgentFeedViewModel @Inject constructor(
     fun approve(action: AgentAction) {
         viewModelScope.launch {
             executingId.value = action.id
-            val result = withContext(Dispatchers.IO) {
-                agentActionExecutor.execute(action)
+            val result = try {
+                withContext(Dispatchers.IO) {
+                    agentActionExecutor.execute(action)
+                }
+            } catch (e: Exception) {
+                ExecutionResult.Error(e.localizedMessage)
             }
             executingId.value = null
             when (result) {

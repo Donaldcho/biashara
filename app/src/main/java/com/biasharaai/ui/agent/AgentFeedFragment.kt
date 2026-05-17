@@ -19,14 +19,19 @@ import com.biasharaai.R
 import com.biasharaai.ai.CapabilityTier
 import com.biasharaai.data.local.db.AgentAction
 import com.biasharaai.databinding.FragmentAgentFeedBinding
+import com.biasharaai.locale.LanguagePreferences
 import com.biasharaai.ui.base.BaseFragment
 import com.biasharaai.ui.negotiation.NegotiationViewModel
 import com.biasharaai.ui.negotiation.showNegotiationTierBlockedDialogIfNeeded
+import com.biasharaai.ui.insights.CashFlowInsightsFragment
 import com.biasharaai.ui.pos.ReceiptViewModel
+import com.biasharaai.voice.BiasharaTtsEngine
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.Locale
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -40,6 +45,11 @@ class AgentFeedFragment : BaseFragment() {
 
     @Inject
     lateinit var capabilityTier: CapabilityTier
+
+    @Inject
+    lateinit var biasharaTtsEngine: BiasharaTtsEngine
+
+    private var lastAutoReadCriticalId: Long? = null
 
     private val adapter by lazy {
         AgentActionCardAdapter(
@@ -70,7 +80,7 @@ class AgentFeedFragment : BaseFragment() {
         binding.swipeRefresh.setOnRefreshListener {
             viewModel.refreshAgents()
             binding.swipeRefresh.postDelayed(
-                { binding.swipeRefresh.isRefreshing = false },
+                { _binding?.swipeRefresh?.isRefreshing = false },
                 1400L,
             )
         }
@@ -79,6 +89,13 @@ class AgentFeedFragment : BaseFragment() {
             if (showNegotiationTierBlockedDialogIfNeeded(capabilityTier)) return@setOnClickListener
             negotiationViewModel.resetScriptOutput()
             findNavController().navigate(R.id.action_agentFeedFragment_to_supplierNegotiationFragment)
+        }
+
+        binding.buttonOpenLedger.setOnClickListener {
+            findNavController().navigate(
+                R.id.action_agentFeedFragment_to_insightsFragment,
+                bundleOf(CashFlowInsightsFragment.ARG_INITIAL_TAB to CashFlowInsightsFragment.TAB_LEDGER),
+            )
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
@@ -92,6 +109,7 @@ class AgentFeedFragment : BaseFragment() {
                         val empty = state.rows.isEmpty()
                         binding.recyclerActions.isVisible = !empty
                         binding.emptyState.isVisible = empty
+                        maybeAutoReadCriticalAlert(state)
                     }
                 }
                 launch {
@@ -116,18 +134,52 @@ class AgentFeedFragment : BaseFragment() {
         }
     }
 
+    private fun maybeAutoReadCriticalAlert(state: AgentFeedUiState) {
+        if (!state.ttsEnabled || !state.ttsAutoReadCriticalAlerts) {
+            lastAutoReadCriticalId = null
+            return
+        }
+        val critical = state.rows.firstOrNull {
+            it.action.urgency == "CRITICAL" && it.action.status == "PENDING"
+        }?.action
+        if (critical == null) {
+            lastAutoReadCriticalId = null
+            return
+        }
+        if (critical.id == lastAutoReadCriticalId) return
+        lastAutoReadCriticalId = critical.id
+        val text = sequenceOf(critical.headline.trim(), critical.detail.trim())
+            .filter { it.isNotEmpty() }
+            .joinToString(". ")
+        if (text.isBlank()) return
+        viewLifecycleOwner.lifecycleScope.launch {
+            delay(1_000)
+            if (!viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return@launch
+            biasharaTtsEngine.speak(text, preferredTtsLanguageCode())
+        }
+    }
+
+    private fun preferredTtsLanguageCode(): String? {
+        val ctx = requireContext()
+        LanguagePreferences.getPersistedLocaleTag(ctx)?.let { tag ->
+            val lang = tag.substringBefore('-', missingDelimiterValue = tag).lowercase(Locale.US)
+            if (lang.isNotBlank()) return lang
+        }
+        return ctx.resources.configuration.locales[0]?.language?.lowercase(Locale.US)
+    }
+
     private fun flashApproveSuccessCard(actionId: Long) {
         binding.recyclerActions.post {
+            val b = _binding ?: return@post
+            if (!isAdded) return@post
             val i = adapter.currentList.indexOfFirst { it.action.id == actionId }
             if (i < 0) return@post
-            val v = binding.recyclerActions
+            val v = b.recyclerActions
                 .findViewHolderForAdapterPosition(i)
                 ?.itemView as? MaterialCardView
+            val ctx = context ?: return@post
             v?.setCardBackgroundColor(
-                ContextCompat.getColor(
-                    requireContext(),
-                    R.color.biashara_success_light,
-                ),
+                ContextCompat.getColor(ctx, R.color.biashara_success_light),
             )
             v?.animate()?.alpha(0f)?.scaleY(0.9f)?.setDuration(320)?.start()
         }

@@ -231,6 +231,14 @@ class ActiveModelStore @Inject constructor(
         }
 
         val useEphemeralEngine = loopModelId != modelRegistry.primaryModelId()
+        val useFunctionGemma =
+            loopModelId == FunctionGemmaRouter.FUNCTION_GEMMA_MODEL_ID ||
+                (
+                    modelRegistry.capabilitiesForModel(loopModelId)
+                        .contains(ModelCapability.FUNCTION_CALLING) &&
+                        !modelRegistry.capabilitiesForModel(modelRegistry.primaryModelId())
+                            .contains(ModelCapability.FUNCTION_CALLING)
+                    )
 
         return@withContext generationMutex.withLock {
             try {
@@ -241,7 +249,12 @@ class ActiveModelStore @Inject constructor(
                         val path = modelRegistry.modelFile(loopModelId).absolutePath
                         val loopEngine = if (useEphemeralEngine) {
                             Log.d(TAG, "Agent loop using ephemeral engine: $loopModelId")
-                            modelLoader.buildEngine(path, tier, cfg)
+                            modelLoader.buildEngine(
+                                path,
+                                tier,
+                                cfg,
+                                forFunctionToolModel = useFunctionGemma,
+                            )
                         } else {
                             ensureEngineOnGateThread()
                         }
@@ -252,25 +265,82 @@ class ActiveModelStore @Inject constructor(
                             systemInstruction = systemInstruction,
                             tools = toolProviders,
                             automaticToolCalling = true,
+                            enableConversationConstrainedDecoding = useFunctionGemma,
                         )
                         try {
                             val sb = StringBuilder()
                             runBlocking {
-                                agentConvo.sendMessageAsync(
-                                    Contents.of(Content.Text(userMessage)),
-                                    emptyMap(),
-                                ).collect { message ->
-                                    val chunk = message.toString()
-                                    if (chunk.isNotEmpty() && !chunk.startsWith("<ctrl")) {
-                                        sb.append(chunk)
+                                suspendCancellableCoroutine { cont ->
+                                    val callback = object : MessageCallback {
+                                        override fun onMessage(message: Message) {
+                                            val chunk = message.toString()
+                                            if (chunk.isNotEmpty() && !chunk.startsWith("<ctrl")) {
+                                                sb.append(chunk)
+                                            }
+                                        }
+
+                                        override fun onDone() {
+                                            if (cont.isActive) {
+                                                cont.resume(
+                                                    AgentLoopResult(
+                                                        finalText = sb.toString().trim(),
+                                                        toolCalls = toolCallsExecuted,
+                                                        success = true,
+                                                    ),
+                                                )
+                                            }
+                                        }
+
+                                        override fun onError(throwable: Throwable) {
+                                            if (throwable is CancellationException) {
+                                                if (cont.isActive) {
+                                                    cont.resume(
+                                                        AgentLoopResult(
+                                                            finalText = sb.toString().trim(),
+                                                            toolCalls = toolCallsExecuted,
+                                                            success = sb.isNotEmpty(),
+                                                        ),
+                                                    )
+                                                }
+                                            } else if (cont.isActive) {
+                                                cont.resume(
+                                                    AgentLoopResult(
+                                                        finalText = sb.toString().trim(),
+                                                        toolCalls = toolCallsExecuted,
+                                                        success = false,
+                                                        errorMessage = throwable.message
+                                                            ?: "Agent loop failed",
+                                                    ),
+                                                )
+                                            }
+                                        }
+                                    }
+                                    cont.invokeOnCancellation {
+                                        try {
+                                            agentConvo.cancelProcess()
+                                        } catch (_: Throwable) {
+                                        }
+                                    }
+                                    try {
+                                        agentConvo.sendMessageAsync(
+                                            Contents.of(Content.Text(userMessage)),
+                                            callback,
+                                            emptyMap(),
+                                        )
+                                    } catch (e: Throwable) {
+                                        if (cont.isActive) {
+                                            cont.resume(
+                                                AgentLoopResult(
+                                                    finalText = "",
+                                                    toolCalls = toolCallsExecuted,
+                                                    success = false,
+                                                    errorMessage = e.message,
+                                                ),
+                                            )
+                                        }
                                     }
                                 }
                             }
-                            AgentLoopResult(
-                                finalText = sb.toString().trim(),
-                                toolCalls = toolCallsExecuted,
-                                success = true,
-                            )
                         } finally {
                             try {
                                 agentConvo.close()

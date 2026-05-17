@@ -15,6 +15,7 @@ import com.biasharaai.data.local.db.AgentSettingDao
 import com.biasharaai.data.local.db.AppSettings
 import com.biasharaai.data.local.db.AppSettingsDao
 import com.biasharaai.data.local.db.TransactionDao
+import com.biasharaai.ledger.intelligence.LedgerIntelligenceRepository
 import com.biasharaai.locale.LanguagePreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -36,6 +37,7 @@ class CashFlowSentinelWorker(
     private val appSettingsDao: AppSettingsDao,
     private val agentLoopRunner: AgentLoopRunner,
     private val capabilityTier: CapabilityTier,
+    private val ledgerIntelligence: LedgerIntelligenceRepository,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -50,6 +52,12 @@ class CashFlowSentinelWorker(
         val startOfToday = today.atStartOfDay(zone).toInstant().toEpochMilli()
         val startOfTomorrow = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
         val historyStart = today.minusDays(30).atStartOfDay(zone).toInstant().toEpochMilli()
+
+        // Guard before any expensive computation or AI inference.
+        if (agentDecisionEngine.isDuplicateAction(AgentTypes.CASH_FLOW, startOfToday)) {
+            agentDecisionEngine.buildRunLog(AgentTypes.CASH_FLOW, startWall, 0, "SKIPPED_DUPLICATE")
+            return@withContext Result.success()
+        }
 
         val revenue = transactionDao.sumIncomeAmountBetween(startOfToday, startOfTomorrow)
         val expenses = transactionDao.sumExpenseAmountBetween(startOfToday, startOfTomorrow)
@@ -75,6 +83,7 @@ class CashFlowSentinelWorker(
         val languageKey = localeTag.substringBefore(',').substringBefore('-').lowercase(Locale.ROOT)
         val language = LANGUAGE_FOR_PROMPT[languageKey] ?: "English"
 
+        val ledgerAppendix = formatLedgerFactsAppendix(zone.id)
         val baseDetail = buildString {
             append("Revenue: ").append(currency).append(money(revenue))
             append(". Expenses: ").append(currency).append(money(expenses))
@@ -83,6 +92,7 @@ class CashFlowSentinelWorker(
             append(". 30-day avg daily revenue: ").append(currency).append(money(avgDailyRev))
             append(". 30-day avg daily expenses: ").append(currency).append(money(avgDailyExp))
             append(".")
+            append(ledgerAppendix)
         }
 
         val headline = when (urgency) {
@@ -124,11 +134,6 @@ class CashFlowSentinelWorker(
 
         val fullDetail = baseDetail + "\n\n" + narrative
 
-        if (agentDecisionEngine.isDuplicateAction(AgentTypes.CASH_FLOW, startOfToday)) {
-            agentDecisionEngine.buildRunLog(AgentTypes.CASH_FLOW, startWall, 0, "SKIPPED_DUPLICATE")
-            return@withContext Result.success()
-        }
-
         val action = AgentActionBuilder.cashFlowDailySummary(
             urgency = urgency,
             headline = headline,
@@ -167,6 +172,28 @@ class CashFlowSentinelWorker(
         }
         append("30-day avg daily revenue reference: ").append(currency).append(money(avgDailyRev)).append(".")
     }
+
+    private suspend fun formatLedgerFactsAppendix(timezone: String): String = runCatching {
+        val data = ledgerIntelligence.queryV2(
+            period = "LAST_30_DAYS",
+            timezone = timezone,
+            include = setOf("summary", "pending_credit", "trend"),
+        )
+        val summary = data["summary"] as? Map<*, *> ?: return@runCatching ""
+        val pending = data["pendingCredit"] as? Map<*, *> ?: emptyMap<String, Any?>()
+        val trend = data["trend"] as? Map<*, *> ?: emptyMap<String, Any?>()
+        buildString {
+            append(" Ledger (30d): balance ")
+            append(summary["runningBalance"]?.toString() ?: "?")
+            append(", net ")
+            append(summary["net"]?.toString() ?: "?")
+            append(", pending credit ")
+            append(pending["amount"]?.toString() ?: "0")
+            append(", trend ")
+            append(trend["netCashTrend"]?.toString() ?: "UNKNOWN")
+            append(".")
+        }
+    }.getOrDefault("")
 
     companion object {
         private val LANGUAGE_FOR_PROMPT = mapOf(

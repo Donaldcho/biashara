@@ -244,25 +244,27 @@ class AddEditProductFragment : BaseFragment() {
 
     private fun onProductNameVoiceClicked() {
         if (!voiceInputPreferences.isVoiceInputEnabled()) return
-        if (voiceInputProcessor.usesOnDeviceAi) {
-            if (AudioCaptureHelper.hasRecordPermission(requireContext())) {
-                startAiVoiceCapture()
+        viewLifecycleOwner.lifecycleScope.launch {
+            if (voiceInputProcessor.shouldUseOnDeviceAi()) {
+                if (AudioCaptureHelper.hasRecordPermission(requireContext())) {
+                    startAiVoiceCapture()
+                } else {
+                    audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                }
             } else {
-                audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-            }
-        } else {
-            val intent = voiceInputProcessor.createSpeechRecognizerIntent(
-                locale = Locale.getDefault(),
-                prompt = getString(R.string.product_voice_prompt),
-            )
-            try {
-                speechLauncher.launch(intent)
-            } catch (_: Exception) {
-                Snackbar.make(
-                    binding.root,
-                    getString(R.string.product_voice_unavailable),
-                    Snackbar.LENGTH_SHORT,
-                ).show()
+                val intent = voiceInputProcessor.createSpeechRecognizerIntent(
+                    locale = Locale.getDefault(),
+                    prompt = getString(R.string.product_voice_prompt),
+                )
+                try {
+                    speechLauncher.launch(intent)
+                } catch (_: Exception) {
+                    Snackbar.make(
+                        binding.root,
+                        getString(R.string.product_voice_unavailable),
+                        Snackbar.LENGTH_SHORT,
+                    ).show()
+                }
             }
         }
     }
@@ -285,11 +287,19 @@ class AddEditProductFragment : BaseFragment() {
                     binding.editName.setText(transcription)
                     binding.editName.setSelection(transcription.length)
                 } else {
-                    Snackbar.make(
-                        binding.root,
-                        getString(R.string.voice_transcription_failed),
-                        Snackbar.LENGTH_SHORT,
-                    ).show()
+                    val intent = voiceInputProcessor.createSpeechRecognizerIntent(
+                        locale = Locale.getDefault(),
+                        prompt = getString(R.string.product_voice_prompt),
+                    )
+                    try {
+                        speechLauncher.launch(intent)
+                    } catch (_: Exception) {
+                        Snackbar.make(
+                            binding.root,
+                            getString(R.string.voice_transcription_failed),
+                            Snackbar.LENGTH_SHORT,
+                        ).show()
+                    }
                 }
             } finally {
                 showRecordingIndicator(false)

@@ -180,4 +180,25 @@ object AgentActionBuilder {
         relatedEntityId = weekStartMillis,
         relatedEntityType = ENTITY_WEEK,
     )
+
+    fun ledgerAnomaly(
+        urgency: String,
+        headline: String,
+        detail: String,
+        dayStartMillis: Long,
+        nowMillis: Long = System.currentTimeMillis(),
+    ): AgentAction = AgentAction(
+        agentType = AgentTypes.LEDGER_ANOMALY,
+        urgency = urgency,
+        executionType = "REQUIRES_APPROVAL",
+        headline = headline,
+        detail = detail,
+        actionPayload = null,
+        actionVerb = "REVIEW_LEDGER",
+        status = "PENDING",
+        createdAt = nowMillis,
+        expiresAt = null,
+        relatedEntityId = dayStartMillis,
+        relatedEntityType = "DAY",
+    )
 }

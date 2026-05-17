@@ -8,7 +8,9 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.biasharaai.databinding.ItemChatMessageBinding
+import com.biasharaai.locale.LanguagePreferences
 import java.io.File
+import java.util.Locale
 
 /**
  * RecyclerView adapter for chat messages.
@@ -19,6 +21,8 @@ import java.io.File
 class ChatAdapter(
     private val onAssistantFeedback: ((Long, Int) -> Unit)? = null,
 ) : ListAdapter<ChatMessage, ChatAdapter.ChatViewHolder>(DIFF_CALLBACK) {
+
+    var assistantTtsEnabled: Boolean = false
 
     companion object {
         private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<ChatMessage>() {
@@ -38,7 +42,7 @@ class ChatAdapter(
     }
 
     override fun onBindViewHolder(holder: ChatViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        holder.bind(getItem(position), assistantTtsEnabled)
     }
 
     class ChatViewHolder(
@@ -46,7 +50,7 @@ class ChatAdapter(
         private val onAssistantFeedback: ((Long, Int) -> Unit)?,
     ) : RecyclerView.ViewHolder(binding.root) {
 
-        fun bind(message: ChatMessage) {
+        fun bind(message: ChatMessage, assistantTtsEnabled: Boolean) {
             binding.btnFeedbackUp.setOnClickListener(null)
             binding.btnFeedbackDown.setOnClickListener(null)
             if (message.isUser) {
@@ -67,6 +71,16 @@ class ChatAdapter(
                 binding.cardUser.visibility = View.GONE
                 binding.cardAi.visibility = View.VISIBLE
                 binding.textAiMessage.text = message.text
+                val showSpeak = assistantTtsEnabled && message.text.isNotBlank()
+                binding.buttonAssistantSpeak.visibility = if (showSpeak) View.VISIBLE else View.GONE
+                if (showSpeak) {
+                    binding.buttonAssistantSpeak.bindSpeakTarget(
+                        message.text,
+                        ttsLanguage(binding.root.context),
+                    )
+                } else {
+                    binding.buttonAssistantSpeak.bindSpeakTarget("")
+                }
                 val showFeedback = message.stableId > 0L && onAssistantFeedback != null
                 binding.rowAiFeedback.visibility = if (showFeedback) View.VISIBLE else View.GONE
                 if (showFeedback) {
@@ -80,6 +94,14 @@ class ChatAdapter(
                     }
                 }
             }
+        }
+
+        private fun ttsLanguage(context: android.content.Context): String? {
+            LanguagePreferences.getPersistedLocaleTag(context)?.let { tag ->
+                val lang = tag.substringBefore('-', missingDelimiterValue = tag).lowercase(Locale.US)
+                if (lang.isNotBlank()) return lang
+            }
+            return context.resources.configuration.locales[0]?.language?.lowercase(Locale.US)
         }
     }
 }

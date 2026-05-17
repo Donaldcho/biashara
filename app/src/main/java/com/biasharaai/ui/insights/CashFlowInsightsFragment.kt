@@ -38,13 +38,17 @@ class CashFlowInsightsFragment : BaseFragment() {
         super.onViewCreated(view, savedInstanceState)
         setupToolbar()
         binding.pagerInsights.adapter = InsightsPagerAdapter(this)
+        val initialTab = arguments?.getInt(ARG_INITIAL_TAB, TAB_FLOW)?.coerceIn(TAB_FLOW, TAB_LEDGER)
+            ?: TAB_FLOW
+        binding.pagerInsights.setCurrentItem(initialTab, false)
         tabMediator = TabLayoutMediator(
             binding.tabInsights,
             binding.pagerInsights,
         ) { tab, position ->
             tab.text = when (position) {
                 0 -> getString(R.string.insights_tab_flow)
-                else -> getString(R.string.insights_tab_credit)
+                1 -> getString(R.string.insights_tab_credit)
+                else -> getString(R.string.insights_tab_ledger)
             }
         }.also { it.attach() }
     }
@@ -73,5 +77,12 @@ class CashFlowInsightsFragment : BaseFragment() {
                 else -> false
             }
         }
+    }
+
+    companion object {
+        const val ARG_INITIAL_TAB = "initialTab"
+        const val TAB_FLOW = 0
+        const val TAB_CREDIT = 1
+        const val TAB_LEDGER = 2
     }
 }

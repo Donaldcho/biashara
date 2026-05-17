@@ -9,7 +9,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.fragment.app.viewModels
+import androidx.core.os.bundleOf
 import androidx.navigation.fragment.findNavController
+import com.biasharaai.ui.insights.CashFlowInsightsFragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -20,7 +22,6 @@ import com.biasharaai.ai.DownloadState
 import com.biasharaai.ai.InferenceSettingsStore
 import com.biasharaai.ai.InferenceUiConfig
 import com.biasharaai.ai.ModelDownloadManager
-import com.biasharaai.ai.VoiceInputPreferences
 import com.biasharaai.databinding.FragmentSettingsBinding
 import com.biasharaai.ui.base.BaseFragment
 import com.biasharaai.ui.order.OrderParserActivity
@@ -33,7 +34,6 @@ import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.util.Locale
-import javax.inject.Inject
 import kotlin.math.roundToInt
 
 /**
@@ -49,9 +49,6 @@ class SettingsFragment : BaseFragment() {
     private val binding get() = _binding!!
 
     private val viewModel: SettingsViewModel by viewModels()
-
-    @Inject
-    lateinit var voiceInputPreferences: VoiceInputPreferences
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -70,7 +67,8 @@ class SettingsFragment : BaseFragment() {
         setupInferenceConfigurations()
         setupCloudAnalysis()
         setupOrderParserFromClipboard()
-        setupVoiceInputSwitch()
+        setupVoiceSettingsNav()
+        setupLedgerNav()
         setupCurrency()
         setupAgentRunHistoryNav()
         observeDownloadState()
@@ -149,11 +147,18 @@ class SettingsFragment : BaseFragment() {
             .show()
     }
 
-    private fun setupVoiceInputSwitch() {
-        binding.switchVoiceInput.setOnCheckedChangeListener(null)
-        binding.switchVoiceInput.isChecked = voiceInputPreferences.isVoiceInputEnabled()
-        binding.switchVoiceInput.setOnCheckedChangeListener { _, isChecked ->
-            voiceInputPreferences.setVoiceInputEnabled(isChecked)
+    private fun setupVoiceSettingsNav() {
+        binding.btnVoiceSettings.setOnClickListener {
+            findNavController().navigate(R.id.action_settingsFragment_to_voiceSettingsFragment)
+        }
+    }
+
+    private fun setupLedgerNav() {
+        binding.btnOpenLedger.setOnClickListener {
+            findNavController().navigate(
+                R.id.action_settingsFragment_to_insightsFragment,
+                bundleOf(CashFlowInsightsFragment.ARG_INITIAL_TAB to CashFlowInsightsFragment.TAB_LEDGER),
+            )
         }
     }
 

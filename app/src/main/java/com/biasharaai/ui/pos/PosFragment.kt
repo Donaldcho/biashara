@@ -1,13 +1,18 @@
 package com.biasharaai.ui.pos
 
+import android.Manifest
+import android.app.Activity
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Bundle
+import android.speech.RecognizerIntent
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.PopupMenu
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.widget.SearchView
 import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
@@ -22,6 +27,9 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.biasharaai.R
+import com.biasharaai.ai.AudioCaptureHelper
+import com.biasharaai.ai.VoiceInputPreferences
+import com.biasharaai.ai.VoiceInputProcessor
 import com.biasharaai.data.local.db.Product
 import com.biasharaai.databinding.FragmentPosBinding
 import com.biasharaai.databinding.ItemProductSearchResultBinding
@@ -60,11 +68,41 @@ class PosFragment : BaseFragment() {
     @Inject
     lateinit var moneyFormatter: MoneyFormatter
 
+    @Inject
+    lateinit var voiceInputProcessor: VoiceInputProcessor
+
+    @Inject
+    lateinit var voiceInputPreferences: VoiceInputPreferences
+
     private lateinit var productGridAdapter: ProductGridAdapter
     private lateinit var searchAdapter: PosSearchResultsAdapter
 
     private var wideCartAdapter: CartAdapter? = null
     private var totalsBarBound = false
+
+    private val posSpeechLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        if (result.resultCode != Activity.RESULT_OK) return@registerForActivityResult
+        val matches = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+        val text = matches?.firstOrNull()?.trim().orEmpty()
+        if (text.isEmpty()) return@registerForActivityResult
+        _binding?.let { b ->
+            b.searchView.setQuery(text, false)
+            viewModel.setSearchQuery(text)
+        }
+    }
+
+    private val posMicPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            launchPosVoiceSearch()
+            return@registerForActivityResult
+        }
+        val root = _binding?.root ?: return@registerForActivityResult
+        Snackbar.make(root, R.string.chat_mic_permission_denied, Snackbar.LENGTH_SHORT).show()
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -84,6 +122,7 @@ class PosFragment : BaseFragment() {
         setupTransactionHistoryButton()
         setupPosOverflowMenu()
         setupCartInteractions()
+        setupVoiceSearch()
         observeCustomerSuggestions()
         observeViewModel()
         observeScannerResult()
@@ -193,6 +232,65 @@ class PosFragment : BaseFragment() {
                 return true
             }
         })
+    }
+
+    private fun setupVoiceSearch() {
+        binding.btnVoiceSearch?.setOnClickListener { onVoiceSearchClicked() }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                voiceInputPreferences.voiceInputEnabled.collect { enabled ->
+                    binding.btnVoiceSearch?.visibility = if (enabled) View.VISIBLE else View.GONE
+                }
+            }
+        }
+    }
+
+    private fun onVoiceSearchClicked() {
+        if (!voiceInputPreferences.isVoiceInputEnabled()) return
+        val granted = ContextCompat.checkSelfPermission(
+            requireContext(),
+            Manifest.permission.RECORD_AUDIO,
+        ) == PackageManager.PERMISSION_GRANTED
+        if (granted) {
+            launchPosVoiceSearch()
+        } else {
+            posMicPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    private fun launchPosVoiceSearch() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            if (voiceInputProcessor.shouldUseOnDeviceAi() &&
+                AudioCaptureHelper.hasRecordPermission(requireContext())
+            ) {
+                val text = runCatching {
+                    voiceInputProcessor.transcribeWithAi(
+                        Locale.getDefault(),
+                        AudioCaptureHelper.DEFAULT_DURATION_MS,
+                    )
+                }.getOrNull()?.trim().orEmpty()
+                if (text.isNotEmpty()) {
+                    val b = _binding ?: return@launch
+                    b.searchView.setQuery(text, false)
+                    viewModel.setSearchQuery(text)
+                    return@launch
+                }
+            }
+            launchPosSystemSpeechRecognizer()
+        }
+    }
+
+    private fun launchPosSystemSpeechRecognizer() {
+        val b = _binding ?: return
+        try {
+            val intent = voiceInputProcessor.createSpeechRecognizerIntent(
+                locale = Locale.getDefault(),
+                prompt = getString(R.string.product_voice_prompt),
+            )
+            posSpeechLauncher.launch(intent)
+        } catch (_: Exception) {
+            Snackbar.make(b.root, R.string.chat_mic_unavailable, Snackbar.LENGTH_SHORT).show()
+        }
     }
 
     private fun observeCustomerSuggestions() {

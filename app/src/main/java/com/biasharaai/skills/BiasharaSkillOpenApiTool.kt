@@ -3,6 +3,7 @@ package com.biasharaai.skills
 import com.biasharaai.agent.AgentToolCallRecord
 import com.google.ai.edge.litertlm.OpenApiTool
 import com.google.gson.Gson
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 
 /**
@@ -17,7 +18,7 @@ class BiasharaSkillOpenApiTool(
     override fun getToolDescriptionJsonString(): String =
         buildOpenApiDescription(definition.skillId, definition.displayName, definition.schemaJson)
 
-    override fun execute(paramsJsonString: String): String = runBlocking {
+    override fun execute(paramsJsonString: String): String = runBlocking(Dispatchers.IO) {
         val result = skillExecutor.execute(definition.skillId, paramsJsonString)
         executionLog?.add(
             AgentToolCallRecord(

@@ -48,6 +48,13 @@
             android:layout_marginTop="4dp"
             android:text="@string/home_prepare_supplier_visit_title" />
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_open_ledger"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/home_open_ledger" />
+
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"

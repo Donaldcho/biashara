@@ -3,22 +3,22 @@
 
     <style name="ShapeAppearance.Biashara.SmallComponent" parent="ShapeAppearance.Material3.Corner.Medium">
         <item name="cornerFamily">rounded</item>
-        <item name="cornerSize">12dp</item>
+        <item name="cornerSize">8dp</item>
     </style>
 
     <style name="ShapeAppearance.Biashara.MediumComponent" parent="ShapeAppearance.Material3.Corner.Medium">
         <item name="cornerFamily">rounded</item>
-        <item name="cornerSize">16dp</item>
+        <item name="cornerSize">10dp</item>
     </style>
 
     <style name="ShapeAppearance.Biashara.LargeComponent" parent="ShapeAppearance.Material3.Corner.Large">
         <item name="cornerFamily">rounded</item>
-        <item name="cornerSize">24dp</item>
+        <item name="cornerSize">16dp</item>
     </style>
 
     <style name="Widget.Biashara.CardView" parent="Widget.Material3.CardView.Elevated">
         <item name="cardCornerRadius">@dimen/biashara_corner_card</item>
-        <item name="cardElevation">3dp</item>
+        <item name="cardElevation">1dp</item>
         <item name="strokeWidth">1dp</item>
         <item name="strokeColor">?attr/colorOutline</item>
         <item name="cardBackgroundColor">?attr/colorSurface</item>
@@ -42,7 +42,7 @@
 
     <style name="Widget.Biashara.BottomNavigationView" parent="Widget.Material3.BottomNavigationView">
         <item name="android:background">@color/biashara_nav_bar_bg</item>
-        <item name="elevation">8dp</item>
+        <item name="elevation">12dp</item>
         <item name="itemActiveIndicatorStyle">@style/Widget.Biashara.BottomNavigationView.ActiveIndicator</item>
         <item name="itemIconTint">@color/biashara_bottom_nav_icon</item>
         <item name="itemTextColor">@color/biashara_bottom_nav_text</item>
@@ -54,7 +54,7 @@
     </style>
 
     <style name="Widget.Biashara.ExtendedFloatingActionButton.Primary" parent="Widget.Material3.ExtendedFloatingActionButton.Primary">
-        <item name="backgroundTint">@color/biashara_emerald</item>
+        <item name="backgroundTint">@color/biashara_forest</item>
         <item name="android:textColor">@color/biashara_surface_bright</item>
         <item name="iconTint">@color/biashara_surface_bright</item>
     </style>

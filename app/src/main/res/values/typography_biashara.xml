@@ -7,13 +7,13 @@
     <style name="TextAppearance.Biashara.DisplaySmall" parent="TextAppearance.Material3.DisplaySmall">
         <item name="fontFamily">sans-serif-medium</item>
         <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:letterSpacing">-0.02</item>
+        <item name="android:letterSpacing">0</item>
     </style>
 
     <style name="TextAppearance.Biashara.HeadlineMedium" parent="TextAppearance.Material3.HeadlineMedium">
         <item name="fontFamily">sans-serif-medium</item>
         <item name="android:fontFamily">sans-serif-medium</item>
-        <item name="android:letterSpacing">-0.015</item>
+        <item name="android:letterSpacing">0</item>
     </style>
 
     <style name="TextAppearance.Biashara.HeadlineSmall" parent="TextAppearance.Material3.HeadlineSmall">

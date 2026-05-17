@@ -1,6 +1,6 @@
 package com.biasharaai.data.local.db
 
-import java.time.Instant
+import com.biasharaai.util.millisToLocalDate
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
@@ -45,7 +45,7 @@ class LossAlertEngine @Inject constructor(
         val rows = lossAlertDao.getProductSaleQuantitiesByDay(since)
         val idToName = productDao.getProductsList().associate { it.id to it.name }
         val byProduct = rows.groupBy { it.productId }
-        val today = LocalDate.ofInstant(Instant.ofEpochMilli(nowMillis), zoneOffset)
+        val today = millisToLocalDate(nowMillis, zoneOffset)
         val out = mutableListOf<Alert>()
         for ((productId, list) in byProduct) {
             val dayToQty = list.associate { LocalDate.parse(it.day) to it.totalQty }
@@ -107,7 +107,7 @@ class LossAlertEngine @Inject constructor(
         val expenses = lossAlertDao.getExpensesSince(windowStart)
         if (expenses.isEmpty()) return emptyList()
         val byDay = expenses.groupBy { tx ->
-            LocalDate.ofInstant(Instant.ofEpochMilli(tx.date), zoneOffset)
+            millisToLocalDate(tx.date, zoneOffset)
         }.mapValues { (_, list) -> list.sumOf { it.amount } }
             .toSortedMap()
         val sortedDays = byDay.keys.toList()
