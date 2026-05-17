@@ -1,11 +1,17 @@
 package com.biasharaai.ui.settings
 
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.fragment.app.viewModels
+import androidx.core.os.bundleOf
+import androidx.navigation.fragment.findNavController
+import com.biasharaai.ui.insights.CashFlowInsightsFragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -18,6 +24,8 @@ import com.biasharaai.ai.InferenceUiConfig
 import com.biasharaai.ai.ModelDownloadManager
 import com.biasharaai.databinding.FragmentSettingsBinding
 import com.biasharaai.ui.base.BaseFragment
+import com.biasharaai.ui.order.OrderParserActivity
+import com.biasharaai.ui.order.showOrderParserTierBlockedDialogIfNeeded
 import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -57,6 +65,12 @@ class SettingsFragment : BaseFragment() {
         displayAppVersion()
         setupButtons()
         setupInferenceConfigurations()
+        setupCloudAnalysis()
+        setupOrderParserFromClipboard()
+        setupVoiceSettingsNav()
+        setupLedgerNav()
+        setupCurrency()
+        setupAgentRunHistoryNav()
         observeDownloadState()
         observeDownloadProgress()
         observeEvents()
@@ -93,7 +107,92 @@ class SettingsFragment : BaseFragment() {
 
     // ── Buttons ─────────────────────────────────────────────────────────
 
+    private fun setupCurrency() {
+        binding.btnChangeCurrency.setOnClickListener { showCurrencyPicker() }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.shopSettings.collect { s ->
+                    val codes = resources.getStringArray(R.array.supported_currency_codes)
+                    val names = resources.getStringArray(R.array.supported_currency_names)
+                    val code = s?.currencyCode?.uppercase(Locale.ROOT) ?: "KES"
+                    val idx = codes.indexOf(code).let { if (it >= 0) it else 0 }
+                    binding.textCurrencyCurrent.text = names[idx]
+                }
+            }
+        }
+    }
+
+    private fun setupAgentRunHistoryNav() {
+        binding.btnAgentActivity.setOnClickListener {
+            findNavController().navigate(R.id.action_settingsFragment_to_agentSettingsFragment)
+        }
+    }
+
+    private fun showCurrencyPicker() {
+        val codes = resources.getStringArray(R.array.supported_currency_codes)
+        val names = resources.getStringArray(R.array.supported_currency_names)
+        val current = viewModel.shopSettings.value?.currencyCode?.uppercase(Locale.ROOT) ?: "KES"
+        val checked = codes.indexOf(current).let { if (it >= 0) it else 0 }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.settings_currency_dialog_title)
+            .setSingleChoiceItems(names, checked) { dialog, which ->
+                viewModel.setShopCurrency(codes[which])
+                dialog.dismiss()
+                val anchor = _binding?.root ?: view
+                anchor?.let {
+                    Snackbar.make(it, R.string.settings_currency_saved, Snackbar.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun setupVoiceSettingsNav() {
+        binding.btnVoiceSettings.setOnClickListener {
+            findNavController().navigate(R.id.action_settingsFragment_to_voiceSettingsFragment)
+        }
+    }
+
+    private fun setupLedgerNav() {
+        binding.btnOpenLedger.setOnClickListener {
+            findNavController().navigate(
+                R.id.action_settingsFragment_to_insightsFragment,
+                bundleOf(CashFlowInsightsFragment.ARG_INITIAL_TAB to CashFlowInsightsFragment.TAB_LEDGER),
+            )
+        }
+    }
+
+    private fun setupOrderParserFromClipboard() {
+        binding.btnOrderParserFromClipboard.setOnClickListener {
+            if (showOrderParserTierBlockedDialogIfNeeded(viewModel.capabilityResult.tier)) {
+                return@setOnClickListener
+            }
+            val cm = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val text = cm.primaryClip?.getItemAt(0)?.text?.toString().orEmpty().trim()
+            if (text.isBlank()) {
+                Snackbar.make(
+                    binding.root,
+                    R.string.settings_order_parser_clipboard_empty,
+                    Snackbar.LENGTH_SHORT,
+                ).show()
+            } else {
+                startActivity(
+                    Intent(requireContext(), OrderParserActivity::class.java).apply {
+                        putExtra(Intent.EXTRA_TEXT, text)
+                    },
+                )
+            }
+        }
+    }
+
+    private fun setupModelSettingsNav() {
+        binding.btnManageModels.setOnClickListener {
+            findNavController().navigate(R.id.action_settingsFragment_to_modelSettingsFragment)
+        }
+    }
+
     private fun setupButtons() {
+        setupModelSettingsNav()
         binding.btnDownloadModel.setOnClickListener {
             if (viewModel.downloadState.value == DownloadState.DOWNLOADED) {
                 // Re-download: confirm first
@@ -133,8 +232,7 @@ class SettingsFragment : BaseFragment() {
             .setTitle(R.string.settings_redownload_title)
             .setMessage(R.string.settings_redownload_message)
             .setPositiveButton(R.string.settings_btn_redownload) { _, _ ->
-                viewModel.deleteModel()
-                viewModel.downloadModel()
+                viewModel.redownloadModel()
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
@@ -197,6 +295,35 @@ class SettingsFragment : BaseFragment() {
                                 Snackbar.LENGTH_LONG,
                             ).show()
                         }
+
+                        is SettingsViewModel.Event.CloudSettingsSaved -> {
+                            Snackbar.make(
+                                binding.root,
+                                R.string.settings_cloud_saved,
+                                Snackbar.LENGTH_SHORT,
+                            ).show()
+                        }
+
+                        is SettingsViewModel.Event.CloudUploadSucceeded -> {
+                            Snackbar.make(
+                                binding.root,
+                                R.string.settings_cloud_upload_success,
+                                Snackbar.LENGTH_SHORT,
+                            ).show()
+                        }
+
+                        is SettingsViewModel.Event.CloudUploadFailed -> {
+                            val msg = when (event.message) {
+                                SettingsViewModel.CLOUD_ERR_NOT_ENABLED ->
+                                    getString(R.string.settings_cloud_not_enabled)
+                                SettingsViewModel.CLOUD_ERR_MISSING_URL ->
+                                    getString(R.string.settings_cloud_missing_url)
+                                SettingsViewModel.CLOUD_ERR_MISSING_KEY ->
+                                    getString(R.string.settings_cloud_missing_key)
+                                else -> getString(R.string.settings_cloud_upload_failed, event.message)
+                            }
+                            Snackbar.make(binding.root, msg, Snackbar.LENGTH_LONG).show()
+                        }
                     }
                 }
             }
@@ -209,6 +336,20 @@ class SettingsFragment : BaseFragment() {
                         getString(R.string.settings_benchmark_running)
                     } else {
                         getString(R.string.settings_btn_benchmark)
+                    }
+                }
+            }
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.isCloudUploading.collect { uploading ->
+                    binding.btnCloudUploadJson.isEnabled = !uploading
+                    binding.btnCloudUploadSqlite.isEnabled = !uploading
+                    binding.btnCloudAnalysisSave.isEnabled = !uploading
+                    binding.btnCloudUploadJson.text = if (uploading) {
+                        getString(R.string.settings_cloud_uploading)
+                    } else {
+                        getString(R.string.settings_cloud_btn_upload_json)
                     }
                 }
             }
@@ -326,6 +467,53 @@ class SettingsFragment : BaseFragment() {
             showInferenceConfigurationsDialog()
         }
         updateInferenceSectionVisibility()
+    }
+
+    private fun setupCloudAnalysis() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.cloudSettings.collect { s ->
+                    binding.switchCloudAnalysisEnabled.setOnCheckedChangeListener(null)
+                    if (binding.switchCloudAnalysisEnabled.isChecked != s.enabled) {
+                        binding.switchCloudAnalysisEnabled.isChecked = s.enabled
+                    }
+                    val url = s.endpointUrl
+                    if (binding.inputCloudEndpoint.text?.toString() != url) {
+                        binding.inputCloudEndpoint.setText(url)
+                    }
+                    binding.textCloudApiKeySaved.visibility =
+                        if (s.hasApiKey) View.VISIBLE else View.GONE
+                }
+            }
+        }
+        binding.btnCloudAnalysisSave.setOnClickListener {
+            val keyText = binding.inputCloudApiKey.text?.toString()?.trim().orEmpty()
+            viewModel.saveCloudAnalysis(
+                enabled = binding.switchCloudAnalysisEnabled.isChecked,
+                endpointUrl = binding.inputCloudEndpoint.text?.toString().orEmpty(),
+                newApiKeyIfNonBlank = keyText.ifBlank { null },
+            )
+            binding.inputCloudApiKey.text?.clear()
+        }
+        binding.btnCloudUploadJson.setOnClickListener {
+            MaterialAlertDialogBuilder(requireContext())
+                .setMessage(R.string.settings_cloud_upload_json_confirm)
+                .setPositiveButton(R.string.settings_cloud_btn_upload_json) { _, _ ->
+                    viewModel.uploadCloudAnalyticsJson()
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
+        binding.btnCloudUploadSqlite.setOnClickListener {
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.settings_cloud_upload_db_confirm_title)
+                .setMessage(R.string.settings_cloud_upload_db_confirm_message)
+                .setPositiveButton(R.string.settings_cloud_btn_upload_db) { _, _ ->
+                    viewModel.uploadCloudSqliteDatabase()
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
     }
 
     private fun updateInferenceSectionVisibility() {

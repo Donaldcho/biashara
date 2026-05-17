@@ -35,3 +35,6 @@ keystore.properties
 
 # Personal documents that happen to live in this folder
 Donald_Cho_Resume.pdf
+
+# Local reference clone (Google AI Edge Gallery source) — not part of app releases
+_gallery_ref/

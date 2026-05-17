@@ -12,19 +12,25 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import com.biasharaai.ai.LabelProductEnricher
 import com.biasharaai.databinding.FragmentLabelScannerBinding
 import com.biasharaai.ui.base.BaseFragment
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import javax.inject.Inject
 
 /**
  * Full-screen CameraX + ML Kit text-recognition scanner.
  *
  * Mirrors [BarcodeScannerFragment] but captures plain text from a product label / sign /
- * receipt. On a stable detection, returns the recognized text to the previous back-stack
- * entry via [androidx.lifecycle.SavedStateHandle] under the key [RESULT_KEY], then pops.
+ * receipt. On a stable detection, runs **Gemma** (when the model is available) to suggest
+ * **description** and **category** from the OCR text, then returns **name** ([RESULT_KEY]),
+ * optional description ([RESULT_DESCRIPTION_KEY]), and optional category ([RESULT_CATEGORY_KEY])
+ * to the previous back-stack entry via [androidx.lifecycle.SavedStateHandle], then pops.
  *
  * All processing is on-device — no internet required.
  */
@@ -33,6 +39,9 @@ class LabelScannerFragment : BaseFragment() {
 
     private var _binding: FragmentLabelScannerBinding? = null
     private val binding get() = _binding!!
+
+    @Inject
+    lateinit var labelProductEnricher: LabelProductEnricher
 
     private lateinit var cameraExecutor: ExecutorService
     private var textAnalyzer: TextAnalyzer? = null
@@ -104,14 +113,20 @@ class LabelScannerFragment : BaseFragment() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
         cameraProviderFuture.addListener(
             {
-                val provider = cameraProviderFuture.get()
-                bindCameraUseCases(provider)
+                if (_binding == null) return@addListener
+                try {
+                    val provider = cameraProviderFuture.get()
+                    bindCameraUseCases(provider)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Camera provider failed", e)
+                }
             },
             ContextCompat.getMainExecutor(requireContext()),
         )
     }
 
     private fun bindCameraUseCases(cameraProvider: ProcessCameraProvider) {
+        val binding = _binding ?: return
         val preview = Preview.Builder()
             .build()
             .also { it.surfaceProvider = binding.previewView.surfaceProvider }
@@ -140,10 +155,25 @@ class LabelScannerFragment : BaseFragment() {
     private fun handleTextResult(text: String) {
         val firstLine = text.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() }
             ?: text.trim()
-        findNavController().previousBackStackEntry
-            ?.savedStateHandle
-            ?.set(RESULT_KEY, firstLine)
-        findNavController().navigateUp()
+        val binding = _binding ?: return
+        binding.progressEnrichment.visibility = View.VISIBLE
+        binding.fabClose.isEnabled = false
+        viewLifecycleOwner.lifecycleScope.launch {
+            val enrichment = labelProductEnricher.enrich(productName = firstLine, fullOcrText = text)
+            val prev = findNavController().previousBackStackEntry?.savedStateHandle
+            if (prev != null) {
+                prev.set(RESULT_KEY, firstLine)
+                enrichment.description?.let { prev.set(RESULT_DESCRIPTION_KEY, it) }
+                enrichment.category?.let { prev.set(RESULT_CATEGORY_KEY, it) }
+            }
+            if (isAdded) {
+                _binding?.let { b ->
+                    b.progressEnrichment.visibility = View.GONE
+                    b.fabClose.isEnabled = true
+                }
+                findNavController().navigateUp()
+            }
+        }
     }
 
     companion object {
@@ -151,5 +181,11 @@ class LabelScannerFragment : BaseFragment() {
 
         /** SavedStateHandle key under which the recognized text is delivered to the previous fragment. */
         const val RESULT_KEY = "scanned_label_text"
+
+        /** Gemma-suggested one-line inventory description (optional). */
+        const val RESULT_DESCRIPTION_KEY = "scanned_label_description"
+
+        /** Gemma-suggested shelf category in English (optional). */
+        const val RESULT_CATEGORY_KEY = "scanned_label_category"
     }
 }

@@ -1,20 +1,37 @@
 package com.biasharaai.ui.inventory
 
 import android.os.Bundle
+import android.text.InputType
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
+import android.widget.FrameLayout
+import androidx.appcompat.widget.PopupMenu
 import androidx.core.os.bundleOf
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.biasharaai.R
+import com.biasharaai.ai.CapabilityTier
+import com.biasharaai.data.local.db.Product
 import com.biasharaai.databinding.FragmentInventoryListBinding
+import com.biasharaai.money.MoneyFormatter
+import com.biasharaai.pos.cart.CartRepository
 import com.biasharaai.ui.base.BaseFragment
+import com.biasharaai.ui.negotiation.NegotiationViewModel
+import com.biasharaai.ui.negotiation.showNegotiationTierBlockedDialogIfNeeded
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class InventoryListFragment : BaseFragment() {
@@ -23,6 +40,16 @@ class InventoryListFragment : BaseFragment() {
     private val binding get() = _binding!!
 
     private val viewModel: InventoryListViewModel by viewModels()
+    private val negotiationViewModel: NegotiationViewModel by activityViewModels()
+
+    @Inject
+    lateinit var capabilityTier: CapabilityTier
+
+    @Inject
+    lateinit var moneyFormatter: MoneyFormatter
+
+    @Inject
+    lateinit var cartRepository: CartRepository
 
     private lateinit var productAdapter: ProductAdapter
 
@@ -44,14 +71,105 @@ class InventoryListFragment : BaseFragment() {
     }
 
     private fun setupRecyclerView() {
-        productAdapter = ProductAdapter { product ->
-            // Navigate to AddEditProductFragment for editing (defined in a future prompt)
-            findNavController().navigate(
-                R.id.action_inventoryListFragment_to_addEditProductFragment,
-                bundleOf(ARG_PRODUCT_ID to product.id),
-            )
-        }
+        productAdapter = ProductAdapter(
+            moneyFormatter = moneyFormatter,
+            onItemClick = { product ->
+                findNavController().navigate(
+                    R.id.action_inventoryListFragment_to_addEditProductFragment,
+                    bundleOf(ARG_PRODUCT_ID to product.id),
+                )
+            },
+            onItemLongClick = { product, anchor ->
+                PopupMenu(requireContext(), anchor).apply {
+                    menuInflater.inflate(R.menu.menu_inventory_product_context, menu)
+                    setOnMenuItemClickListener { item ->
+                        when (item.itemId) {
+                            R.id.action_edit_product -> {
+                                findNavController().navigate(
+                                    R.id.action_inventoryListFragment_to_addEditProductFragment,
+                                    bundleOf(ARG_PRODUCT_ID to product.id),
+                                )
+                                true
+                            }
+                            R.id.action_remove_stock -> {
+                                showRemoveStockDialog(product)
+                                true
+                            }
+                            R.id.action_delete_product -> {
+                                showDeleteProductDialog(product)
+                                true
+                            }
+                            else -> false
+                        }
+                    }
+                }.show()
+                true
+            },
+        )
         binding.recyclerProducts.adapter = productAdapter
+        val span = resources.getInteger(R.integer.inventory_catalog_span)
+        binding.recyclerProducts.layoutManager =
+            StaggeredGridLayoutManager(
+                span,
+                StaggeredGridLayoutManager.VERTICAL,
+            ).apply {
+                gapStrategy =
+                    StaggeredGridLayoutManager.GAP_HANDLING_MOVE_ITEMS_BETWEEN_SPANS
+            }
+    }
+
+    private fun showRemoveStockDialog(product: Product) {
+        val input = EditText(requireContext()).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER
+            hint = getString(R.string.inventory_remove_stock_hint)
+        }
+        val pad = resources.getDimensionPixelSize(R.dimen.pos_dialog_padding)
+        val wrap = FrameLayout(requireContext()).apply {
+            setPadding(pad, pad, pad, 0)
+            addView(input)
+        }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(getString(R.string.inventory_remove_stock_title, product.name))
+            .setView(wrap)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.inventory_remove_stock_apply) { _, _ ->
+                val qty = input.text?.toString()?.trim()?.toIntOrNull() ?: 0
+                viewLifecycleOwner.lifecycleScope.launch {
+                    try {
+                        viewModel.removeStockUnits(product.id, qty)
+                        Snackbar.make(
+                            binding.root,
+                            R.string.inventory_removed_stock_snackbar,
+                            Snackbar.LENGTH_SHORT,
+                        ).show()
+                    } catch (e: Exception) {
+                        Snackbar.make(
+                            binding.root,
+                            getString(R.string.inventory_action_failed, e.message ?: ""),
+                            Snackbar.LENGTH_LONG,
+                        ).show()
+                    }
+                }
+            }
+            .show()
+    }
+
+    private fun showDeleteProductDialog(product: Product) {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.inventory_delete_product_title)
+            .setMessage(getString(R.string.inventory_delete_product_message, product.name))
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.inventory_delete_confirm) { _, _ ->
+                viewLifecycleOwner.lifecycleScope.launch {
+                    viewModel.deleteProduct(product)
+                    Snackbar.make(
+                        binding.root,
+                        R.string.inventory_deleted_product_snackbar,
+                        Snackbar.LENGTH_SHORT,
+                    ).show()
+                }
+            }
+            .show()
     }
 
     private fun setupToolbar() {
@@ -67,20 +185,69 @@ class InventoryListFragment : BaseFragment() {
                     )
                     true
                 }
+                R.id.action_inventory_prepare_supplier_visit -> {
+                    if (showNegotiationTierBlockedDialogIfNeeded(capabilityTier)) {
+                        true
+                    } else {
+                        negotiationViewModel.resetScriptOutput()
+                        findNavController().navigate(
+                            R.id.action_inventoryListFragment_to_supplierNegotiationFragment,
+                        )
+                        true
+                    }
+                }
                 else -> false
             }
         }
     }
 
+    private var speedDialOpen: Boolean = false
+
     private fun setupFab() {
-        binding.fabAddProduct.setOnClickListener {
-            // Navigate to AddEditProductFragment for creating a new product.
-            // Passing 0L signals "new product" to the destination.
+        binding.fabMain.shrink()
+        binding.fabMain.setOnClickListener {
+            speedDialOpen = !speedDialOpen
+            if (speedDialOpen) openSpeedDial() else closeSpeedDial()
+        }
+        binding.fabAddManual.setOnClickListener {
+            closeSpeedDial()
             findNavController().navigate(
                 R.id.action_inventoryListFragment_to_addEditProductFragment,
                 bundleOf(ARG_PRODUCT_ID to 0L),
             )
         }
+        binding.fabScanBarcode.setOnClickListener {
+            closeSpeedDial()
+            findNavController().navigate(
+                R.id.action_inventoryListFragment_to_barcodeScannerFragment,
+                bundleOf("scan_mode" to "SCAN_FOR_LOOKUP"),
+            )
+        }
+        binding.fabScanReceipt.setOnClickListener {
+            closeSpeedDial()
+            findNavController().navigate(
+                R.id.action_inventoryListFragment_to_receiptScanFragment,
+            )
+        }
+    }
+
+    private fun openSpeedDial() {
+        binding.fabScanReceipt.visibility = View.VISIBLE
+        binding.fabScanBarcode.visibility = View.VISIBLE
+        binding.fabAddManual.visibility = View.VISIBLE
+        binding.fabMain.setIconResource(R.drawable.ic_close)
+        binding.fabMain.contentDescription = getString(R.string.inventory_fab_close_desc)
+        binding.fabMain.shrink()
+    }
+
+    private fun closeSpeedDial() {
+        speedDialOpen = false
+        binding.fabScanReceipt.visibility = View.GONE
+        binding.fabScanBarcode.visibility = View.GONE
+        binding.fabAddManual.visibility = View.GONE
+        binding.fabMain.setIconResource(R.drawable.ic_add)
+        binding.fabMain.contentDescription = getString(R.string.inventory_fab_expand_desc)
+        binding.fabMain.shrink()
     }
 
     private fun observeProducts() {
@@ -100,6 +267,16 @@ class InventoryListFragment : BaseFragment() {
                     viewModel.forecasts.collect { forecastMap ->
                         productAdapter.submitForecasts(forecastMap)
                     }
+                }
+                launch {
+                    cartRepository.activeSettings
+                        .map { it?.currencyCode }
+                        .distinctUntilChanged()
+                        .collect {
+                            if (::productAdapter.isInitialized && productAdapter.itemCount > 0) {
+                                productAdapter.notifyDataSetChanged()
+                            }
+                        }
                 }
             }
         }

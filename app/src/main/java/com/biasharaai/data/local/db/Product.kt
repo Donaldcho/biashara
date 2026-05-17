@@ -10,6 +10,7 @@ import androidx.room.PrimaryKey
     indices = [
         Index(value = ["barcode_value"]),
         Index(value = ["category"]),
+        Index(value = ["stock_quantity"]),
     ],
 )
 data class Product(
@@ -22,4 +23,6 @@ data class Product(
     val category: String? = null,
     @ColumnInfo(name = "barcode_value") val barcodeValue: String? = null,
     @ColumnInfo(name = "image_url") val imageUrl: String? = null,
+    /** Phase 4a — Prompt A1: last stock check epoch ms for Stock Guardian (0 = never). */
+    @ColumnInfo(name = "last_stock_check_at") val lastStockCheckAt: Long = 0L,
 )

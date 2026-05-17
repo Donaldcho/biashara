@@ -3,7 +3,9 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/homeFragment">
+    app:startDestination="@id/agentFeedFragment">
+
+    <!-- Prompt U8: WhatsApp / SEND text → OrderParserActivity; receipt opens via MainActivity.EXTRA_OPEN_RECEIPT_TRANSACTION_ID -->
 
     <fragment
         android:id="@+id/languageSelectionFragment"
@@ -12,10 +14,31 @@
         tools:layout="@layout/fragment_language_selection" />
 
     <fragment
-        android:id="@+id/homeFragment"
-        android:name="com.biasharaai.ui.home.HomeFragment"
+        android:id="@+id/agentFeedFragment"
+        android:name="com.biasharaai.ui.agent.AgentFeedFragment"
         android:label="@string/nav_home"
-        tools:layout="@layout/fragment_home" />
+        tools:layout="@layout/fragment_agent_feed">
+
+        <action
+            android:id="@+id/action_agentFeedFragment_to_supplierNegotiationFragment"
+            app:destination="@id/supplierNegotiationFragment" />
+
+        <action
+            android:id="@+id/action_agentFeedFragment_to_insightsFragment"
+            app:destination="@id/insightsFragment" />
+
+        <action
+            android:id="@+id/action_agentFeedFragment_to_addEditProductFragment"
+            app:destination="@id/addEditProductFragment" />
+
+        <action
+            android:id="@+id/action_agentFeedFragment_to_receiptFragment"
+            app:destination="@id/receiptFragment" />
+
+        <action
+            android:id="@+id/action_agentFeedFragment_to_chatFragment"
+            app:destination="@id/chatFragment" />
+    </fragment>
 
     <fragment
         android:id="@+id/inventoryListFragment"
@@ -31,6 +54,42 @@
             android:id="@+id/action_inventoryListFragment_to_barcodeScannerFragment"
             app:destination="@id/barcodeScannerFragment" />
 
+        <action
+            android:id="@+id/action_inventoryListFragment_to_receiptScanFragment"
+            app:destination="@id/receiptScanFragment" />
+
+        <action
+            android:id="@+id/action_inventoryListFragment_to_supplierNegotiationFragment"
+            app:destination="@id/supplierNegotiationFragment" />
+
+    </fragment>
+
+    <fragment
+        android:id="@+id/receiptScanFragment"
+        android:name="com.biasharaai.ui.inventory.ReceiptScanFragment"
+        android:label="@string/receipt_scan_title"
+        tools:layout="@layout/fragment_receipt_scan">
+
+        <action
+            android:id="@+id/action_receiptScanFragment_to_receiptReviewFragment"
+            app:destination="@id/receiptReviewFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/receiptReviewFragment"
+        android:name="com.biasharaai.ui.inventory.ReceiptReviewFragment"
+        android:label="@string/receipt_review_title"
+        tools:layout="@layout/fragment_receipt_review">
+
+        <argument
+            android:name="lines_json"
+            app:argType="string"
+            android:defaultValue="" />
+
+        <argument
+            android:name="fallback_mode"
+            app:argType="boolean"
+            android:defaultValue="false" />
     </fragment>
 
     <!-- AddEditProductFragment (Prompt 5) -->
@@ -77,6 +136,11 @@
             app:argType="string"
             android:defaultValue="SCAN_FOR_LOOKUP" />
 
+        <argument
+            android:name="return_barcode_to_pos"
+            app:argType="boolean"
+            android:defaultValue="false" />
+
         <action
             android:id="@+id/action_barcodeScannerFragment_to_addEditProductFragment"
             app:destination="@id/addEditProductFragment" />
@@ -87,18 +151,312 @@
         android:id="@+id/chatFragment"
         android:name="com.biasharaai.ui.chat.ChatFragment"
         android:label="@string/nav_chat"
-        tools:layout="@layout/fragment_chat" />
+        tools:layout="@layout/fragment_chat">
+
+        <action
+            android:id="@+id/action_chatFragment_to_chatHistoryFragment"
+            app:destination="@id/chatHistoryFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/chatHistoryFragment"
+        android:name="com.biasharaai.ui.chat.ChatHistoryFragment"
+        android:label="@string/chat_history_title"
+        tools:layout="@layout/fragment_chat_history" />
 
     <fragment
         android:id="@+id/insightsFragment"
         android:name="com.biasharaai.ui.insights.CashFlowInsightsFragment"
         android:label="@string/nav_insights"
-        tools:layout="@layout/fragment_cash_flow_insights" />
+        tools:layout="@layout/fragment_cash_flow_insights">
+        <argument
+            android:name="initialTab"
+            android:defaultValue="0"
+            app:argType="integer" />
+
+        <action
+            android:id="@+id/action_insightsFragment_to_transactionHistoryFragment"
+            app:destination="@id/transactionHistoryFragment" />
+
+        <action
+            android:id="@+id/action_insightsFragment_to_manualLedgerEntryFragment"
+            app:destination="@id/manualLedgerEntryFragment" />
+
+        <action
+            android:id="@+id/action_insightsFragment_to_cashCountFragment"
+            app:destination="@id/cashCountFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/manualLedgerEntryFragment"
+        android:name="com.biasharaai.ui.ledger.ManualLedgerEntryFragment"
+        android:label="@string/ledger_manual_title"
+        tools:layout="@layout/fragment_manual_ledger_entry" />
+
+    <fragment
+        android:id="@+id/cashCountFragment"
+        android:name="com.biasharaai.ui.ledger.CashCountFragment"
+        android:label="@string/ledger_cash_count_title"
+        tools:layout="@layout/fragment_cash_count" />
+
+    <fragment
+        android:id="@+id/posFragment"
+        android:name="com.biasharaai.ui.pos.PosFragment"
+        android:label="@string/pos_title"
+        tools:layout="@layout/fragment_pos">
+
+        <action
+            android:id="@+id/action_posFragment_to_barcodeScannerFragment"
+            app:destination="@id/barcodeScannerFragment" />
+
+        <action
+            android:id="@+id/action_posFragment_to_paymentDialogFragment"
+            app:destination="@id/paymentDialogFragment" />
+
+        <action
+            android:id="@+id/action_posFragment_to_transactionHistoryFragment"
+            app:destination="@id/transactionHistoryFragment" />
+
+        <action
+            android:id="@+id/action_posFragment_to_endOfDayFragment"
+            app:destination="@id/endOfDayFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/endOfDayFragment"
+        android:name="com.biasharaai.ui.pos.EndOfDayFragment"
+        android:label="@string/end_of_day_title"
+        tools:layout="@layout/fragment_end_of_day" />
+
+    <fragment
+        android:id="@+id/transactionHistoryFragment"
+        android:name="com.biasharaai.ui.pos.TransactionHistoryFragment"
+        android:label="@string/transactions_title"
+        tools:layout="@layout/fragment_transaction_history">
+
+        <action
+            android:id="@+id/action_transactionHistoryFragment_to_receiptFragment"
+            app:destination="@id/receiptFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/receiptFragment"
+        android:name="com.biasharaai.ui.pos.ReceiptFragment"
+        android:label="@string/receipt_title"
+        tools:layout="@layout/fragment_receipt">
+
+        <argument
+            android:name="transaction_id"
+            app:argType="long" />
+
+        <action
+            android:id="@+id/action_receiptFragment_to_returnFragment"
+            app:destination="@id/returnFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/returnFragment"
+        android:name="com.biasharaai.ui.pos.ReturnFragment"
+        android:label="@string/return_title"
+        tools:layout="@layout/fragment_return">
+
+        <argument
+            android:name="transaction_id"
+            app:argType="long" />
+    </fragment>
+
+    <dialog
+        android:id="@+id/paymentDialogFragment"
+        android:name="com.biasharaai.ui.pos.PaymentDialogFragment"
+        android:label="@string/payment_dialog_title"
+        tools:layout="@layout/fragment_payment_dialog">
+
+        <action
+            android:id="@+id/action_paymentDialogFragment_to_receiptFragment"
+            app:destination="@id/receiptFragment"
+            app:popUpTo="@id/posFragment"
+            app:popUpToInclusive="false" />
+    </dialog>
+
+    <fragment
+        android:id="@+id/supplierNegotiationFragment"
+        android:name="com.biasharaai.ui.negotiation.SupplierNegotiationFragment"
+        android:label="@string/negotiation_supplier_title"
+        tools:layout="@layout/fragment_supplier_negotiation">
+
+        <action
+            android:id="@+id/action_supplierNegotiationFragment_to_negotiationGuideFragment"
+            app:destination="@id/negotiationGuideFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/negotiationGuideFragment"
+        android:name="com.biasharaai.ui.negotiation.NegotiationGuideFragment"
+        android:label="@string/negotiation_guide_title"
+        tools:layout="@layout/fragment_negotiation_guide" />
 
     <fragment
         android:id="@+id/settingsFragment"
         android:name="com.biasharaai.ui.settings.SettingsFragment"
         android:label="@string/nav_settings"
-        tools:layout="@layout/fragment_settings" />
+        tools:layout="@layout/fragment_settings">
+
+        <action
+            android:id="@+id/action_settingsFragment_to_agentSettingsFragment"
+            app:destination="@id/agentSettingsFragment" />
+
+        <action
+            android:id="@+id/action_settingsFragment_to_modelSettingsFragment"
+            app:destination="@id/modelSettingsFragment" />
+
+        <action
+            android:id="@+id/action_settingsFragment_to_voiceSettingsFragment"
+            app:destination="@id/voiceSettingsFragment" />
+
+        <action
+            android:id="@+id/action_settingsFragment_to_insightsFragment"
+            app:destination="@id/insightsFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/voiceSettingsFragment"
+        android:name="com.biasharaai.ui.settings.VoiceSettingsFragment"
+        android:label="@string/voice_settings_title"
+        tools:layout="@layout/fragment_voice_settings" />
+
+    <fragment
+        android:id="@+id/modelSettingsFragment"
+        android:name="com.biasharaai.ui.settings.ModelSettingsFragment"
+        android:label="@string/model_settings_title"
+        tools:layout="@layout/fragment_model_settings" />
+
+    <fragment
+        android:id="@+id/agentSettingsFragment"
+        android:name="com.biasharaai.ui.settings.AgentSettingsFragment"
+        android:label="@string/agent_settings_title"
+        tools:layout="@layout/fragment_agent_settings" />
+
+    <!-- Phase 7 K10: Micro-lesson player -->
+    <fragment
+        android:id="@+id/lessonFragment"
+        android:name="com.biasharaai.ui.knowledge.LessonFragment"
+        android:label="@string/lesson_title_placeholder"
+        tools:layout="@layout/fragment_lesson">
+        <argument
+            android:name="lessonId"
+            app:argType="string" />
+    </fragment>
+
+    <!-- Deep links / intents: safe to call from any destination without an IllegalArgumentException. -->
+    <action
+        android:id="@+id/action_global_open_lesson"
+        app:destination="@id/lessonFragment" />
+
+    <action
+        android:id="@+id/action_global_open_ledger"
+        app:destination="@id/insightsFragment" />
+
+    <action
+        android:id="@+id/action_global_cash_scan"
+        app:destination="@id/cashScanFragment" />
+
+    <action
+        android:id="@+id/action_global_manual_entry"
+        app:destination="@id/manualEntryFragment" />
+
+    <action
+        android:id="@+id/action_global_sms_import"
+        app:destination="@id/smsImportFragment" />
+
+    <action
+        android:id="@+id/action_global_open_receipt"
+        app:destination="@id/receiptFragment" />
+
+    <action
+        android:id="@+id/action_global_qr_generator"
+        app:destination="@id/qrCardGeneratorFragment" />
+
+    <!-- Phase C: Cash Movement Capture -->
+
+    <fragment
+        android:id="@+id/cashScanFragment"
+        android:name="com.biasharaai.ui.cash.CashScanFragment"
+        android:label="@string/cash_evidence_title"
+        tools:layout="@layout/fragment_cash_scan">
+
+        <argument
+            android:name="direction"
+            app:argType="string"
+            android:defaultValue="MONEY_IN" />
+
+        <action
+            android:id="@+id/action_cashScanFragment_to_confirmationFragment"
+            app:destination="@id/confirmationFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/confirmationFragment"
+        android:name="com.biasharaai.ui.cash.ConfirmationFragment"
+        android:label="@string/cash_confirm_title"
+        tools:layout="@layout/fragment_confirmation">
+
+        <argument
+            android:name="direction"
+            app:argType="string"
+            android:defaultValue="MONEY_IN" />
+        <argument
+            android:name="parsed_amount"
+            app:argType="string"
+            android:defaultValue="" />
+        <argument
+            android:name="parsed_reference"
+            app:argType="string"
+            android:defaultValue="" />
+        <argument
+            android:name="parsed_counterparty"
+            app:argType="string"
+            android:defaultValue="" />
+        <argument
+            android:name="raw_text"
+            app:argType="string"
+            android:defaultValue="" />
+        <argument
+            android:name="proof_type"
+            app:argType="string"
+            android:defaultValue="UNKNOWN" />
+        <argument
+            android:name="confidence"
+            app:argType="float"
+            android:defaultValue="0.0" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/manualEntryFragment"
+        android:name="com.biasharaai.ui.cash.ManualEntryFragment"
+        android:label="@string/cash_manual_title"
+        tools:layout="@layout/fragment_manual_entry">
+
+        <argument
+            android:name="direction"
+            app:argType="string"
+            android:defaultValue="MONEY_IN" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/smsImportFragment"
+        android:name="com.biasharaai.ui.cash.SmsImportFragment"
+        android:label="@string/cash_sms_import_title"
+        tools:layout="@layout/fragment_sms_import">
+
+        <action
+            android:id="@+id/action_smsImportFragment_to_confirmationFragment"
+            app:destination="@id/confirmationFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/qrCardGeneratorFragment"
+        android:name="com.biasharaai.ui.cash.QrCardGeneratorFragment"
+        android:label="@string/qr_generator_title"
+        tools:layout="@layout/fragment_qr_card_generator" />
 
 </navigation>

@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Concept outer-frame feel: deep forest night -->
+    <style name="Base.Theme.BiasharaAI" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:colorBackground">@color/biashara_night_bg</item>
+        <item name="android:windowBackground">@color/biashara_night_bg</item>
+        <item name="android:statusBarColor">@color/biashara_night_bg</item>
+        <item name="android:navigationBarColor">@color/biashara_night_surface</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">false</item>
+
+        <item name="android:textColorPrimary">@color/biashara_night_text_primary</item>
+        <item name="android:textColorSecondary">@color/biashara_night_text_secondary</item>
+        <item name="android:fontFamily">sans-serif</item>
+
+        <item name="colorPrimary">@color/biashara_blue_light</item>
+        <item name="colorOnPrimary">@color/biashara_night_bg</item>
+        <item name="colorPrimaryContainer">@color/biashara_forest_dark</item>
+        <item name="colorOnPrimaryContainer">@color/biashara_blue_light</item>
+
+        <item name="colorSecondary">@color/biashara_sage</item>
+        <item name="colorOnSecondary">@color/biashara_forest_dark</item>
+        <item name="colorSecondaryContainer">@color/biashara_forest</item>
+        <item name="colorOnSecondaryContainer">@color/biashara_warm</item>
+
+        <item name="colorTertiary">@color/biashara_amber</item>
+        <item name="colorOnTertiary">@color/biashara_surface_bright</item>
+        <item name="colorTertiaryContainer">@color/biashara_ink</item>
+        <item name="colorOnTertiaryContainer">@color/biashara_amber_light</item>
+
+        <item name="colorError">@color/biashara_red</item>
+        <item name="colorOnError">@color/biashara_surface_bright</item>
+        <item name="colorErrorContainer">#5C1A1A</item>
+        <item name="colorOnErrorContainer">@color/biashara_red_light</item>
+
+        <item name="colorSurface">@color/biashara_night_surface</item>
+        <item name="colorOnSurface">@color/biashara_night_text_primary</item>
+        <item name="colorSurfaceVariant">@color/biashara_night_elevated</item>
+        <item name="colorOnSurfaceVariant">@color/biashara_night_text_secondary</item>
+
+        <item name="colorSurfaceContainerLowest">@color/biashara_night_bg</item>
+        <item name="colorSurfaceContainerLow">@color/biashara_night_surface</item>
+        <item name="colorSurfaceContainer">@color/biashara_night_elevated</item>
+        <item name="colorSurfaceContainerHigh">@color/biashara_night_elevated</item>
+        <item name="colorSurfaceContainerHighest">@color/biashara_ink</item>
+
+        <item name="colorOutline">#3D4A42</item>
+        <item name="colorOutlineVariant">#2A3530</item>
+
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.Biashara.SmallComponent</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Biashara.MediumComponent</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Biashara.LargeComponent</item>
+
+        <item name="textAppearanceDisplaySmall">@style/TextAppearance.Biashara.DisplaySmall</item>
+        <item name="textAppearanceHeadlineMedium">@style/TextAppearance.Biashara.HeadlineMedium</item>
+        <item name="textAppearanceHeadlineSmall">@style/TextAppearance.Biashara.HeadlineSmall</item>
+        <item name="textAppearanceTitleLarge">@style/TextAppearance.Biashara.TitleLarge</item>
+        <item name="textAppearanceTitleMedium">@style/TextAppearance.Biashara.TitleMedium</item>
+        <item name="textAppearanceTitleSmall">@style/TextAppearance.Biashara.TitleSmall</item>
+        <item name="textAppearanceBodyLarge">@style/TextAppearance.Biashara.BodyLarge</item>
+        <item name="textAppearanceBodyMedium">@style/TextAppearance.Biashara.BodyMedium</item>
+        <item name="textAppearanceBodySmall">@style/TextAppearance.Biashara.BodySmall</item>
+        <item name="textAppearanceLabelLarge">@style/TextAppearance.Biashara.LabelLarge</item>
+        <item name="textAppearanceLabelMedium">@style/TextAppearance.Biashara.LabelMedium</item>
+
+        <item name="toolbarStyle">@style/Widget.Biashara.Toolbar</item>
+        <item name="actionBarTheme">@style/ThemeOverlay.Biashara.ActionBar.Night</item>
+
+        <item name="materialCardViewStyle">@style/Widget.Biashara.CardView</item>
+        <item name="bottomNavigationStyle">@style/Widget.Biashara.BottomNavigationView.Night</item>
+        <item name="extendedFloatingActionButtonPrimaryStyle">@style/Widget.Biashara.ExtendedFloatingActionButton.Primary</item>
+    </style>
+
+    <style name="Theme.BiasharaAI" parent="Base.Theme.BiasharaAI" />
+
+    <style name="Theme.BiasharaAI.FullScreenPaymentDialog" parent="Theme.BiasharaAI">
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:windowBackground">?attr/colorSurface</item>
+    </style>
+
+    <style name="Widget.Biashara.BottomNavigationView.Night" parent="Widget.Material3.BottomNavigationView">
+        <item name="android:background">@color/biashara_night_surface</item>
+        <item name="elevation">8dp</item>
+        <item name="itemActiveIndicatorStyle">@style/Widget.Biashara.BottomNavigationView.ActiveIndicator.Night</item>
+        <item name="itemIconTint">@color/biashara_bottom_nav_icon_night</item>
+        <item name="itemTextColor">@color/biashara_bottom_nav_text_night</item>
+        <item name="itemRippleColor">#33A8E6C3</item>
+    </style>
+
+    <style name="Widget.Biashara.BottomNavigationView.ActiveIndicator.Night" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+        <item name="android:color">@color/biashara_forest</item>
+    </style>
+</resources>

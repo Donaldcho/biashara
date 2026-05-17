@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">BiasharaAI</string>
 
-    <string name="nav_home">Ilé</string>
+    <string name="nav_home">Ọjọ́ ọní</string>
     <string name="nav_inventory">Àkọ̀ọ́</string>
     <string name="nav_chat">Ìfọ̀rọ̀wérọ̀</string>
     <string name="nav_insights">Àyẹ̀wò</string>
@@ -80,6 +80,17 @@
     <string name="settings_delete_confirm_title">Pa àwòṣe run?</string>
     <string name="settings_delete_confirm_message">Àwọn ẹ̀yà AI kò ní sí títí a ó fi tún gbà àwòṣe.</string>
     <string name="settings_download_complete">A ti gbà àwòṣe ní àṣeyọrí</string>
+    <string name="model_settings_title">Àwọn Àwòṣe AI</string>
+    <string name="settings_btn_manage_models">Ṣàkóso àwọn àwòṣe AI</string>
+    <string name="model_settings_info">Gbà, ṣàyẹ̀wò, tàbí yí àwòṣe AI padà.</string>
+    <string name="model_settings_chip_primary">Àkọ́kọ́</string>
+    <string name="model_settings_btn_set_primary">Ṣètọ bí àkọ́kọ́</string>
+    <string name="model_settings_btn_benchmark">Ṣàyẹ̀wò ìyára</string>
+    <string name="model_settings_benchmarking">Ń ṣàyẹ̀wò ìyára…</string>
+    <string name="model_settings_benchmark_done">Àyẹ̀wò parí: %1$s t/s</string>
+    <string name="model_settings_benchmark_failed">Àyẹ̀wò kùnà</string>
+    <string name="model_settings_primary_changed">Àwòṣe àkọ́kọ́ ti yí padà</string>
+    <string name="model_settings_progress_detail">%1$d MB / %2$d MB · %3$d%%</string>
     <string name="settings_download_failed">Ìgbà kùnà: %1$s</string>
     <string name="settings_section_about">Nípa</string>
     <string name="settings_app_version">Ẹ̀dà %1$s</string>
@@ -91,6 +102,13 @@
     <string name="voice_recording">Ó ń gbà sílẹ̀… Sọ̀rọ̀ báyìí.</string>
     <string name="voice_transcription_failed">Kò lè kọ ohùn sílẹ̀. Jọ̀wọ́ tún gbìyànjú.</string>
     <string name="voice_permission_denied">Ìyọ̀nda àṣẹ̀ maikíròfónù ni a nílò fún ìgbàrò ohùn.</string>
+    <string name="voice_ui_mic_idle">Ìgbàrò ohùn</string>
+    <string name="voice_ui_mic_listening">Ń gbọ́… sọ̀rọ̀ báyìí</string>
+    <string name="voice_ui_mic_processing">Ń ṣe àtúnpín ohùn…</string>
+    <string name="voice_ui_mic_error">Àṣìṣe ìgbàrò ohùn</string>
+    <string name="voice_ui_transcription_dismiss">Pa</string>
+    <string name="voice_ui_speak">Kí ka láti ohùn</string>
+    <string name="voice_ui_speak_stop">Dúró kíka</string>
 
     <!-- Cash Flow Insights (Prompt 9) -->
     <string name="insights_title">Ìṣàn Owó</string>
@@ -116,5 +134,65 @@
     <string name="chat_fallback_generic">Mo lè ràn ọ́ lọ́wọ́ nípa àkójọpọ̀, ètò owo, ìnáwó, àti ọjà oní kéré. Gbìyànjú láti béèrè nípa ọ̀kan nínú wọ̀nyí.</string>
     <string name="chat_error_generic">Má bínú, àṣìṣe kan ṣẹlẹ̀. Jọ̀wọ́ gbìyànjú lẹ́ẹ̀kan sí i.</string>
     <string name="chat_ai_timeout_with_summary">Ẹ̀rọ AI náà gbà àkókò jù. Àkọsílẹ̀ kúkúrú láti inú àwọn àkọọ́lẹ̀ rẹ:\n\n%1$s</string>
+
+    <string name="agent_feed_greeting_morning">Ẹ kú àárọ̀, %1$s</string>
+    <string name="agent_feed_greeting_afternoon">Ẹ kú ọ̀sán, %1$s</string>
+    <string name="agent_feed_greeting_evening">Ẹ kú alẹ́, %1$s</string>
+    <string name="agent_feed_attention_none">Gbogbo nǹkan ti tàn</string>
+    <string name="agent_feed_empty_illustration_cd">Gbogbo rere</string>
+    <string name="agent_feed_empty_message">Gbogbo nǹkan dára! Iṣẹ́ ọjà rẹ ń lọ dáadáa.</string>
+    <string name="agent_feed_listen_review">Gbọ́ àyẹ̀wò</string>
+    <string name="agent_action_review">Ṣe àyẹ̀wò</string>
+    <string name="agent_action_approve">Fọwọ́sí ✓</string>
+    <string name="agent_action_reject">Kọ̀ ✗</string>
+    <string name="agent_action_snooze">Fipamọ́ síwájú sí i</string>
+    <string name="agent_action_dismiss">Pa</string>
+    <string name="agent_action_view">Wo</string>
+    <string name="agent_action_execute_failed">Kò lè parí iṣẹ́ náà.</string>
+    <string name="agent_action_retry">Gbìyànjú lẹ́ẹ̀kan sí i</string>
+    <string name="agent_review_no_target">Kò sí ojú-ewe tí a sopọ̀ mọ́ iṣẹ́ náà.</string>
+    <plurals name="agent_feed_attention">
+        <item quantity="one">%d nǹkan nílò àkíyèsí rẹ</item>
+        <item quantity="other">%d nǹkan ńlá nílò àkíyèsí rẹ</item>
+    </plurals>
+
+    <string name="notification_channel_agent_alerts">Àwárí ọjà</string>
+    <string name="notification_channel_agent_alerts_desc">Ìránilétí láti ọ̀dọ̀ àwọn aṣáájú nípa àkójọpọ̀, ẹ̀tàn, àti owo-inú.</string>
+    <string name="settings_section_agents">Àwọn aṣáájú AI</string>
+    <string name="settings_agents_card_title">Iṣẹ́ aṣáájú</string>
+    <string name="settings_agents_card_body">Wo àkókò tí ẹnì kọ̀ọ̀kan ṣiṣẹ́ àti fà sílẹ̀ ọ̀nà láti rí àbájáde tuntun.</string>
+    <string name="settings_btn_agent_activity">Ṣí ìtàn iṣẹ́</string>
+    <string name="agent_settings_title">Ìtàn iṣẹ́ aṣáájú</string>
+    <string name="agent_settings_name_stock_guardian">Olùdáàbò àkójọpọ̀</string>
+    <string name="agent_settings_name_fraud_sentinel">Olùdáàbò ẹ̀tàn</string>
+    <string name="agent_settings_name_pricing_agent">Aṣáájú owó</string>
+    <string name="agent_settings_name_cash_flow">Olùdáàbò owo-inú</string>
+    <string name="agent_settings_name_customer_relation">Ìbáṣepọ̀ oníbàárà</string>
+    <string name="agent_settings_name_weekly_review">Àyẹ̀wò ọ̀sẹ̀</string>
+    <string name="agent_settings_name_opportunity_spotter">Olùwá anfàní</string>
+    <string name="agent_settings_last_run_never">Láìrí</string>
+    <string name="agent_settings_last_run_just_now">Nísinsìyí</string>
+    <string name="agent_settings_row_summary">Ìgbà tí a ṣe níkẹyìn: %1$s · %2$s</string>
+    <string name="agent_settings_history_empty">Kò sí àkọsílẹ̀ síbẹ̀yí. Ìṣẹ̀lẹ̀ tí a ṣètò yóò hàn níbí.</string>
+    <string name="agent_settings_history_line">%1$s · %2$s · %3$s</string>
+    <string name="agent_settings_duration_seconds">%1$dàákẹ́</string>
+    <string name="agent_settings_duration_minutes">%1$dìsẹ̀jú</string>
+    <string name="agent_settings_duration_hours">%1$d wákàtí</string>
+    <plurals name="agent_settings_minutes_ago">
+        <item quantity="one">%d ìsẹ̀jú sẹ́yìn</item>
+        <item quantity="other">%d àwọn ìsẹ̀jú sẹ́yìn</item>
+    </plurals>
+    <plurals name="agent_settings_hours_ago">
+        <item quantity="one">%d wákàtí sẹ́yìn</item>
+        <item quantity="other">%d àwọn wákàtí sẹ́yìn</item>
+    </plurals>
+    <plurals name="agent_settings_days_ago">
+        <item quantity="one">%d ọjọ́ sẹ́yìn</item>
+        <item quantity="other">%d àwọn ọjọ́ sẹ́yìn</item>
+    </plurals>
+    <plurals name="agent_settings_generated_actions">
+        <item quantity="one">A ṣẹ̀dá iṣẹ́ %d</item>
+        <item quantity="other">A ṣẹ̀dá àwọn iṣẹ́ %d</item>
+    </plurals>
 
 </resources>

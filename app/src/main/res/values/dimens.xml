@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <dimen name="screen_edge_padding">16dp</dimen>
+    <dimen name="pos_dialog_padding">24dp</dimen>
+    <!-- Modern business radii: crisp cards, softer bubbles, restrained hero surfaces. -->
+    <dimen name="biashara_corner_card">8dp</dimen>
+    <dimen name="biashara_corner_bubble">12dp</dimen>
+    <dimen name="biashara_corner_hero">16dp</dimen>
+    <dimen name="chat_composer_margin_h">14dp</dimen>
+    <dimen name="chat_composer_margin_bottom">12dp</dimen>
 </resources>

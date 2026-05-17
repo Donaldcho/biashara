@@ -1,19 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">BiasharaAI</string>
+    <string name="deviceterra_wordmark" translatable="false">DEVICETERRA</string>
+    <string name="splash_logo_content_description">Deviceterra logo</string>
 
-    <string name="nav_home">Home</string>
+    <string name="nav_home">Today</string>
     <string name="nav_inventory">Inventory</string>
     <string name="nav_chat">Chat</string>
     <string name="nav_insights">Insights</string>
+    <string name="nav_sales">Sales</string>
     <string name="nav_settings">Settings</string>
 
     <string name="home_welcome_title">Welcome to Biashara AI</string>
     <string name="home_welcome_subtitle">Your shop assistant — stock, sales, and insights in one place.</string>
     <string name="home_card_daily_summary_title">Today\'s summary</string>
-    <string name="home_card_daily_summary_placeholder">Daily totals and highlights will appear here.</string>
+    <string name="home_card_daily_summary_placeholder">See today\'s POS total at the top of Transactions (Insights → Transactions or Sales → history). For a full close-day summary, use Sales → menu → Close day.</string>
     <string name="home_card_low_stock_title">Low-stock alerts</string>
     <string name="home_card_low_stock_placeholder">Items running low will be listed here.</string>
+    <string name="home_loss_alerts_title">Loss prevention</string>
+    <string name="loss_alert_review">Review</string>
+    <string name="loss_alert_dismiss">Dismiss</string>
+    <string name="loss_alert_icon_cd">Loss alert</string>
 
     <string name="placeholder_screen_body">This screen is a placeholder for upcoming features.</string>
 
@@ -23,11 +30,30 @@
     <!-- Inventory Management (Prompt 4) -->
     <string name="inventory_action_scan">Scan barcode</string>
     <string name="inventory_fab_add_desc">Add new product</string>
-    <string name="inventory_empty">No products yet.\nTap + to add your first item.</string>
+    <string name="inventory_fab_expand_desc">Add or scan</string>
+    <string name="inventory_fab_close_desc">Close menu</string>
+    <string name="inventory_fab_add_manual">Add manually</string>
+    <string name="inventory_fab_scan_barcode">Scan barcode</string>
+    <string name="inventory_fab_scan_receipt">Scan receipt</string>
+    <string name="inventory_empty">No products yet.\nTap + to add, scan a barcode, or scan a receipt.</string>
     <string name="inventory_stock_format">Stock: %1$d</string>
+    <string name="inventory_catalog_stock">%1$d in stock</string>
+    <string name="inventory_product_thumb_cd">Product image</string>
     <string name="inventory_barcode_icon_desc">Has barcode</string>
     <string name="inventory_add_edit_title">Product</string>
     <string name="inventory_scanner_title">Scan</string>
+    <string name="inventory_menu_edit">Edit</string>
+    <string name="inventory_menu_remove_stock">Remove from stock…</string>
+    <string name="inventory_menu_delete">Delete product…</string>
+    <string name="inventory_remove_stock_title">Remove units — %1$s</string>
+    <string name="inventory_remove_stock_hint">How many units to remove?</string>
+    <string name="inventory_remove_stock_apply">Remove</string>
+    <string name="inventory_removed_stock_snackbar">Stock updated.</string>
+    <string name="inventory_delete_product_title">Delete product?</string>
+    <string name="inventory_delete_product_message">Delete \"%1$s\"? This cannot be undone. Past receipts still show the name stored on those sales.</string>
+    <string name="inventory_delete_confirm">Delete</string>
+    <string name="inventory_deleted_product_snackbar">Product deleted.</string>
+    <string name="inventory_action_failed">%1$s</string>
 
     <!-- Barcode Scanner (Prompt 4b) -->
     <string name="scanner_hint">Align barcode inside the frame</string>
@@ -46,6 +72,35 @@
     <string name="product_hint_cost">Cost price</string>
     <string name="product_hint_stock">Stock quantity</string>
     <string name="product_hint_category">Category (optional)</string>
+    <string name="product_photo_section_title">Product photo</string>
+    <string name="product_photo_preview_cd">Product photo preview</string>
+    <string name="product_photo_take">Take photo</string>
+    <string name="product_photo_choose">Choose from gallery</string>
+    <string name="product_photo_remove">Remove photo</string>
+    <string name="product_photo_permission_camera">Camera permission is needed to take a product photo.</string>
+    <string name="product_photo_failed">Could not save that image. Try another photo.</string>
+    <string name="product_suggest_price">Suggest price</string>
+    <string name="pricing_suggestion_title">Price suggestion</string>
+    <string name="pricing_suggestion_use">Use this price</string>
+    <string name="pricing_suggestion_keep">Keep my price</string>
+    <string name="pricing_suggestion_manual_hint">We could not read a numeric price from the first line. Review the text below and enter a price manually.</string>
+    <string name="pricing_suggestion_unparsed_title">Review suggestion</string>
+    <string name="pricing_suggestion_failed">Could not get a suggestion: %1$s</string>
+
+    <!-- Receipt OCR — Prompt U4 -->
+    <string name="receipt_scan_title">Scan receipt</string>
+    <string name="receipt_capture_button">Capture receipt</string>
+    <string name="receipt_camera_bind_failed">Could not start the camera.</string>
+    <string name="receipt_review_title">Review items</string>
+    <string name="receipt_review_fallback_message">Could not read the receipt automatically. Please enter items below.</string>
+    <string name="receipt_review_line_title">Line item</string>
+    <string name="receipt_review_qty_hint">Quantity</string>
+    <string name="receipt_review_delete_line">Remove line</string>
+    <string name="receipt_review_commit">Add %1$d items to inventory</string>
+    <string name="receipt_review_success">Added %1$d product(s).</string>
+    <string name="receipt_review_no_valid_lines">No valid lines to add. Check name, quantity, and cost.</string>
+    <string name="receipt_review_commit_failed">Could not save products.</string>
+    <string name="receipt_review_cannot_delete_last">Keep at least one row.</string>
     <string name="product_hint_barcode">Barcode</string>
     <string name="product_btn_save">Save</string>
     <string name="product_btn_saving">Saving…</string>
@@ -80,6 +135,25 @@
     <string name="settings_delete_confirm_title">Delete model?</string>
     <string name="settings_delete_confirm_message">AI features will be unavailable until the model is re-downloaded.</string>
     <string name="settings_download_complete">Model downloaded successfully</string>
+    <!-- Phase 6 X3 — Model Settings screen -->
+    <string name="model_settings_title">AI Models</string>
+    <string name="settings_btn_manage_models">Manage AI models</string>
+    <string name="model_settings_info">Download, benchmark, or switch the on-device AI model. The primary model is used for all AI features.</string>
+    <string name="model_settings_chip_primary">Primary</string>
+    <string name="model_settings_btn_set_primary">Set as primary</string>
+    <string name="model_settings_btn_benchmark">Benchmark</string>
+    <string name="model_settings_benchmarking">Running benchmark…</string>
+    <string name="model_settings_benchmark_done">Benchmark done: %1$s t/s</string>
+    <string name="model_settings_benchmark_failed">Benchmark failed — model may not be loaded</string>
+    <string name="model_settings_primary_changed">Primary model updated</string>
+    <string name="model_settings_progress_detail">%1$d MB / %2$d MB · %3$d%%</string>
+    <string name="model_settings_hf_access_btn">Hugging Face access</string>
+    <string name="model_settings_hf_access_title">Hugging Face access token</string>
+    <string name="model_settings_hf_access_message">FunctionGemma is gated on Hugging Face. While logged in, open litert-community/functiongemma-270m-ft-mobile-actions and accept the Gemma license (required even with a read token). Then create a classic read token at huggingface.co/settings/tokens and paste it here.</string>
+    <string name="model_settings_hf_token_hint">hf_…</string>
+    <string name="model_settings_hf_token_saved">Hugging Face token saved</string>
+    <string name="model_settings_hf_token_cleared">Hugging Face token removed</string>
+    <string name="model_settings_requires_hf">Requires Hugging Face login + token</string>
     <string name="settings_download_failed">Download failed: %1$s</string>
     <string name="settings_section_inference">Configurations</string>
     <string name="settings_inference_card_summary">Match Google AI Edge Gallery: max tokens, Top‑K / Top‑P / temperature, CPU vs GPU, and prompt options. Saving reloads the on-device engine.</string>
@@ -99,7 +173,32 @@
     <string name="inference_enable_speculative_hint">When off, chat prompts ask for standard decoding. Speculative decoding is not exposed in this SDK build.</string>
     <string name="inference_defaults">Restore defaults</string>
     <string name="inference_configs_saved">Configurations saved. The model will reload on the next reply.</string>
+    <string name="settings_section_cloud_analysis">Cloud analysis</string>
+    <string name="settings_cloud_analysis_body">Optional: send shop data to your own HTTPS endpoint for heavy analytics or dashboards. Your on-device Gemma model is unchanged. Nothing is uploaded until you tap an upload action.</string>
+    <string name="settings_cloud_enable">Enable cloud uploads</string>
+    <string name="settings_cloud_endpoint_hint">Analytics URL (https only)</string>
+    <string name="settings_cloud_api_key_hint">API key (Bearer token)</string>
+    <string name="settings_cloud_api_key_saved">A key is already saved. Enter a new key only if you want to replace it.</string>
+    <string name="settings_cloud_btn_save">Save connection</string>
+    <string name="settings_cloud_btn_upload_json">Upload business data (JSON)</string>
+    <string name="settings_cloud_btn_upload_db">Upload full database (SQLite)</string>
+    <string name="settings_cloud_upload_json_confirm">Send a JSON snapshot (products, sales, customers, debts, alerts, and pre-aggregated sale facts) to your endpoint? Chat message text is not included.</string>
+    <string name="settings_cloud_upload_db_confirm_title">Upload the full database file?</string>
+    <string name="settings_cloud_upload_db_confirm_message">This sends the complete SQLite database, including chat sessions if present. Only proceed if you trust the destination and understand your privacy obligations.</string>
+    <string name="settings_cloud_saved">Cloud settings saved</string>
+    <string name="settings_cloud_upload_success">Upload completed</string>
+    <string name="settings_cloud_upload_failed">Upload failed: %1$s</string>
+    <string name="settings_cloud_missing_url">Enter an https:// URL first.</string>
+    <string name="settings_cloud_missing_key">Save an API key first (or enter one and tap Save connection).</string>
+    <string name="settings_cloud_not_enabled">Turn on \"Enable cloud uploads\" first.</string>
+    <string name="settings_cloud_uploading">Uploading…</string>
     <string name="settings_section_about">About</string>
+    <string name="settings_section_regional">Regional</string>
+    <string name="settings_currency_title">Shop currency</string>
+    <string name="settings_currency_summary">Used for prices, POS, receipts, and money shown in insights.</string>
+    <string name="settings_currency_change">Change currency</string>
+    <string name="settings_currency_dialog_title">Choose currency</string>
+    <string name="settings_currency_saved">Currency updated</string>
     <string name="settings_app_version">Version %1$s</string>
 
     <!-- Demand Forecasting (Prompt 7) -->
@@ -109,6 +208,13 @@
     <string name="voice_recording">Recording… Speak now.</string>
     <string name="voice_transcription_failed">Could not transcribe audio. Please try again.</string>
     <string name="voice_permission_denied">Microphone permission is required for voice input.</string>
+    <string name="voice_ui_mic_idle">Voice input</string>
+    <string name="voice_ui_mic_listening">Listening… speak now</string>
+    <string name="voice_ui_mic_processing">Processing speech…</string>
+    <string name="voice_ui_mic_error">Voice input error</string>
+    <string name="voice_ui_transcription_dismiss">Dismiss transcription</string>
+    <string name="voice_ui_speak">Read aloud</string>
+    <string name="voice_ui_speak_stop">Stop reading</string>
 
     <!-- Cash Flow Insights (Prompt 9) -->
     <string name="insights_title">Cash Flow Insights</string>
@@ -145,7 +251,13 @@
     <string name="chat_fallback_product_not_found">I don\'t see anything matching \"%1$s\" in your inventory.\n\nYour products: %2$s</string>
     <string name="chat_fallback_no_sales">You haven\'t recorded any sales yet.</string>
     <string name="chat_fallback_sales_summary">%1$d sales recorded, totalling %2$s.</string>
+    <string name="chat_fallback_today_sales">On %1$s (local date), recorded sales total %2$s (%3$d income sale(s)).</string>
+    <string name="chat_fallback_today_sales_none">On %1$s (local date), no sales have been recorded yet.</string>
+    <string name="chat_fallback_today_items_none">On %1$s (local date), no itemized POS sale lines were recorded (or all lines were returns).</string>
+    <string name="chat_fallback_today_items_intro">Items sold (name × units, line total):</string>
     <string name="chat_fallback_no_data">You haven\'t added any products or recorded any transactions yet. Open Inventory or Sales to get started.</string>
+    <string name="chat_feedback_positive">Helpful</string>
+    <string name="chat_feedback_negative">Not helpful</string>
     <string name="chat_error_generic">Sorry, something went wrong. Please try again.</string>
     <string name="chat_ai_timeout_with_summary">The on-device model took too long. Here is a quick answer from your records:\n\n%1$s</string>
 
@@ -154,14 +266,70 @@
     <string name="chat_new_chat">New chat</string>
     <string name="chat_new_chat_started">Started a fresh conversation</string>
     <string name="chat_try_asking">Try asking</string>
+    <string name="chat_suggest_today_sales">What are our sales today?</string>
     <string name="chat_suggest_profit">What is my profit this month?</string>
     <string name="chat_suggest_low_stock">Which products are low on stock?</string>
     <string name="chat_suggest_top_expenses">What are my biggest expenses?</string>
     <string name="chat_suggest_inventory_count">How many products do I have?</string>
     <string name="chat_mic_description">Speak your question</string>
     <string name="chat_mic_prompt">Ask Biashara AI…</string>
+    <string name="chat_voice_unknown_command">Could not open "%1$s". Open the right screen from the menu or rephrase.</string>
+    <string name="chat_voice_already_chat">You are already in Chat.</string>
     <string name="chat_mic_unavailable">Voice input is not available on this device.</string>
     <string name="chat_mic_permission_denied">Microphone permission denied.</string>
+    <string name="settings_section_voice_input">Voice &amp; speech</string>
+    <string name="settings_voice_speech_summary">Microphone, on-device speech recognition, and spoken replies.</string>
+    <string name="settings_voice_open">Voice &amp; microphone settings</string>
+    <string name="settings_voice_input_title">Allow voice input</string>
+    <string name="settings_voice_input_summary">Shows the microphone in Chat, POS search, and product naming when the switch above is on. On-device recognition is used when a model is prepared below; otherwise the system recognizer may run (on many devices that can send short audio to Google for processing).</string>
+    <string name="voice_settings_title">Voice &amp; speech</string>
+    <string name="voice_settings_intro">Download the speech recognition model once on Wi‑Fi if prompted, then use Prepare below. Adjust read-aloud speed and when the app speaks automatically.</string>
+    <string name="voice_settings_whisper_section">Speech recognition (Whisper)</string>
+    <string name="voice_settings_whisper_model">Model size</string>
+    <string name="voice_settings_language_mode">Recognition language</string>
+    <string name="voice_settings_silence_summary">End of phrase after %.2f s silence</string>
+    <string name="voice_settings_whisper_status_ready">On-device model loaded — ready to transcribe.</string>
+    <string name="voice_settings_whisper_status_not_loaded">Model not loaded — tap Prepare to download and load (needs network the first time).</string>
+    <string name="voice_settings_whisper_prepare">Prepare / download model</string>
+    <string name="voice_settings_whisper_preparing">Preparing…</string>
+    <string name="voice_settings_whisper_ready">Speech model is ready.</string>
+    <string name="voice_settings_whisper_failed">Could not prepare speech model: %1$s</string>
+    <string name="voice_settings_tts_section">Read aloud (text-to-speech)</string>
+    <string name="voice_settings_tts_enable">Enable spoken replies</string>
+    <string name="voice_settings_tts_rate_value">Speech rate %.2f</string>
+    <string name="voice_settings_tts_pitch_value">Pitch %.2f</string>
+    <string name="voice_settings_tts_auto_agent">Auto-read critical agent alerts</string>
+    <string name="voice_settings_tts_auto_chat">Auto-read assistant answers in Chat</string>
+    <string name="voice_settings_install_tts">Install text-to-speech languages</string>
+    <string name="voice_settings_test_tts">Play test phrase</string>
+    <string name="voice_settings_tts_test_phrase">Biashara AI voice check. If you hear this, read aloud is working.</string>
+    <string name="chat_session_default_title">Chat</string>
+    <string name="chat_new_session_title">New chat</string>
+    <string name="chat_photo_message_placeholder">[Photo attached — describe what you see]</string>
+    <string name="chat_image_attachment_cd">Attached image</string>
+    <string name="chat_attach_image">Attach image</string>
+    <string name="chat_menu_history">Chat history</string>
+    <string name="chat_menu_wikipedia">Wikipedia</string>
+    <string name="chat_menu_maps">Maps</string>
+    <string name="chat_menu_load_skills">Load skills URL</string>
+    <string name="chat_wikipedia_title">Wikipedia</string>
+    <string name="chat_wikipedia_hint">Search term or question</string>
+    <string name="chat_wikipedia_augment">Augment next reply</string>
+    <string name="chat_wikipedia_dialog_message">Enter a topic or question. It will be placed in the input box; send when ready. If augment is on, English Wikipedia snippets are fetched for that text (network).</string>
+    <string name="chat_maps_title">Open in Maps</string>
+    <string name="chat_maps_hint">Place or address</string>
+    <string name="chat_skills_url_title">Skills manifest URL</string>
+    <string name="chat_skills_url_hint">https://…/skills.json</string>
+    <string name="chat_skills_loaded">Skills updated</string>
+    <string name="chat_skills_load_failed">Could not load skills</string>
+    <string name="chat_history_title">Chat history</string>
+    <string name="chat_history_empty">No past chats yet</string>
+    <string name="chat_history_open">Open</string>
+    <string name="chat_history_delete">Delete</string>
+    <string name="chat_history_delete_confirm">Delete this chat?</string>
+    <string name="chat_skill_hint_added">Skill hint added — type your question, then send.</string>
+    <string name="chat_image_ready">Image attached — add a note or send as-is.</string>
+    <string name="chat_remove_attachment">Remove image</string>
 
     <!-- Settings: Benchmark -->
     <string name="settings_btn_benchmark">Run benchmark</string>
@@ -175,5 +343,412 @@
     <string name="product_scan_label_success">Captured from label</string>
     <string name="label_scanner_title">Scan product label</string>
     <string name="label_scanner_hint">Point the camera at the product name on the label</string>
+
+    <!-- POS (Prompt P3) -->
+    <string name="pos_title">Point of sale</string>
+    <string name="pos_walk_in_customer">Walk-in customer</string>
+    <string name="pos_walk_in_subtitle">No customer record</string>
+    <string name="pos_select_customer_title">Select customer</string>
+    <string name="pos_select_customer_search_hint">Search by name, phone, or email</string>
+    <string name="pos_new_customer_row">New customer</string>
+    <string name="pos_new_customer_row_subtitle">Add name and phone</string>
+    <string name="pos_new_customer_title">New customer</string>
+    <string name="pos_new_customer_name_hint">Name</string>
+    <string name="pos_new_customer_phone_hint">Phone (optional)</string>
+    <string name="pos_new_customer_save">Save</string>
+    <string name="pos_customer_last_visit">Last visit: %1$s</string>
+    <string name="pos_customer_since">Customer since %1$s</string>
+    <string name="pos_customer_never_visited">No visits recorded yet</string>
+    <string name="pos_search_hint">Search products…</string>
+    <string name="pos_voice_search_desc">Voice search</string>
+    <string name="pos_scan_to_add_desc">Scan barcode to add to cart</string>
+    <string name="pos_stock_badge">Stock: %1$d</string>
+    <string name="pos_product_thumb_desc">Product image</string>
+    <string name="pos_search_row_meta">%1$s · %2$s</string>
+    <string name="pos_cart_title">Cart</string>
+    <string name="pos_cart_items_count">%1$d items</string>
+    <string name="pos_cart_items_count_one">1 item</string>
+    <string name="pos_cart_line_title">%1$s × %2$d</string>
+    <string name="pos_qty_dialog_title">Quantity</string>
+    <string name="pos_qty_dialog_hint">How many?</string>
+    <string name="pos_qty_dialog_positive">Add</string>
+    <string name="pos_barcode_not_found">No product matches barcode %1$s</string>
+
+    <!-- POS cart / totals (Prompt P4) -->
+    <string name="pos_totals_subtotal">Subtotal</string>
+    <string name="pos_totals_grand">Grand total</string>
+    <string name="pos_totals_tax_default">Tax</string>
+    <string name="pos_totals_tax_label">%1$s (%2$.1f%%)</string>
+    <string name="pos_cart_clear">Clear cart</string>
+    <string name="pos_pay">Pay</string>
+    <string name="pos_cart_qty_minus">Decrease quantity</string>
+    <string name="pos_cart_qty_plus">Increase quantity</string>
+    <string name="pos_price_override_title">Override price · %1$s</string>
+    <string name="pos_price_override_message">Catalog price: %1$s</string>
+    <string name="pos_price_override_hint">New unit price</string>
+    <string name="pos_price_override_confirm">Apply</string>
+    <string name="payment_dialog_title">Payment</string>
+    <string name="payment_grand_label">Amount due</string>
+    <string name="payment_tab_cash">Cash</string>
+    <string name="payment_tab_mobile">Mobile money</string>
+    <string name="payment_tab_credit">Credit</string>
+    <string name="payment_split_toggle">Split payment</string>
+    <string name="payment_split_hide">Single method</string>
+    <string name="payment_cash_tendered_hint">Amount tendered</string>
+    <string name="payment_change_due">Change due: %1$s</string>
+    <string name="payment_change_insufficient">Tender insufficient</string>
+    <string name="payment_confirm">Confirm sale</string>
+    <string name="payment_cancel">Cancel</string>
+    <string name="payment_network_label">Network</string>
+    <string name="payment_network_mpesa">M-Pesa</string>
+    <string name="payment_network_mtn">MTN</string>
+    <string name="payment_network_airtel">Airtel</string>
+    <string name="payment_network_other">Other</string>
+    <string name="payment_ref_hint">Reference (optional)</string>
+    <string name="payment_paste_sms">Paste confirmation SMS</string>
+    <string name="payment_paste_sms_title">Paste confirmation message</string>
+    <string name="payment_paste_sms_hint">Paste the SMS or USSD reply from your carrier</string>
+    <string name="payment_paste_apply">Extract reference</string>
+    <string name="payment_sms_parse_failed">Could not find a reference in that text.</string>
+    <string name="payment_credit_need_customer">Please select a customer to sell on credit.</string>
+    <string name="payment_credit_select_customer">Select customer</string>
+    <string name="payment_credit_outstanding">Outstanding: %1$s</string>
+    <string name="payment_credit_due_unset">No due date set</string>
+    <string name="payment_credit_due_set">Due date: %1$s</string>
+    <string name="payment_credit_set_due">Set due date</string>
+    <string name="payment_credit_clear_due">Clear due date</string>
+    <string name="payment_split_row1">Payment 1</string>
+    <string name="payment_split_row2">Payment 2 (remainder)</string>
+    <string name="payment_split_amount1_hint">Amount</string>
+    <string name="payment_split_remainder">Remainder: %1$s</string>
+    <string name="payment_commit_empty_cart">Cart is empty — add items before confirming.</string>
+
+    <!-- Prompt U6 — informal credit at POS + debt tracker -->
+    <string name="payment_paid">Paid</string>
+    <string name="payment_on_credit">On credit</string>
+    <string name="payment_use_on_credit_button">Use On credit to complete this sale.</string>
+    <string name="payment_credit_no_split">Credit sales are not available while split payment is on.</string>
+    <string name="payment_credit_customer_required">Select a customer before recording credit.</string>
+    <string name="payment_on_credit_dialog_title">Confirm credit sale</string>
+    <string name="payment_on_credit_amount_label">Amount (must match total)</string>
+    <string name="payment_credit_dialog_note_hint">Optional note</string>
+    <string name="payment_credit_note_label">Note</string>
+    <string name="payment_credit_amount_must_match">Amount must match the sale total.</string>
+
+    <string name="insights_tab_flow">Cash flow</string>
+    <string name="insights_tab_credit">Credit</string>
+    <string name="insights_tab_ledger">Ledger</string>
+
+    <!-- Phase 9 — Unified Business Ledger -->
+    <string name="ledger_running_balance">Balance: %1$s</string>
+    <string name="ledger_money_in">In: %1$s</string>
+    <string name="ledger_money_out">Out: %1$s</string>
+    <string name="ledger_pending_credit">Pending credit: %1$s</string>
+    <string name="ledger_search_hint">Search ledger</string>
+    <string name="ledger_empty">No ledger entries yet. Sales and expenses will appear here automatically.</string>
+    <string name="ledger_fab_actions">Ledger actions</string>
+    <string name="ledger_action_manual">Manual entry</string>
+    <string name="ledger_action_cash_count">Cash count</string>
+    <string name="ledger_action_export">Export CSV</string>
+    <string name="ledger_export_subject">Biashara AI ledger export</string>
+    <string name="ledger_export_chooser">Share ledger</string>
+    <string name="ledger_manual_title">Manual entry</string>
+    <string name="ledger_cash_count_title">Cash count</string>
+    <string name="ledger_direction_in">Money in</string>
+    <string name="ledger_direction_out">Money out</string>
+    <string name="ledger_amount_hint">Amount</string>
+    <string name="ledger_description_hint">Description</string>
+    <string name="ledger_notes_hint">Notes (optional)</string>
+    <string name="ledger_actual_cash_hint">Actual cash in drawer</string>
+    <string name="ledger_expected_cash">Expected in drawer: %1$s</string>
+    <string name="ledger_cash_count_save">Record cash count</string>
+    <string name="ledger_invalid_amount">Enter a valid amount</string>
+    <string name="ledger_invalid_description">Enter a description</string>
+    <string name="ledger_saved">Entry recorded</string>
+    <string name="ledger_cash_count_saved">Cash count recorded</string>
+
+    <string name="credit_total_outstanding_label">Total outstanding</string>
+    <string name="credit_no_outstanding">No unpaid debts.</string>
+    <string name="credit_row_amount_days">%1$s · %2$d days outstanding</string>
+    <string name="credit_remind">Remind</string>
+    <string name="credit_mark_paid">Paid</string>
+    <string name="credit_remind_preview_title">SMS preview</string>
+    <string name="credit_send_via_sms">Send via SMS</string>
+    <string name="credit_sms_intent_failed">Could not open the SMS app.</string>
+    <string name="credit_debt_missing">That debt is no longer available.</string>
+    <string name="credit_customer_missing">Customer record is missing.</string>
+    <string name="credit_remind_no_phone">Add a phone number for this customer to send a reminder.</string>
+    <string name="credit_remind_fallback_sms">Hi %1$s, friendly reminder you have a balance of %2$s %3$.2f with us (%4$d days). Thanks.</string>
+
+    <!-- A6 — Customer relation agent -->
+    <string name="agent_customer_relation_debt_headline">Credit reminder: %1$s</string>
+    <string name="agent_customer_relation_visit_headline">We miss you: %1$s</string>
+    <string name="agent_customer_visit_fallback_sms">Hi %1$s, we have missed you at the shop — it has been %2$d days since your last visit. We would love to see you again.</string>
+
+    <!-- Prompt P8 — transactions, receipt, returns -->
+    <string name="transactions_title">Transactions</string>
+    <string name="transactions_menu">Transactions</string>
+    <string name="transactions_empty">No completed sales yet.</string>
+    <string name="transactions_today_summary">Today\'s POS total: %1$s · %2$d sale(s)</string>
+    <string name="transactions_receipt_label">Receipt: %1$s</string>
+    <string name="transactions_receipt_fallback">Sale #%1$d</string>
+    <string name="pos_history_desc">Sales history</string>
+    <string name="tx_payment_cash">Cash</string>
+    <string name="tx_payment_credit">Credit</string>
+    <string name="tx_payment_mobile">Mobile money</string>
+    <string name="tx_payment_split">Split</string>
+    <string name="tx_payment_return">Return</string>
+    <string name="tx_payment_other">Other</string>
+    <string name="receipt_title">Receipt</string>
+    <string name="receipt_meta_format">%1$s · %2$s</string>
+    <string name="receipt_return_banner">RETURN</string>
+    <string name="receipt_return_items">Return items</string>
+    <string name="receipt_subtotal">Subtotal: %1$s</string>
+    <string name="receipt_tax">%1$s: %2$s</string>
+    <string name="receipt_total">Total: %1$s</string>
+    <string name="receipt_line_format">%1$d × %2$s @ %3$s</string>
+    <string name="return_title">Return items</string>
+    <string name="return_qty_hint">Qty</string>
+    <string name="return_line_hint">Sold: %1$d · Can return: %2$d</string>
+    <string name="return_process">Process return</string>
+    <string name="return_none_selected">Select at least one line to return.</string>
+    <string name="return_invalid_qty">Enter a valid quantity for each selected line.</string>
+    <string name="return_failed">Could not process return.</string>
+    <string name="return_success">Return recorded.</string>
+
+    <!-- Prompt P9 — POS AI -->
+    <string name="pos_suggestion_chip_cd">Add %1$s to cart</string>
+    <string name="pos_menu_overflow_desc">More POS options</string>
+    <string name="pos_close_day">Close day</string>
+    <string name="pos_price_warning_undo">Undo</string>
+    <string name="end_of_day_title">End of day</string>
+    <string name="end_of_day_share">Share summary</string>
+    <string name="end_of_day_stat_sales">Sales: %1$s</string>
+    <string name="end_of_day_stat_tx">%1$d transactions</string>
+    <string name="end_of_day_stat_top">Top: %1$s (%2$d)</string>
+    <string name="end_of_day_stat_pay">Cash %1$d%% · Mobile %2$d%% · Credit %3$d%%</string>
+
+    <!-- Prompt U7 — Supplier negotiation assistant (FULL_AI only) -->
+    <string name="home_prepare_supplier_visit_title">Prepare supplier visit</string>
+    <string name="home_open_ledger">Business ledger</string>
+    <string name="home_prepare_supplier_visit_subtitle">Generate a culturally appropriate negotiation script before you meet a supplier (on-device AI).</string>
+    <string name="inventory_menu_prepare_supplier_visit">Prepare supplier visit</string>
+    <string name="negotiation_tier_required_message">This feature requires a higher-end device. It is available on devices with 4GB+ RAM.</string>
+    <string name="negotiation_supplier_title">Supplier visit</string>
+    <string name="negotiation_guide_title">Negotiation script</string>
+    <string name="negotiation_supplier_name_hint">Supplier name (optional)</string>
+    <string name="negotiation_select_products">Select from inventory</string>
+    <string name="negotiation_products_none_selected">No inventory items selected yet.</string>
+    <string name="negotiation_extra_items_hint">Other items (one per line)</string>
+    <string name="negotiation_budget_hint">Total budget</string>
+    <string name="negotiation_city_hint">City</string>
+    <string name="negotiation_country_hint">Country</string>
+    <string name="negotiation_generate_script">Generate script</string>
+    <string name="negotiation_regenerate">Regenerate</string>
+    <string name="negotiation_share_script">Share script</string>
+    <string name="negotiation_share_chooser_title">Share negotiation script</string>
+    <string name="negotiation_error_no_items">Select at least one inventory product or add other items.</string>
+    <string name="negotiation_error_budget">Enter a valid total budget greater than zero.</string>
+    <string name="negotiation_error_model">Download the AI model in Settings to generate a script.</string>
+    <string name="negotiation_no_products_inventory">No products in inventory yet.</string>
+
+    <!-- Prompt U8 — WhatsApp / shared text order parser -->
+    <string name="order_parser_title">Order from message</string>
+    <string name="order_parser_loading_message">Parsing order with on-device AI…</string>
+    <string name="order_parser_no_text">No message text to parse.</string>
+    <string name="order_parser_error_no_model">Download the AI model in Settings to parse orders.</string>
+    <string name="order_parser_error_parse">Could not parse a product list from that message.</string>
+    <string name="order_parser_offline_message">You are offline. Connect to a network, then try again.</string>
+    <string name="order_parser_text_too_long">That message is too long to parse. Share a shorter order (under 8,000 characters).</string>
+    <string name="order_parser_tier_rules_only_message">Order-from-message needs the on-device AI model and a capable device (not rules-only mode). Try again after upgrading hardware or downloading the model in Settings.</string>
+    <string name="order_parser_record_sale">Record sale</string>
+    <string name="order_parser_find_product">Find product</string>
+    <string name="order_parser_search_hint">Search inventory</string>
+    <string name="order_parser_line_qty_price">Qty %1$d%2$s · %3$s each</string>
+    <string name="order_parser_line_unmatched_qty">Qty %1$d%2$s · not matched to inventory</string>
+    <string name="order_parser_skipped_toast">%d items could not be matched and were skipped.</string>
+    <string name="order_parser_no_matched_lines">No matched products to record. Match or remove lines first.</string>
+    <string name="order_parser_record_failed">Could not record sale.</string>
+    <string name="settings_section_order_parser">WhatsApp orders</string>
+    <string name="settings_order_parser_body">Share a customer message from WhatsApp (or any app) to Biashara AI, or paste the order text from your clipboard below.</string>
+    <string name="settings_order_parser_clipboard">Parse order from clipboard</string>
+    <string name="settings_order_parser_clipboard_empty">Clipboard is empty.</string>
+
+    <plurals name="negotiation_products_selected_count">
+        <item quantity="one">%d product selected</item>
+        <item quantity="other">%d products selected</item>
+    </plurals>
+
+    <!-- Agent feed (Prompt A4) -->
+    <string name="agent_feed_greeting_morning">Good morning, %1$s</string>
+    <string name="agent_feed_greeting_afternoon">Good afternoon, %1$s</string>
+    <string name="agent_feed_greeting_evening">Good evening, %1$s</string>
+    <string name="agent_feed_attention_none">You\'re all caught up</string>
+    <string name="agent_feed_empty_emoji" translatable="false">✨</string>
+    <string name="agent_feed_empty_illustration_cd">All clear</string>
+    <string name="agent_feed_empty_message">Everything looks good! Your business is running smoothly.</string>
+    <string name="agent_feed_listen_review">Listen to review</string>
+    <string name="agent_action_review">Review</string>
+    <string name="agent_action_approve">Approve ✓</string>
+    <string name="agent_action_reject">Reject ✗</string>
+    <string name="agent_action_snooze">Snooze</string>
+    <string name="agent_action_dismiss">Dismiss</string>
+    <string name="agent_action_view">View</string>
+    <string name="agent_action_unknown_verb">This action type is not executable yet.</string>
+    <string name="agent_action_execute_failed">Could not complete that action.</string>
+    <string name="agent_weekly_review_headline">Weekly business review</string>
+    <string name="agent_weekly_review_chip_format">%1$s · %2$s</string>
+    <string name="agent_weekly_review_fallback">Here is your week in numbers — open Insights for charts and receipts.</string>
+    <string name="agent_opportunity_headline">Bundle and shelf ideas</string>
+    <string name="agent_opportunity_fallback">Keep paired movers visible at the till and mention the second item when customers buy the first.</string>
+    <string name="agent_action_retry">Retry</string>
+    <string name="agent_review_no_target">There is no linked screen for this action.</string>
+
+    <plurals name="agent_feed_attention">
+        <item quantity="one">%d thing needs your attention</item>
+        <item quantity="other">%d things need your attention</item>
+    </plurals>
+
+    <string name="notification_channel_agent_alerts">Business alerts</string>
+    <string name="notification_channel_agent_alerts_desc">Stock, fraud, and cash-flow reminders from your agents.</string>
+
+    <string name="settings_section_business">Business</string>
+    <string name="settings_ledger_card_title">General ledger</string>
+    <string name="settings_ledger_card_body">Running balance, money in/out, manual entries, and cash counts. Sales and expenses are recorded automatically.</string>
+    <string name="settings_btn_open_ledger">Open ledger</string>
+
+    <string name="settings_section_agents">AI agents</string>
+    <string name="settings_agents_card_title">Agent activity</string>
+    <string name="settings_agents_card_body">See when each agent last ran and expand a row for recent outcomes.</string>
+    <string name="settings_btn_agent_activity">Open agent run history</string>
+
+    <string name="agent_settings_title">Agent run history</string>
+    <string name="agent_settings_name_stock_guardian">Stock Guardian</string>
+    <string name="agent_settings_name_fraud_sentinel">Fraud Sentinel</string>
+    <string name="agent_settings_name_pricing_agent">Pricing agent</string>
+    <string name="agent_settings_name_cash_flow">Cash flow sentinel</string>
+    <string name="agent_settings_name_customer_relation">Customer relations</string>
+    <string name="agent_settings_name_weekly_review">Weekly review</string>
+    <string name="agent_settings_name_opportunity_spotter">Opportunity spotter</string>
+    <string name="agent_settings_last_run_never">Never</string>
+    <string name="agent_settings_last_run_just_now">Just now</string>
+    <string name="agent_settings_row_summary">Last run: %1$s · %2$s</string>
+    <string name="agent_settings_history_empty">No logged runs yet. The next scheduled pass will appear here.</string>
+    <string name="agent_settings_history_line">%1$s · %2$s · %3$s</string>
+    <string name="agent_settings_duration_seconds">%1$ds</string>
+    <string name="agent_settings_duration_minutes">%1$dm</string>
+    <string name="agent_settings_duration_hours">%1$dh</string>
+
+    <plurals name="agent_settings_minutes_ago">
+        <item quantity="one">%d minute ago</item>
+        <item quantity="other">%d minutes ago</item>
+    </plurals>
+    <plurals name="agent_settings_hours_ago">
+        <item quantity="one">%d hour ago</item>
+        <item quantity="other">%d hours ago</item>
+    </plurals>
+    <plurals name="agent_settings_days_ago">
+        <item quantity="one">%d day ago</item>
+        <item quantity="other">%d days ago</item>
+    </plurals>
+    <plurals name="agent_settings_generated_actions">
+        <item quantity="one">Generated %d action</item>
+        <item quantity="other">Generated %d actions</item>
+    </plurals>
+
+    <string-array name="voice_whisper_model_ids">
+        <item>whisper-tiny</item>
+        <item>whisper-base</item>
+        <item>whisper-tiny-en</item>
+        <item>whisper-base-en</item>
+    </string-array>
+    <string-array name="voice_whisper_model_labels">
+        <item>Multilingual tiny (fast)</item>
+        <item>Multilingual base</item>
+        <item>English tiny</item>
+        <item>English base</item>
+    </string-array>
+    <string-array name="voice_language_mode_values">
+        <item>AUTO</item>
+        <item>sw</item>
+        <item>en</item>
+        <item>am</item>
+        <item>ha</item>
+        <item>yo</item>
+    </string-array>
+    <string-array name="voice_language_mode_labels">
+        <item>Automatic</item>
+        <item>Kiswahili</item>
+        <item>English</item>
+        <item>Amharic</item>
+        <item>Hausa</item>
+        <item>Yoruba</item>
+    </string-array>
+
+    <!-- Knowledge / Teaching (Phase 7 K10) -->
+    <string name="lesson_title_placeholder">Lesson</string>
+    <string name="lesson_step_count">Step %1$d of %2$d</string>
+    <string name="lesson_next">Next</string>
+    <string name="lesson_done">Done</string>
+    <string name="lesson_skip">Skip lesson</string>
+    <string name="lesson_complete_title">Lesson complete!</string>
+    <string name="lesson_complete_body">You\'ve finished this lesson. Keep using the feature to build your confidence.</string>
+    <string name="help_title">Help</string>
+    <string name="help_start_lesson">Start lesson</string>
+    <string name="help_close">Close</string>
+    <string name="help_no_content">No help available for this screen.</string>
+
+
+    <!-- Cash Movement Capture — Phase C -->
+    <string name="cash_scan_capture_button">Capture document</string>
+    <string name="cash_scan_processing">Reading document…</string>
+    <string name="cash_scan_done">Done!</string>
+    <string name="cash_scan_title_money_in">Scan proof of money in</string>
+    <string name="cash_scan_title_money_out">Scan proof of money out</string>
+    <string name="cash_scan_ocr_failed">Could not read the document. Try again or enter manually.</string>
+    <string name="cash_confirm_title">Confirm entry</string>
+    <string name="cash_confirm_amount_hint">Amount</string>
+    <string name="cash_confirm_reference_hint">Reference / Transaction ID</string>
+    <string name="cash_confirm_counterparty_hint">From / To (name or phone)</string>
+    <string name="cash_confirm_notes_hint">Notes (optional)</string>
+    <string name="cash_confirm_save">Save entry</string>
+    <string name="cash_confirm_direction_in">Money In</string>
+    <string name="cash_confirm_direction_out">Money Out</string>
+    <string name="cash_manual_title">Manual cash entry</string>
+    <string name="cash_manual_save">Save</string>
+    <string name="cash_unverified_toast">Saving unverified cash-out. Attach proof later.</string>
+    <string name="cash_sms_import_title">Paste M-Pesa SMS</string>
+    <string name="cash_sms_import_hint">Paste the full SMS text here…</string>
+    <string name="cash_sms_import_parse">Parse</string>
+    <string name="cash_sms_import_clipboard_detected">M-Pesa SMS detected in clipboard. Tap to paste.</string>
+    <string name="cash_evidence_title">Capture proof</string>
+    <string name="cash_quick_scan_in">Scan In</string>
+    <string name="cash_quick_scan_out">Scan Out</string>
+    <string name="cash_quick_add_in">Add In</string>
+    <string name="cash_quick_add_out">Add Out</string>
+    <string name="cash_quick_print_qr">Print QR Cards</string>
+    <string name="qr_generator_title">QR Category Cards</string>
+    <string name="qr_generator_subtitle">Scan these cards to auto-fill cash entries. Print and post them near each payment point.</string>
+    <string name="qr_card_share">Share</string>
+    <string name="qr_card_qr_desc">QR code for this category</string>
+    <string name="cash_category_sale_product">Product sale</string>
+    <string name="cash_category_sale_service">Service income</string>
+    <string name="cash_category_debt_repaid">Debt repaid</string>
+    <string name="cash_category_other_income">Other income</string>
+    <string name="cash_category_loan_received">Loan received</string>
+    <string name="cash_category_grant">Grant / donation</string>
+    <string name="cash_category_owner_injection">Owner capital</string>
+    <string name="cash_category_expense">Business expense</string>
+    <string name="cash_category_stock_purchase">Stock purchase</string>
+    <string name="cash_category_refund">Refund given</string>
+    <string name="cash_category_salary">Salary / wages</string>
+    <string name="cash_category_utility">Utilities (KPLC, water…)</string>
+    <string name="cash_category_transport">Transport / fuel</string>
+    <string name="cash_category_rent">Rent</string>
+    <string name="cash_category_owner_draw">Owner withdrawal</string>
+    <string name="cash_evidence_capture_method">Captured via: %1$s</string>
+    <string name="cash_evidence_confidence">Parser confidence: %1$d%%</string>
+    <string name="cash_evidence_raw_text">Raw text</string>
+    <string name="cash_evidence_has_proof">📄</string>
 
 </resources>

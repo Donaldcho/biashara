@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">BiasharaAI</string>
 
-    <string name="nav_home">Gida</string>
+    <string name="nav_home">Yau</string>
     <string name="nav_inventory">Ajiya</string>
     <string name="nav_chat">Hira</string>
     <string name="nav_insights">Hasashe</string>
@@ -80,6 +80,17 @@
     <string name="settings_delete_confirm_title">Goge tsari?</string>
     <string name="settings_delete_confirm_message">Fasalolin AI ba za su samu ba har sai an sake sauke tsari.</string>
     <string name="settings_download_complete">An sauke tsari cikin nasara</string>
+    <string name="model_settings_title">Tsare-tsaren AI</string>
+    <string name="settings_btn_manage_models">Sarrafa tsare-tsaren AI</string>
+    <string name="model_settings_info">Saukar da, gwada sauri, ko canza tsarin AI da ake amfani da shi.</string>
+    <string name="model_settings_chip_primary">Farko</string>
+    <string name="model_settings_btn_set_primary">Saita a matsayin farko</string>
+    <string name="model_settings_btn_benchmark">Gwada sauri</string>
+    <string name="model_settings_benchmarking">Ana gwada sauri…</string>
+    <string name="model_settings_benchmark_done">Gwaji ya kammala: %1$s t/s</string>
+    <string name="model_settings_benchmark_failed">Gwaji ya kasa</string>
+    <string name="model_settings_primary_changed">An canza tsarin farko</string>
+    <string name="model_settings_progress_detail">%1$d MB / %2$d MB · %3$d%%</string>
     <string name="settings_download_failed">Saukar ta gaza: %1$s</string>
     <string name="settings_section_about">Game da</string>
     <string name="settings_app_version">Sigar %1$s</string>
@@ -91,6 +102,13 @@
     <string name="voice_recording">Ana ɗaukar sauti… Yi magana yanzu.</string>
     <string name="voice_transcription_failed">Ba a iya rubuta sauti ba. Da fatan za a sake gwadawa.</string>
     <string name="voice_permission_denied">Ana buƙatar izinin maikrofon don shigar murya.</string>
+    <string name="voice_ui_mic_idle">Shigar murya</string>
+    <string name="voice_ui_mic_listening">Ana sauraro… yi magana yanzu</string>
+    <string name="voice_ui_mic_processing">Ana sarrafa murya…</string>
+    <string name="voice_ui_mic_error">Kuskuren shigar murya</string>
+    <string name="voice_ui_transcription_dismiss">Rufe</string>
+    <string name="voice_ui_speak">Karanta da murya</string>
+    <string name="voice_ui_speak_stop">Tsaya karantawa</string>
 
     <!-- Cash Flow Insights (Prompt 9) -->
     <string name="insights_title">Kwararar Kuɗi</string>
@@ -116,5 +134,65 @@
     <string name="chat_fallback_generic">Ina iya taimaka da ajiya, riba/asara, kashe kudi, da kayayyakin da ajiya ta ƙasa. Gwada tambaya game da ɗaya daga cikin waɗannan.</string>
     <string name="chat_error_generic">Yi haƙuri, wani abu ya yi kuskure. Sake gwadawa.</string>
     <string name="chat_ai_timeout_with_summary">Samfurin AI ya ɗauki lokaci mai tsawo. Taƙaitaccen amsa daga bayanan ku:\n\n%1$s</string>
+
+    <string name="agent_feed_greeting_morning">Barka da safiya, %1$s</string>
+    <string name="agent_feed_greeting_afternoon">Barka da rana, %1$s</string>
+    <string name="agent_feed_greeting_evening">Barka da yamma, %1$s</string>
+    <string name="agent_feed_attention_none">Duk an shirya</string>
+    <string name="agent_feed_empty_illustration_cd">Duk lafiya</string>
+    <string name="agent_feed_empty_message">Duk abin yana da kyau! Kasuwancin ku yana gudana da kyau.</string>
+    <string name="agent_feed_listen_review">Saurari bita</string>
+    <string name="agent_action_review">Duba</string>
+    <string name="agent_action_approve">Tabbata ✓</string>
+    <string name="agent_action_reject">Ƙi ✗</string>
+    <string name="agent_action_snooze">Daga baya</string>
+    <string name="agent_action_dismiss">Cire</string>
+    <string name="agent_action_view">Duba</string>
+    <string name="agent_action_execute_failed">Ba za a iya kammala wannan aikin ba.</string>
+    <string name="agent_action_retry">Sake gwadawa</string>
+    <string name="agent_review_no_target">Babu shafin da aka haɗa da wannan aikin.</string>
+    <plurals name="agent_feed_attention">
+        <item quantity="one">Abu %d yana buƙatar hankali</item>
+        <item quantity="other">Abubuwa %d suna buƙatar hankali</item>
+    </plurals>
+
+    <string name="notification_channel_agent_alerts">Faɗakarwar kasuwanci</string>
+    <string name="notification_channel_agent_alerts_desc">Tunatarwa daga wakilanku game da ajiya, zamba, da kudaden shiga.</string>
+    <string name="settings_section_agents">Wakilolin AI</string>
+    <string name="settings_agents_card_title">Ayyukan wakili</string>
+    <string name="settings_agents_card_body">Duba lokacin da kowane wakili ya gudu kuma faɗa layi don sakamakon kusa.</string>
+    <string name="settings_btn_agent_activity">Buɗe tarihin gudun</string>
+    <string name="agent_settings_title">Tarihin gudun wakili</string>
+    <string name="agent_settings_name_stock_guardian">Mai kiyaye ajiya</string>
+    <string name="agent_settings_name_fraud_sentinel">Mai kiyaye zamba</string>
+    <string name="agent_settings_name_pricing_agent">Wakilin farashi</string>
+    <string name="agent_settings_name_cash_flow">Mai kiyaye kudaden shiga</string>
+    <string name="agent_settings_name_customer_relation">Dangantaka da abokan ciniki</string>
+    <string name="agent_settings_name_weekly_review">Binciken mako-mako</string>
+    <string name="agent_settings_name_opportunity_spotter">Mai nemo dama</string>
+    <string name="agent_settings_last_run_never">Har abada ba</string>
+    <string name="agent_settings_last_run_just_now">Yanzu</string>
+    <string name="agent_settings_row_summary">An gudu karshe: %1$s · %2$s</string>
+    <string name="agent_settings_history_empty">Babu rubutaccen tarihi tukuna. Za a bayyana nan.</string>
+    <string name="agent_settings_history_line">%1$s · %2$s · %3$s</string>
+    <string name="agent_settings_duration_seconds">%1$ds</string>
+    <string name="agent_settings_duration_minutes">%1$dm</string>
+    <string name="agent_settings_duration_hours">%1$dh</string>
+    <plurals name="agent_settings_minutes_ago">
+        <item quantity="one">Minti %d da ya wuce</item>
+        <item quantity="other">Mintoci %d da suka wuce</item>
+    </plurals>
+    <plurals name="agent_settings_hours_ago">
+        <item quantity="one">Awa %d da ta wuce</item>
+        <item quantity="other">Awanni %d da suka wuce</item>
+    </plurals>
+    <plurals name="agent_settings_days_ago">
+        <item quantity="one">Kwana %d da ya wuce</item>
+        <item quantity="other">Kwanaki %d da suka wuce</item>
+    </plurals>
+    <plurals name="agent_settings_generated_actions">
+        <item quantity="one">An samar da aiki %d</item>
+        <item quantity="other">An samar da ayyuka %d</item>
+    </plurals>
 
 </resources>

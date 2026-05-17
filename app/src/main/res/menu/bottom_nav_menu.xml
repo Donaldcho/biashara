@@ -2,7 +2,7 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
 
     <item
-        android:id="@+id/homeFragment"
+        android:id="@+id/agentFeedFragment"
         android:icon="@drawable/ic_nav_home"
         android:title="@string/nav_home" />
 
@@ -17,9 +17,9 @@
         android:title="@string/nav_chat" />
 
     <item
-        android:id="@+id/insightsFragment"
-        android:icon="@drawable/ic_nav_insights"
-        android:title="@string/nav_insights" />
+        android:id="@+id/posFragment"
+        android:icon="@drawable/ic_nav_sales"
+        android:title="@string/nav_sales" />
 
     <item
         android:id="@+id/settingsFragment"

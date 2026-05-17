@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="MicrophoneButtonView">
+        <attr name="micColor" format="color" />
+        <attr name="showTranscriptionInline" format="boolean" />
+    </declare-styleable>
+
+    <declare-styleable name="TranscriptionBannerView">
+        <attr name="bannerBackgroundColor" format="color" />
+    </declare-styleable>
+
+    <declare-styleable name="SpeakerButtonView">
+        <attr name="speakerTint" format="color" />
+    </declare-styleable>
+</resources>

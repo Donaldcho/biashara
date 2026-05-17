@@ -20,6 +20,7 @@ import com.biasharaai.data.local.db.ProductDao
 import com.biasharaai.databinding.FragmentBarcodeScannerBinding
 import com.biasharaai.ui.base.BaseFragment
 import com.biasharaai.ui.inventory.InventoryListFragment
+import com.biasharaai.ui.pos.PosFragment
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.firstOrNull
@@ -139,14 +140,20 @@ class BarcodeScannerFragment : BaseFragment() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
         cameraProviderFuture.addListener(
             {
-                val cameraProvider = cameraProviderFuture.get()
-                bindCameraUseCases(cameraProvider)
+                if (_binding == null) return@addListener
+                try {
+                    val cameraProvider = cameraProviderFuture.get()
+                    bindCameraUseCases(cameraProvider)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Camera provider failed", e)
+                }
             },
             ContextCompat.getMainExecutor(requireContext()),
         )
     }
 
     private fun bindCameraUseCases(cameraProvider: ProcessCameraProvider) {
+        val binding = _binding ?: return
         // Preview
         val preview = Preview.Builder()
             .build()
@@ -184,7 +191,13 @@ class BarcodeScannerFragment : BaseFragment() {
     private fun handleBarcodeResult(rawValue: String) {
         when (scanMode) {
             ScanMode.SCAN_FOR_LOOKUP -> lookupProduct(rawValue)
-            ScanMode.SCAN_TO_ADD -> navigateToAddWithBarcode(rawValue)
+            ScanMode.SCAN_TO_ADD -> {
+                if (arguments?.getBoolean(ARG_RETURN_BARCODE_TO_POS, false) == true) {
+                    returnBarcodeToPos(rawValue)
+                } else {
+                    navigateToAddWithBarcode(rawValue)
+                }
+            }
             ScanMode.SCAN_TO_RECORD_SALE -> navigateToSaleWithBarcode(rawValue)
         }
     }
@@ -196,6 +209,7 @@ class BarcodeScannerFragment : BaseFragment() {
     private fun lookupProduct(barcodeValue: String) {
         viewLifecycleOwner.lifecycleScope.launch {
             val product = productDao.getProductByBarcode(barcodeValue).firstOrNull()
+            val root = _binding?.root ?: return@launch
             if (product != null) {
                 // Found – navigate to AddEditProductFragment with the product id
                 findNavController().navigate(
@@ -205,7 +219,7 @@ class BarcodeScannerFragment : BaseFragment() {
             } else {
                 // Not found – show Snackbar with option to add
                 Snackbar.make(
-                    binding.root,
+                    root,
                     getString(R.string.scanner_product_not_found),
                     Snackbar.LENGTH_LONG,
                 ).setAction(getString(R.string.scanner_add_it)) {
@@ -220,6 +234,18 @@ class BarcodeScannerFragment : BaseFragment() {
                 }).show()
             }
         }
+    }
+
+    /**
+     * POS scan slot: return the raw barcode to [PosFragment] via the previous entry’s
+     * [androidx.lifecycle.SavedStateHandle], then pop the scanner.
+     */
+    private fun returnBarcodeToPos(barcodeValue: String) {
+        findNavController().previousBackStackEntry?.savedStateHandle?.set(
+            PosFragment.RESULT_KEY_SCANNED_BARCODE,
+            barcodeValue,
+        )
+        findNavController().navigateUp()
     }
 
     /**
@@ -253,5 +279,12 @@ class BarcodeScannerFragment : BaseFragment() {
 
         /** Navigation argument key: barcode value passed to the next destination. */
         const val ARG_BARCODE_VALUE = "barcode_value"
+
+        /**
+         * When `true` with [ScanMode.SCAN_TO_ADD], the scanned value is posted to
+         * [PosFragment]’s SavedStateHandle ([PosFragment.RESULT_KEY_SCANNED_BARCODE]) and the
+         * scanner pops — instead of opening [com.biasharaai.ui.inventory.AddEditProductFragment].
+         */
+        const val ARG_RETURN_BARCODE_TO_POS = "return_barcode_to_pos"
     }
 }

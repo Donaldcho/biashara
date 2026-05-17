@@ -1,0 +1,29 @@
+{
+  "catalogueVersion": 1,
+  "defaultPrimaryModelId": "gemma-4-e2b-it",
+  "models": [
+    {
+      "modelId": "gemma-4-e2b-it",
+      "displayName": "Gemma 4 E2B (recommended)",
+      "huggingFaceRepo": "litert-community/gemma-4-E2B-it-litert-lm",
+      "fileName": "gemma-4-E2B-it.litertlm",
+      "sizeBytes": 2705326080,
+      "sha256": "",
+      "capabilities": ["TEXT_GENERATION"],
+      "minTier": "PARTIAL_AI",
+      "isPrimaryCandidate": true
+    },
+    {
+      "modelId": "functiongemma-270m-it",
+      "displayName": "FunctionGemma 270M (fast tools)",
+      "huggingFaceRepo": "litert-community/functiongemma-270m-ft-mobile-actions",
+      "fileName": "mobile_actions_q8_ekv1024.litertlm",
+      "sizeBytes": 289406976,
+      "sha256": "",
+      "capabilities": ["FUNCTION_CALLING"],
+      "minTier": "PARTIAL_AI",
+      "isPrimaryCandidate": false,
+      "requiresHfAccess": true
+    }
+  ]
+}

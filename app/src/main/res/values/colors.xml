@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Biashara AI modern business palette -->
+    <color name="biashara_forest">#2563EB</color>
+    <color name="biashara_forest_dark">#1E40AF</color>
+    <color name="biashara_emerald">#14B8A6</color>
+    <color name="biashara_sage">#22C55E</color>
+    <color name="biashara_mint">#CCFBF1</color>
+    <color name="biashara_cream">#F8FAFC</color>
+    <color name="biashara_warm">#F5F7FB</color>
+    <!-- Primary / secondary copy on bright surfaces -->
+    <color name="biashara_charcoal">#0F172A</color>
+    <color name="biashara_ink">#111827</color>
+    <color name="biashara_muted">#475569</color>
+    <color name="biashara_border">#E2E8F0</color>
+    <color name="biashara_amber">#F59E0B</color>
+    <color name="biashara_amber_light">#FEF3C7</color>
+    <color name="biashara_red">#EF4444</color>
+    <color name="biashara_red_light">#FEE2E2</color>
+    <color name="biashara_blue">#2563EB</color>
+    <color name="biashara_blue_light">#DBEAFE</color>
+    <color name="biashara_success_green">#10B981</color>
+    <color name="biashara_success_light">#D1FAE5</color>
+    <color name="biashara_success_on_light">#065F46</color>
+
+    <!-- Surfaces (cards on warm background) -->
+    <color name="biashara_surface_bright">#FFFFFF</color>
+    <color name="biashara_scrim">#99000000</color>
+    <color name="biashara_scrim_light">#60000000</color>
+
+    <!-- Chart / income-expense bars -->
+    <color name="biashara_chart_income">#10B981</color>
+    <color name="biashara_chart_expense">#EF4444</color>
+    <color name="biashara_chart_track">#E2E8F0</color>
+
+    <color name="biashara_nav_label_unselected">#64748B</color>
+    <color name="biashara_nav_bar_bg">#F7FBFF</color>
+    <color name="biashara_nav_ripple">#332563EB</color>
+
+    <!-- Night: graphite shell with blue/teal business accents -->
+    <color name="biashara_night_bg">#0B1020</color>
+    <color name="biashara_night_surface">#111827</color>
+    <color name="biashara_night_elevated">#1E293B</color>
+
+    <color name="biashara_night_text_primary">#F8FAFC</color>
+    <color name="biashara_night_text_secondary">#CBD5E1</color>
+
+    <!-- Chips on primary POS header -->
+    <color name="biashara_chip_on_forest">#26FFFFFF</color>
+
+    <!-- Voice layer (V6) — teal accent for mic / listening states -->
+    <color name="voice_teal">#0D9488</color>
+</resources>

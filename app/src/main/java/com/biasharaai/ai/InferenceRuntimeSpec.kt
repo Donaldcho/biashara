@@ -25,15 +25,22 @@ object InferenceRuntimeSpec {
         val userForcesCpu: Boolean,
     )
 
-    fun resolve(tier: CapabilityTier, cfg: InferenceUiConfig): Resolved {
+    fun resolve(
+        tier: CapabilityTier,
+        cfg: InferenceUiConfig,
+        forFunctionToolModel: Boolean = false,
+    ): Resolved {
         val topK = cfg.topK.coerceIn(MIN_TOP_K, MAX_TOP_K)
         val topP = cfg.topP.coerceIn(MIN_TOP_P, MAX_TOP_P)
         val temperature = cfg.temperature.coerceIn(MIN_TEMPERATURE, MAX_TEMPERATURE)
 
-        val engineMaxTokens = when (tier) {
+        var engineMaxTokens = when (tier) {
             CapabilityTier.FULL_AI -> cfg.maxTokens.coerceIn(FULL_MIN_TOKENS, FULL_MAX_TOKENS)
             CapabilityTier.PARTIAL_AI -> cfg.maxTokens.coerceIn(PARTIAL_MIN_TOKENS, PARTIAL_MAX_TOKENS)
             else -> RULES_FALLBACK_TOKENS
+        }
+        if (forFunctionToolModel) {
+            engineMaxTokens = engineMaxTokens.coerceAtMost(FUNCTION_TOOL_MAX_TOKENS)
         }
 
         return Resolved(
@@ -58,4 +65,7 @@ object InferenceRuntimeSpec {
     private const val PARTIAL_MIN_TOKENS = 512
     private const val PARTIAL_MAX_TOKENS = 2048
     private const val RULES_FALLBACK_TOKENS = 512
+
+    /** FunctionGemma 270M tool loops — keep context small (Gallery mobile-actions pattern). */
+    private const val FUNCTION_TOOL_MAX_TOKENS = 1024
 }

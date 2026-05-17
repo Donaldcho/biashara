@@ -8,4 +8,9 @@
         android:title="@string/inventory_action_scan"
         app:showAsAction="ifRoom" />
 
+    <item
+        android:id="@+id/action_inventory_prepare_supplier_visit"
+        android:title="@string/inventory_menu_prepare_supplier_visit"
+        app:showAsAction="never" />
+
 </menu>

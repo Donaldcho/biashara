@@ -4,92 +4,127 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginStart="@dimen/screen_edge_padding"
-    android:layout_marginEnd="@dimen/screen_edge_padding"
-    android:layout_marginTop="4dp"
-    android:layout_marginBottom="4dp"
+    android:layout_margin="6dp"
     android:clickable="true"
     android:focusable="true"
     android:foreground="?attr/selectableItemBackground"
-    app:cardCornerRadius="12dp"
-    app:cardElevation="1dp"
-    app:contentPadding="16dp">
+    app:cardBackgroundColor="?attr/colorSurface"
+    app:cardCornerRadius="@dimen/biashara_corner_card"
+    app:cardElevation="2dp"
+    app:strokeColor="?attr/colorOutlineVariant"
+    app:strokeWidth="1dp">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
-        <TextView
-            android:id="@+id/text_product_name"
+        <ImageView
+            android:id="@+id/image_thumb"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textAlignment="viewStart"
-            android:textAppearance="?attr/textAppearanceTitleMedium"
-            app:layout_constraintEnd_toStartOf="@id/icon_barcode"
+            android:layout_height="0dp"
+            android:background="@color/biashara_cream"
+            android:contentDescription="@string/inventory_product_thumb_cd"
+            android:scaleType="centerCrop"
+            app:layout_constraintDimensionRatio="1:1"
+            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            tools:text="Unga wa Ngano" />
+            tools:src="@tools:sample/avatars" />
 
         <ImageView
             android:id="@+id/icon_barcode"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_margin="8dp"
+            android:background="@drawable/bg_catalog_barcode_badge"
             android:contentDescription="@string/inventory_barcode_icon_desc"
+            android:padding="5dp"
             android:src="@drawable/ic_barcode"
             android:visibility="gone"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="@id/text_product_name"
-            app:layout_constraintBottom_toBottomOf="@id/text_product_name"
+            app:layout_constraintEnd_toEndOf="@id/image_thumb"
+            app:layout_constraintTop_toTopOf="@id/image_thumb"
             app:tint="?attr/colorPrimary"
             tools:visibility="visible" />
 
-        <TextView
-            android:id="@+id/text_stock_quantity"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:textAlignment="viewStart"
-            android:textAppearance="?attr/textAppearanceBodyMedium"
-            android:textColor="?android:attr/textColorSecondary"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/text_product_name"
-            tools:text="Stock: 42" />
-
-        <TextView
-            android:id="@+id/text_price"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:textAlignment="viewStart"
-            android:textAppearance="?attr/textAppearanceBodyMedium"
-            android:textColor="?attr/colorPrimary"
-            app:layout_constraintBaseline_toBaselineOf="@id/text_stock_quantity"
-            app:layout_constraintStart_toEndOf="@id/text_stock_quantity"
-            tools:text="KES 150.00" />
-
-        <TextView
-            android:id="@+id/text_forecast"
+        <LinearLayout
+            android:id="@+id/layout_catalog_details"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:background="@drawable/bg_forecast_badge"
-            android:drawablePadding="4dp"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:paddingStart="8dp"
-            android:paddingTop="3dp"
-            android:paddingEnd="8dp"
-            android:paddingBottom="3dp"
-            android:textAppearance="?attr/textAppearanceLabelSmall"
-            android:textColor="?attr/colorOnPrimaryContainer"
-            android:visibility="gone"
+            android:orientation="vertical"
+            android:paddingStart="12dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="12dp"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/text_stock_quantity"
-            tools:text="📈 Day1: 6, Day2: 5, Day3: 7"
-            tools:visibility="visible" />
+            app:layout_constraintTop_toBottomOf="@id/image_thumb">
+
+            <TextView
+                android:id="@+id/text_product_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="2"
+                android:minLines="1"
+                android:textAlignment="viewStart"
+                android:textAppearance="?attr/textAppearanceTitleSmall"
+                android:textColor="?attr/colorOnSurface"
+                tools:text="Premium unga wa ngano family pack" />
+
+            <TextView
+                android:id="@+id/text_category"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textAlignment="viewStart"
+                android:textAppearance="?attr/textAppearanceBodySmall"
+                android:textColor="?android:attr/textColorSecondary"
+                android:visibility="gone"
+                tools:text="Baking and flour"
+                tools:visibility="visible" />
+
+            <TextView
+                android:id="@+id/text_price"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textAlignment="viewStart"
+                android:textAppearance="?attr/textAppearanceTitleMedium"
+                android:textColor="?attr/colorPrimary"
+                android:textStyle="bold"
+                tools:text="KES 150.00" />
+
+            <TextView
+                android:id="@+id/text_stock_quantity"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textAlignment="viewStart"
+                android:textAppearance="?attr/textAppearanceBodySmall"
+                android:textColor="?android:attr/textColorSecondary"
+                tools:text="42 in stock" />
+
+            <TextView
+                android:id="@+id/text_forecast"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_forecast_badge"
+                android:ellipsize="end"
+                android:maxLines="2"
+                android:paddingStart="8dp"
+                android:paddingTop="4dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="4dp"
+                android:textAppearance="?attr/textAppearanceLabelSmall"
+                android:textColor="?attr/colorOnPrimaryContainer"
+                android:visibility="gone"
+                tools:text="Demand: Day1 6, Day2 5"
+                tools:visibility="visible" />
+        </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

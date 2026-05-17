@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">BiasharaAI</string>
 
-    <string name="nav_home">መነሻ</string>
+    <string name="nav_home">ዛሬ</string>
     <string name="nav_inventory">ክምችት</string>
     <string name="nav_chat">ውይይት</string>
     <string name="nav_insights">ግንዛቤዎች</string>
@@ -80,6 +80,17 @@
     <string name="settings_delete_confirm_title">ሞዴሉን ይሰርዙ?</string>
     <string name="settings_delete_confirm_message">ሞዴሉ ዳግም እስኪወርድ ድረስ የ AI ባህሪያት አይገኙም።</string>
     <string name="settings_download_complete">ሞዴል በተሳካ ሁኔታ ወርዷል</string>
+    <string name="model_settings_title">የ AI ሞዴሎች</string>
+    <string name="settings_btn_manage_models">የ AI ሞዴሎችን ያስተዳድሩ</string>
+    <string name="model_settings_info">የ AI ሞዴል ያውርዱ፣ ይፈትሹ፣ ወይም ይቀይሩ።</string>
+    <string name="model_settings_chip_primary">ዋና</string>
+    <string name="model_settings_btn_set_primary">እንደ ዋና ያዘጋጁ</string>
+    <string name="model_settings_btn_benchmark">ፍጥነት ፈትሽ</string>
+    <string name="model_settings_benchmarking">ፍጥነት እየፈተሽ ነው…</string>
+    <string name="model_settings_benchmark_done">ፈተናው ተጠናቋል: %1$s t/s</string>
+    <string name="model_settings_benchmark_failed">ፈተናው አልተሳካም</string>
+    <string name="model_settings_primary_changed">ዋና ሞዴል ተቀይሯል</string>
+    <string name="model_settings_progress_detail">%1$d MB / %2$d MB · %3$d%%</string>
     <string name="settings_download_failed">ማውረድ አልተሳካም: %1$s</string>
     <string name="settings_section_about">ስለ</string>
     <string name="settings_app_version">ስሪት %1$s</string>
@@ -91,6 +102,13 @@
     <string name="voice_recording">በመቅዳት ላይ… አሁን ይናገሩ።</string>
     <string name="voice_transcription_failed">ድምፁን መቅዳት አልተቻለም። እባክዎ ደግመው ይሞክሩ።</string>
     <string name="voice_permission_denied">ለድምፅ ግብዓት የማይክሮፎን ፈቃድ ያስፈልጋል።</string>
+    <string name="voice_ui_mic_idle">የድምፅ ግብዓት</string>
+    <string name="voice_ui_mic_listening">በመስማት ላይ… አሁን ይናገሩ</string>
+    <string name="voice_ui_mic_processing">ድምፅ በማቀነባበት ላይ…</string>
+    <string name="voice_ui_mic_error">የድምፅ ግብዓት ስህተት</string>
+    <string name="voice_ui_transcription_dismiss">አሰናብት</string>
+    <string name="voice_ui_speak">በድምፅ አንብብ</string>
+    <string name="voice_ui_speak_stop">ንባብ አቁም</string>
 
     <!-- Cash Flow Insights (Prompt 9) -->
     <string name="insights_title">የገንዘብ ፍሰት ግንዛቤዎች</string>
@@ -116,5 +134,65 @@
     <string name="chat_fallback_generic">በክምችት፣ ትርፍ/መጐዳት፣ ወጪ እና ዝቅተኛ ክምችት ላይ ልረዳዎ። ስለነዚህ ውስጥ አንዱ ይጠይቁ።</string>
     <string name="chat_error_generic">ይቅርታ፣ ስህተት ተፈጥሯል። እባክዎ እንደገና ይሞክሩ።</string>
     <string name="chat_ai_timeout_with_summary">መሣሪያው ረጅም ጊዜ ወሰደ። ከመዝገቦችዎ ፈጣን መልስ፦\n\n%1$s</string>
+
+    <string name="agent_feed_greeting_morning">መልካም ጠዋት፣ %1$s</string>
+    <string name="agent_feed_greeting_afternoon">መልካም ከሰዓት፣ %1$s</string>
+    <string name="agent_feed_greeting_evening">መልካም ምሽት፣ %1$s</string>
+    <string name="agent_feed_attention_none">ሁሉንም አጠናቀዋል</string>
+    <string name="agent_feed_empty_illustration_cd">ሁሉም በጥሩ ሁኔታ ነው</string>
+    <string name="agent_feed_empty_message">ሁሉም በጥሩ ሁኔታ ይመስላል! ንግድዎ በሚገባ እየሰራ ነው።</string>
+    <string name="agent_feed_listen_review">ግምገማውን አዳምጥ</string>
+    <string name="agent_action_review">ግምገማ</string>
+    <string name="agent_action_approve">ያረጋግጡ ✓</string>
+    <string name="agent_action_reject">አትቀበሉ ✗</string>
+    <string name="agent_action_snooze">ለኋላ አድርግ</string>
+    <string name="agent_action_dismiss">አስወግድ</string>
+    <string name="agent_action_view">አሳይ</string>
+    <string name="agent_action_execute_failed">ድርጊቱን ማጠናቀቅ አልተቻለም።</string>
+    <string name="agent_action_retry">እንደገና ሞክር</string>
+    <string name="agent_review_no_target">ለዚህ ድርጊት የተገናኘ ማያ ገጽ የለም።</string>
+    <plurals name="agent_feed_attention">
+        <item quantity="one">%d ነገር ትኩረትዎን ይፈልጋል</item>
+        <item quantity="other">%d ነገሮች ትኩረትዎን ይፈልጋሉ</item>
+    </plurals>
+
+    <string name="notification_channel_agent_alerts">የንግድ ማስጠንቀቂያዎች</string>
+    <string name="notification_channel_agent_alerts_desc">ከወኪሎችዎ የክምችት፣ ማጭበርበር እና ገንዘብ ፍሰት አስታዋሾች።</string>
+    <string name="settings_section_agents">AI ወኪሎች</string>
+    <string name="settings_agents_card_title">የወኪል እንቅስቓሴ</string>
+    <string name="settings_agents_card_body">እያንዳንዱ ወኪል መጨረሻ ሲሰራ እና ረድፍን ዘርጋ ለቅርብ ውጤቶች።</string>
+    <string name="settings_btn_agent_activity">የሂደት ታሪክ ክፈት</string>
+    <string name="agent_settings_title">የወኪል ሂደት ታሪክ</string>
+    <string name="agent_settings_name_stock_guardian">የክምችት ጠባቂ</string>
+    <string name="agent_settings_name_fraud_sentinel">የማጭበርበር ጠባቂ</string>
+    <string name="agent_settings_name_pricing_agent">የዋጋ ወኪል</string>
+    <string name="agent_settings_name_cash_flow">የገንዘብ ፍሰት ጠባቂ</string>
+    <string name="agent_settings_name_customer_relation">የደንበኛ ግንኙነት</string>
+    <string name="agent_settings_name_weekly_review">ሳምንታዊ ግምገማ</string>
+    <string name="agent_settings_name_opportunity_spotter">የእድል ፈላጊ</string>
+    <string name="agent_settings_last_run_never">ፈጽሞ አይደለም</string>
+    <string name="agent_settings_last_run_just_now">አሁን</string>
+    <string name="agent_settings_row_summary">መጨረሻ ሩን፦ %1$s · %2$s</string>
+    <string name="agent_settings_history_empty">ምንም መዝገብ የለም። የቀጣዩ መርሐ ግብር እዚህ ይታያል።</string>
+    <string name="agent_settings_history_line">%1$s · %2$s · %3$s</string>
+    <string name="agent_settings_duration_seconds">%1$dሰ</string>
+    <string name="agent_settings_duration_minutes">%1$dደቂ</string>
+    <string name="agent_settings_duration_hours">%1$dሰዓ</string>
+    <plurals name="agent_settings_minutes_ago">
+        <item quantity="one">ከ%d ደቂቃ በፊት</item>
+        <item quantity="other">ከ%d ደቂቃዎች በፊት</item>
+    </plurals>
+    <plurals name="agent_settings_hours_ago">
+        <item quantity="one">ከ%d ሰዓት በፊት</item>
+        <item quantity="other">ከ%d ሰዓቶች በፊት</item>
+    </plurals>
+    <plurals name="agent_settings_days_ago">
+        <item quantity="one">ከ%d ቀን በፊት</item>
+        <item quantity="other">ከ%d ቀናት በፊት</item>
+    </plurals>
+    <plurals name="agent_settings_generated_actions">
+        <item quantity="one">%d እርምጃ ተፈጥሯል</item>
+        <item quantity="other">%d እርምጃዎች ተፈጥረዋል</item>
+    </plurals>
 
 </resources>

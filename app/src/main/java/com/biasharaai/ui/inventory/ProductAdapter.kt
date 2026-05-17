@@ -6,11 +6,12 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import coil.load
 import com.biasharaai.R
 import com.biasharaai.data.local.db.Product
 import com.biasharaai.databinding.ItemProductBinding
-import java.text.NumberFormat
-import java.util.Locale
+import com.biasharaai.money.MoneyFormatter
+import java.io.File
 
 /**
  * RecyclerView adapter for the inventory product list.
@@ -19,9 +20,12 @@ import java.util.Locale
  * when the underlying [Product] list changes.
  *
  * @param onItemClick callback invoked when a product item is tapped (for edit navigation).
+ * @param onItemLongClick callback for overflow actions (remove stock, delete); return true to consume.
  */
 class ProductAdapter(
+    private val moneyFormatter: MoneyFormatter,
     private val onItemClick: (Product) -> Unit,
+    private val onItemLongClick: (Product, View) -> Boolean,
 ) : ListAdapter<Product, ProductAdapter.ProductViewHolder>(ProductDiffCallback) {
 
     /** Map of product ID → forecast string. Updated externally by the fragment. */
@@ -57,18 +61,27 @@ class ProductAdapter(
 
             val context = binding.root.context
             binding.textStockQuantity.text = context.getString(
-                R.string.inventory_stock_format,
+                R.string.inventory_catalog_stock,
                 product.stockQuantity,
             )
 
-            val currencyFormat = NumberFormat.getCurrencyInstance(Locale.getDefault())
-            binding.textPrice.text = currencyFormat.format(product.price)
+            val cat = product.category?.trim().orEmpty()
+            if (cat.isNotEmpty()) {
+                binding.textCategory.visibility = View.VISIBLE
+                binding.textCategory.text = cat
+            } else {
+                binding.textCategory.visibility = View.GONE
+            }
+
+            binding.textPrice.text = moneyFormatter.format(product.price)
 
             binding.iconBarcode.visibility = if (product.barcodeValue != null) {
                 View.VISIBLE
             } else {
                 View.GONE
             }
+
+            bindProductThumb(product)
 
             // Forecast badge
             if (!forecast.isNullOrBlank()) {
@@ -82,6 +95,33 @@ class ProductAdapter(
             }
 
             binding.root.setOnClickListener { onItemClick(product) }
+            binding.root.setOnLongClickListener { onItemLongClick(product, it) }
+        }
+
+        private fun bindProductThumb(product: Product) {
+            val url = product.imageUrl
+            val hasLocal = !url.isNullOrBlank() &&
+                !url.startsWith("http", ignoreCase = true) &&
+                File(url).isFile
+            val hasRemote = !url.isNullOrBlank() && url.startsWith("http", ignoreCase = true)
+            if (hasLocal) {
+                binding.imageThumb.background = null
+                binding.imageThumb.load(File(url!!)) {
+                    crossfade(true)
+                    placeholder(R.drawable.bg_product_thumb)
+                    error(R.drawable.bg_product_thumb)
+                }
+            } else if (hasRemote) {
+                binding.imageThumb.background = null
+                binding.imageThumb.load(url!!) {
+                    crossfade(true)
+                    placeholder(R.drawable.bg_product_thumb)
+                    error(R.drawable.bg_product_thumb)
+                }
+            } else {
+                binding.imageThumb.setImageDrawable(null)
+                binding.imageThumb.setBackgroundResource(R.drawable.bg_product_thumb)
+            }
         }
     }
 

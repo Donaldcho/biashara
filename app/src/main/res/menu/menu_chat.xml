@@ -8,4 +8,24 @@
         android:title="@string/chat_new_chat"
         app:showAsAction="ifRoom" />
 
+    <item
+        android:id="@+id/action_chat_history"
+        android:title="@string/chat_menu_history"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_wikipedia"
+        android:title="@string/chat_menu_wikipedia"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_maps"
+        android:title="@string/chat_menu_maps"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_load_skills"
+        android:title="@string/chat_menu_load_skills"
+        app:showAsAction="never" />
+
 </menu>

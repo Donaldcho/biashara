@@ -8,14 +8,27 @@ import com.biasharaai.ai.DownloadState
 import com.biasharaai.ai.GemmaService
 import com.biasharaai.ai.InferenceSettingsStore
 import com.biasharaai.ai.ModelDownloadManager
+import com.biasharaai.cloud.BusinessAnalyticsJsonExporter
+import com.biasharaai.cloud.CloudAnalysisHttpClient
+import com.biasharaai.cloud.CloudAnalysisSettings
+import com.biasharaai.cloud.CloudAnalysisSettingsStore
+import com.biasharaai.data.local.db.AppSettings
+import com.biasharaai.data.local.db.AppSettingsDao
 import com.biasharaai.ui.base.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Currency
+import java.util.Locale
 import javax.inject.Inject
 
 /**
@@ -29,7 +42,15 @@ class SettingsViewModel @Inject constructor(
     val modelDownloadManager: ModelDownloadManager,
     private val gemmaService: GemmaService,
     val inferenceSettingsStore: InferenceSettingsStore,
+    private val appSettingsDao: AppSettingsDao,
+    private val cloudAnalysisSettingsStore: CloudAnalysisSettingsStore,
+    private val businessAnalyticsJsonExporter: BusinessAnalyticsJsonExporter,
+    private val cloudAnalysisHttpClient: CloudAnalysisHttpClient,
 ) : BaseViewModel() {
+
+    /** Singleton POS / shop settings row (currency, tax, …). */
+    val shopSettings: StateFlow<AppSettings?> = appSettingsDao.getSettings()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val downloadState: StateFlow<DownloadState> = modelDownloadManager.state
 
@@ -52,8 +73,10 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun deleteModel() {
-        gemmaService.close()
-        modelDownloadManager.deleteModel()
+        viewModelScope.launch {
+            gemmaService.close()
+            modelDownloadManager.deleteModel()
+        }
     }
 
     /** Call after saving Edge-style inference UI so the next chat run reloads the engine. */
@@ -61,13 +84,140 @@ class SettingsViewModel @Inject constructor(
         gemmaService.resetEngine()
     }
 
+    /** Persists ISO 4217 code and a display symbol for receipts and prompts. */
+    fun setShopCurrency(isoCode: String) {
+        viewModelScope.launch {
+            val code = isoCode.trim().uppercase(Locale.ROOT)
+            val currency = runCatching { Currency.getInstance(code) }.getOrNull() ?: return@launch
+            // Room forbids synchronous DAO reads on the main thread (no allowMainThreadQueries).
+            withContext(Dispatchers.IO) {
+                val row = appSettingsDao.getSettingsSync() ?: AppSettings()
+                appSettingsDao.updateSettings(
+                    row.copy(
+                        currencyCode = code,
+                        currencySymbol = currency.getSymbol(Locale.getDefault()),
+                    ),
+                )
+            }
+        }
+    }
+
     fun retryDownload() {
         modelDownloadManager.resetAfterFailure()
         downloadModel()
     }
 
+    fun redownloadModel() {
+        viewModelScope.launch {
+            try {
+                gemmaService.close()
+                modelDownloadManager.deleteModel()
+                modelDownloadManager.downloadModel()
+                _events.emit(Event.DownloadComplete)
+            } catch (e: Exception) {
+                Log.e("SettingsViewModel", "Model re-download failed", e)
+                _events.emit(Event.DownloadFailed(e.message ?: "Download failed"))
+            }
+        }
+    }
+
     private val _isBenchmarking = MutableStateFlow(false)
     val isBenchmarking: StateFlow<Boolean> = _isBenchmarking
+
+    private val _cloudSettings = MutableStateFlow(cloudAnalysisSettingsStore.load())
+    val cloudSettings: StateFlow<CloudAnalysisSettings> = _cloudSettings.asStateFlow()
+
+    private val _isCloudUploading = MutableStateFlow(false)
+    val isCloudUploading: StateFlow<Boolean> = _isCloudUploading.asStateFlow()
+
+    fun saveCloudAnalysis(enabled: Boolean, endpointUrl: String, newApiKeyIfNonBlank: String?) {
+        viewModelScope.launch(Dispatchers.IO) {
+            cloudAnalysisSettingsStore.save(enabled, endpointUrl, newApiKeyIfNonBlank)
+            _cloudSettings.value = cloudAnalysisSettingsStore.load()
+            _events.emit(Event.CloudSettingsSaved)
+        }
+    }
+
+    fun uploadCloudAnalyticsJson() {
+        if (_isCloudUploading.value) return
+        viewModelScope.launch {
+            val cfg = cloudAnalysisSettingsStore.load()
+            val url = cfg.endpointUrl.trim()
+            val key = cloudAnalysisSettingsStore.apiKeyOrNull()
+            when {
+                !cfg.enabled -> {
+                    _events.emit(Event.CloudUploadFailed(CLOUD_ERR_NOT_ENABLED))
+                    return@launch
+                }
+                url.isBlank() || !url.startsWith("https://", ignoreCase = true) -> {
+                    _events.emit(Event.CloudUploadFailed(CLOUD_ERR_MISSING_URL))
+                    return@launch
+                }
+                key.isNullOrBlank() -> {
+                    _events.emit(Event.CloudUploadFailed(CLOUD_ERR_MISSING_KEY))
+                    return@launch
+                }
+            }
+            _isCloudUploading.value = true
+            try {
+                val json = withContext(Dispatchers.IO) { businessAnalyticsJsonExporter.buildJson() }
+                val result = withContext(Dispatchers.IO) {
+                    cloudAnalysisHttpClient.postJson(url, json, key)
+                }
+                result.fold(
+                    onSuccess = { _events.emit(Event.CloudUploadSucceeded) },
+                    onFailure = { e ->
+                        Log.w("SettingsViewModel", "cloud json upload failed", e)
+                        _events.emit(Event.CloudUploadFailed(e.message ?: "Unknown error"))
+                    },
+                )
+            } finally {
+                _isCloudUploading.value = false
+            }
+        }
+    }
+
+    fun uploadCloudSqliteDatabase() {
+        if (_isCloudUploading.value) return
+        viewModelScope.launch {
+            val cfg = cloudAnalysisSettingsStore.load()
+            val url = cfg.endpointUrl.trim()
+            val key = cloudAnalysisSettingsStore.apiKeyOrNull()
+            when {
+                !cfg.enabled -> {
+                    _events.emit(Event.CloudUploadFailed(CLOUD_ERR_NOT_ENABLED))
+                    return@launch
+                }
+                url.isBlank() || !url.startsWith("https://", ignoreCase = true) -> {
+                    _events.emit(Event.CloudUploadFailed(CLOUD_ERR_MISSING_URL))
+                    return@launch
+                }
+                key.isNullOrBlank() -> {
+                    _events.emit(Event.CloudUploadFailed(CLOUD_ERR_MISSING_KEY))
+                    return@launch
+                }
+            }
+            _isCloudUploading.value = true
+            var temp: java.io.File? = null
+            try {
+                temp = withContext(Dispatchers.IO) { businessAnalyticsJsonExporter.copyCheckpointedDatabaseToCache() }
+                val file = temp!!
+                val result = withContext(Dispatchers.IO) {
+                    cloudAnalysisHttpClient.postSqliteFile(url, file, key)
+                }
+                result.fold(
+                    onSuccess = { _events.emit(Event.CloudUploadSucceeded) },
+                    onFailure = { e ->
+                        Log.w("SettingsViewModel", "cloud sqlite upload failed", e)
+                        _events.emit(Event.CloudUploadFailed(e.message ?: "Unknown error"))
+                    },
+                )
+            } finally {
+                temp?.delete()
+                _isCloudUploading.value = false
+            }
+        }
+    }
 
     /**
      * Run a fixed short prompt and measure first-token latency + tokens/sec.
@@ -125,5 +275,15 @@ class SettingsViewModel @Inject constructor(
             val tokensPerSecond: Double,
         ) : Event()
         data class BenchmarkFailed(val message: String) : Event()
+        data object CloudSettingsSaved : Event()
+        data object CloudUploadSucceeded : Event()
+        data class CloudUploadFailed(val message: String) : Event()
+    }
+
+    companion object {
+        const val CLOUD_ERR_NOT_ENABLED = "__cloud_not_enabled__"
+        const val CLOUD_ERR_MISSING_URL = "__cloud_missing_url__"
+        const val CLOUD_ERR_MISSING_KEY = "__cloud_missing_key__"
     }
 }
+

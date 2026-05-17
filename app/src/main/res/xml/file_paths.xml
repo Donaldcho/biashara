@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <files-path
+        name="product_photos"
+        path="product_photos/" />
+    <cache-path
+        name="shared_qr"
+        path="." />
+</paths>

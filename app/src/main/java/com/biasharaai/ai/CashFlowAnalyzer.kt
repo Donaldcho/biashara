@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.biasharaai.data.local.db.Transaction
 import com.biasharaai.data.local.db.TransactionType
+import com.biasharaai.money.MoneyFormatter
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -27,6 +28,7 @@ class CashFlowAnalyzer @Inject constructor(
     private val gemmaService: GemmaService,
     @ApplicationContext private val appContext: Context,
     private val modelDownloadManager: ModelDownloadManager,
+    private val moneyFormatter: MoneyFormatter,
 ) {
     private fun effectiveTier(): CapabilityTier =
         DeviceCapabilityChecker.evaluate(
@@ -54,7 +56,7 @@ class CashFlowAnalyzer @Inject constructor(
 
     private fun aggregate(transactions: List<Transaction>): CashFlowStats {
         val totalIncome = transactions
-            .filter { it.type == TransactionType.INCOME }
+            .filter { it.type == TransactionType.INCOME || it.type == TransactionType.RETURN }
             .sumOf { it.amount }
 
         val totalExpenses = transactions
@@ -80,7 +82,7 @@ class CashFlowAnalyzer @Inject constructor(
         periodLabel: String,
     ): String {
         val stats = aggregate(transactions)
-        val formatter = NumberFormat.getCurrencyInstance(Locale.getDefault())
+        val formatter = moneyFormatter.numberFormat()
         return generateWithRules(
             stats.totalIncome,
             stats.totalExpenses,
@@ -103,7 +105,7 @@ class CashFlowAnalyzer @Inject constructor(
             return null
         }
         val stats = aggregate(transactions)
-        val formatter = NumberFormat.getCurrencyInstance(Locale.getDefault())
+        val formatter = moneyFormatter.numberFormat()
         return try {
             generateAiNarrative(
                 stats.totalIncome,
@@ -135,7 +137,7 @@ class CashFlowAnalyzer @Inject constructor(
         }
         return try {
             val stats = aggregate(transactions)
-            val formatter = NumberFormat.getCurrencyInstance(Locale.getDefault())
+            val formatter = moneyFormatter.numberFormat()
             generateAiNarrative(
                 stats.totalIncome,
                 stats.totalExpenses,
