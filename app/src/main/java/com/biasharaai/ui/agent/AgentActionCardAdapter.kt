@@ -15,6 +15,7 @@ import com.biasharaai.data.local.db.AgentAction
 import com.biasharaai.databinding.ItemAgentActionCardBinding
 import com.biasharaai.databinding.ItemAgentWeeklyReviewCardBinding
 import com.biasharaai.locale.LanguagePreferences
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.chip.Chip
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
@@ -24,6 +25,7 @@ data class AgentActionCardUiModel(
     val action: AgentAction,
     val isExecuting: Boolean,
     val ttsEnabled: Boolean,
+    val feedbackVote: Int? = null,
 )
 
 private data class WeeklyChipJson(
@@ -42,6 +44,7 @@ class AgentActionCardAdapter(
     private val onSnooze: (AgentAction) -> Unit,
     private val onDismiss: (AgentAction) -> Unit,
     private val onView: (AgentAction) -> Unit,
+    private val onFeedback: (AgentAction, Boolean) -> Unit,
 ) : ListAdapter<AgentActionCardUiModel, RecyclerView.ViewHolder>(Diff) {
 
     override fun getItemViewType(position: Int): Int {
@@ -89,6 +92,13 @@ class AgentActionCardAdapter(
             binding.rowButtons.isEnabled = !model.isExecuting
 
             bindButtons(action, model.isExecuting)
+            bindFeedbackButtons(
+                positive = binding.buttonFeedbackPositive,
+                negative = binding.buttonFeedbackNegative,
+                action = action,
+                feedbackVote = model.feedbackVote,
+                executing = model.isExecuting,
+            )
             bindSpeakAloudDefault(model)
         }
 
@@ -249,7 +259,37 @@ class AgentActionCardAdapter(
             binding.buttonPrimary.text = ctx.getString(R.string.agent_action_view)
             binding.buttonPrimary.isEnabled = !model.isExecuting
             binding.buttonPrimary.setOnClickListener { onView(action) }
+            bindFeedbackButtons(
+                positive = binding.buttonFeedbackPositive,
+                negative = binding.buttonFeedbackNegative,
+                action = action,
+                feedbackVote = model.feedbackVote,
+                executing = model.isExecuting,
+            )
         }
+    }
+
+    private fun bindFeedbackButtons(
+        positive: MaterialButton,
+        negative: MaterialButton,
+        action: AgentAction,
+        feedbackVote: Int?,
+        executing: Boolean,
+    ) {
+        positive.setOnClickListener(null)
+        negative.setOnClickListener(null)
+
+        positive.isCheckable = true
+        negative.isCheckable = true
+        positive.isChecked = feedbackVote == 1
+        negative.isChecked = feedbackVote == -1
+        positive.isEnabled = !executing
+        negative.isEnabled = !executing
+        positive.alpha = if (feedbackVote == null || feedbackVote == 1) 1f else 0.56f
+        negative.alpha = if (feedbackVote == null || feedbackVote == -1) 1f else 0.56f
+
+        positive.setOnClickListener { onFeedback(action, true) }
+        negative.setOnClickListener { onFeedback(action, false) }
     }
 
     private fun emojiForAgentType(agentType: String): String = when (agentType) {

@@ -2,10 +2,12 @@ package com.biasharaai.ui.inventory
 
 import com.biasharaai.ai.DemandForecaster
 import com.biasharaai.ai.GemmaService
+import com.biasharaai.data.local.db.ForecastCalibrationDao
 import com.biasharaai.data.local.db.Product
 import com.biasharaai.data.local.db.ProductDao
 import com.biasharaai.media.ProductPhotoStore
 import com.biasharaai.service.ServiceRepository
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
@@ -36,6 +38,7 @@ class InventoryListViewModelTest {
     private lateinit var productDao: ProductDao
     private lateinit var demandForecaster: DemandForecaster
     private lateinit var gemmaService: GemmaService
+    private lateinit var calibrationDao: ForecastCalibrationDao
     private lateinit var productPhotoStore: ProductPhotoStore
     private lateinit var serviceRepository: ServiceRepository
 
@@ -49,7 +52,10 @@ class InventoryListViewModelTest {
 
         productDao = mockk(relaxed = true)
         gemmaService = mockk(relaxed = true)
-        demandForecaster = DemandForecaster(gemmaService)
+        calibrationDao = mockk(relaxed = true)
+        coEvery { calibrationDao.avgBiasRatio(any(), any()) } returns null
+        coEvery { calibrationDao.insert(any()) } returns 1L
+        demandForecaster = DemandForecaster(gemmaService, calibrationDao)
         productPhotoStore = mockk(relaxed = true)
         serviceRepository = mockk(relaxed = true)
         every { serviceRepository.observeServices() } returns flowOf(emptyList())

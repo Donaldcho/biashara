@@ -30,6 +30,7 @@ class LanguageSelectionFragment : BaseFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         binding.btnEnglish.setOnClickListener { selectLocale("en") }
+        binding.btnFrench.setOnClickListener { selectLocale("fr") }
         binding.btnSwahili.setOnClickListener { selectLocale("sw") }
         binding.btnHausa.setOnClickListener { selectLocale("ha") }
         binding.btnYoruba.setOnClickListener { selectLocale("yo") }

@@ -1,5 +1,6 @@
 package com.biasharaai.ai
 
+import com.biasharaai.data.local.db.ForecastCalibrationDao
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -28,6 +29,7 @@ class DemandForecasterTest {
 
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var gemmaService: GemmaService
+    private lateinit var calibrationDao: ForecastCalibrationDao
     private lateinit var forecaster: DemandForecaster
 
     @Before
@@ -41,7 +43,8 @@ class DemandForecasterTest {
         every { android.util.Log.e(any(), any(), any()) } returns 0
 
         gemmaService = mockk(relaxed = true)
-        forecaster = DemandForecaster(gemmaService)
+        calibrationDao = mockk(relaxed = true)
+        forecaster = DemandForecaster(gemmaService, calibrationDao)
     }
 
     @After
@@ -57,7 +60,7 @@ class DemandForecasterTest {
         every { gemmaService.isAvailable } returns true
         coEvery { gemmaService.generateResponse(any()) } returns "Day1: 5, Day2: 8, Day3: 6"
 
-        val result = forecaster.predictDemand("Sugar", listOf(3, 5, 4, 6, 7, 5, 4))
+        val result = forecaster.predictDemand(1L, "Sugar", listOf(3, 5, 4, 6, 7, 5, 4))
         assertEquals("Day1: 5, Day2: 8, Day3: 6", result)
     }
 
@@ -67,7 +70,7 @@ class DemandForecasterTest {
         coEvery { gemmaService.generateResponse(any()) } returns
             "Based on the data, I predict: Day1: 12, Day2: 10, Day3: 15. Good luck!"
 
-        val result = forecaster.predictDemand("Milk", listOf(8, 10, 9, 11, 12, 10, 9))
+        val result = forecaster.predictDemand(2L, "Milk", listOf(8, 10, 9, 11, 12, 10, 9))
         assertEquals("Day1: 12, Day2: 10, Day3: 15", result)
     }
 
@@ -76,7 +79,7 @@ class DemandForecasterTest {
         every { gemmaService.isAvailable } returns true
         coEvery { gemmaService.generateResponse(any()) } returns "Day 1 : 3, Day 2 : 7, Day 3 : 5"
 
-        val result = forecaster.predictDemand("Bread", listOf(2, 4, 3, 5, 6, 4, 3))
+        val result = forecaster.predictDemand(3L, "Bread", listOf(2, 4, 3, 5, 6, 4, 3))
         assertEquals("Day1: 3, Day2: 7, Day3: 5", result)
     }
 
@@ -84,13 +87,13 @@ class DemandForecasterTest {
 
     @Test
     fun `predictDemand returns empty when data below minimum threshold`() = runTest {
-        val result = forecaster.predictDemand("Sugar", listOf(3, 5, 4))
+        val result = forecaster.predictDemand(1L, "Sugar", listOf(3, 5, 4))
         assertEquals("", result)
     }
 
     @Test
     fun `predictDemand returns empty when data exactly one below minimum`() = runTest {
-        val result = forecaster.predictDemand("Sugar", listOf(1, 2, 3, 4, 5, 6))
+        val result = forecaster.predictDemand(1L, "Sugar", listOf(1, 2, 3, 4, 5, 6))
         assertEquals("", result)
     }
 
@@ -100,7 +103,7 @@ class DemandForecasterTest {
     fun `predictDemand uses rules fallback when AI unavailable`() = runTest {
         every { gemmaService.isAvailable } returns false
 
-        val result = forecaster.predictDemand("Rice", listOf(5, 5, 5, 5, 5, 5, 5))
+        val result = forecaster.predictDemand(4L, "Rice", listOf(5, 5, 5, 5, 5, 5, 5))
         assertTrue("Rules fallback should produce Day1/Day2/Day3 format", result.contains("Day1:"))
         assertTrue(result.contains("Day2:"))
         assertTrue(result.contains("Day3:"))
@@ -111,7 +114,7 @@ class DemandForecasterTest {
         every { gemmaService.isAvailable } returns false
 
         // All constant 10s — average is 10, trend is ~0
-        val result = forecaster.predictDemand("Water", listOf(10, 10, 10, 10, 10, 10, 10))
+        val result = forecaster.predictDemand(5L, "Water", listOf(10, 10, 10, 10, 10, 10, 10))
         assertTrue(result.contains("Day1: 10"))
     }
 
@@ -122,7 +125,7 @@ class DemandForecasterTest {
         every { gemmaService.isAvailable } returns true
         coEvery { gemmaService.generateResponse(any()) } throws RuntimeException("Model crashed")
 
-        val result = forecaster.predictDemand("Soap", listOf(3, 4, 5, 3, 4, 5, 3))
+        val result = forecaster.predictDemand(6L, "Soap", listOf(3, 4, 5, 3, 4, 5, 3))
         assertTrue("Should contain Day1 from rules fallback", result.contains("Day1:"))
     }
 
@@ -133,7 +136,7 @@ class DemandForecasterTest {
         every { gemmaService.isAvailable } returns true
         coEvery { gemmaService.generateResponse(any()) } returns "I don't know the answer."
 
-        val result = forecaster.predictDemand("Oil", listOf(2, 3, 4, 2, 3, 4, 2))
+        val result = forecaster.predictDemand(7L, "Oil", listOf(2, 3, 4, 2, 3, 4, 2))
         assertEquals("I don't know the answer.", result)
     }
 }

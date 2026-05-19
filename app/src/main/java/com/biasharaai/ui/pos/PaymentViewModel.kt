@@ -11,6 +11,7 @@ import com.biasharaai.data.local.db.SaleRepository
 import com.biasharaai.data.local.db.ServiceVoucher
 import com.biasharaai.data.local.db.ServiceVoucherDao
 import com.biasharaai.service.ServiceTokenCodec
+import com.biasharaai.money.RegionalDefaults
 import com.biasharaai.data.local.db.TransactionRepository
 import com.biasharaai.pos.cart.CartManager
 import com.biasharaai.pos.cart.CartRepository
@@ -131,7 +132,7 @@ class PaymentViewModel @Inject constructor(
     private val _amountTenderedText = MutableStateFlow("")
     val amountTenderedText: StateFlow<String> = _amountTenderedText.asStateFlow()
 
-    private val _mobileMoneyNetwork = MutableStateFlow("MPESA")
+    private val _mobileMoneyNetwork = MutableStateFlow(RegionalDefaults.MOBILE_MONEY_NETWORK)
     val mobileMoneyNetwork: StateFlow<String> = _mobileMoneyNetwork.asStateFlow()
 
     private val _mobileMoneyRef = MutableStateFlow("")
@@ -344,6 +345,7 @@ class PaymentViewModel @Inject constructor(
                         runCatching {
                             val prompt = """
                                 Extract the transaction reference code from this mobile money SMS.
+                                Prioritize MTN MoMo and Orange Money Cameroon formats, including FCFA/XAF amounts.
                                 Return ONLY the reference code, nothing else.
                                 If no reference is found, return 'NOT_FOUND'.
                                 SMS: $text

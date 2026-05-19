@@ -13,11 +13,15 @@ import com.biasharaai.agent.AgentTypes
 import com.biasharaai.agent.WeeklyReviewBuilder
 import com.biasharaai.ai.ActiveModelStore
 import com.biasharaai.ai.CapabilityTier
+import com.biasharaai.ai.ForecastCalibrationResolver
 import com.biasharaai.data.local.db.AgentActionDao
 import com.biasharaai.data.local.db.AgentSetting
 import com.biasharaai.data.local.db.AgentSettingDao
+import com.biasharaai.data.local.db.BusinessKpiSnapshot
+import com.biasharaai.data.local.db.BusinessKpiSnapshotDao
 import com.biasharaai.data.local.db.ServiceDeliveryDao
 import com.biasharaai.data.local.db.ServiceItemDao
+import com.biasharaai.knowledge.BusinessMemoryExtractor
 import com.biasharaai.locale.LanguagePreferences
 import com.biasharaai.productline.ProductLineManager
 import kotlinx.coroutines.Dispatchers
@@ -43,6 +47,9 @@ class WeeklyReviewWorker(
     private val serviceDeliveryDao: ServiceDeliveryDao,
     private val serviceItemDao: ServiceItemDao,
     private val agentPromptComposer: AgentPromptComposer,
+    private val kpiSnapshotDao: BusinessKpiSnapshotDao,
+    private val memoryExtractor: BusinessMemoryExtractor,
+    private val calibrationResolver: ForecastCalibrationResolver,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -63,6 +70,34 @@ class WeeklyReviewWorker(
             agentDecisionEngine.buildRunLog(AgentTypes.WEEKLY_REVIEW, startWall, 0, "SKIPPED_DUPLICATE")
             return@withContext Result.success()
         }
+
+        // ── Learning pipeline (runs regardless of AI tier) ──────────────────
+        // Step 1: persist KPI snapshot for longitudinal trend comparison
+        kpiSnapshotDao.upsert(
+            BusinessKpiSnapshot(
+                weekStartMillis = stats.weekStartMillis,
+                weekRevenue = stats.weekRevenue,
+                lastWeekRevenue = stats.lastWeekRevenue,
+                productRevenue = stats.productRevenue,
+                serviceRevenue = stats.serviceSalesRevenue,
+                txCount = stats.txCount,
+                newCustomers = stats.newCustomers,
+                returningCustomers = stats.returningCustomers,
+                topProductName = stats.topProduct,
+                topProductRevenue = stats.topRevenue,
+                topServiceName = stats.serviceStats?.topServiceName,
+                serviceSessions = stats.serviceStats?.deliveryCount ?: 0,
+                bestDay = stats.bestDay,
+                bestHour = stats.bestHour,
+                creditOutstanding = stats.totalCredit,
+            ),
+        )
+        // Step 2: resolve expired demand forecast calibrations
+        calibrationResolver.resolveExpired()
+        // Steps 4+5: extract KPI memory + scan recent chats for goals/preferences
+        memoryExtractor.persistWeeklyKpiMemory(stats)
+        memoryExtractor.extractFromRecentChats()
+        // ─────────────────────────────────────────────────────────────────────
 
         val language = languageNameForPrompt()
         val currency = stats.currencySymbol

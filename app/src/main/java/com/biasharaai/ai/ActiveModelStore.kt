@@ -19,6 +19,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import java.util.concurrent.Callable
 import java.util.concurrent.CancellationException
 import java.util.concurrent.Executors
@@ -49,6 +50,7 @@ class ActiveModelStore @Inject constructor(
         private const val TAG = "ActiveModelStore"
 
         private const val INIT_TIMEOUT_MS = 180_000L
+        private const val GENERATION_TIMEOUT_MS = 90_000L
 
         private const val SYSTEM_PROMPT =
             "You are Biashara AI, a helpful, friendly assistant for small business owners in " +
@@ -130,58 +132,60 @@ class ActiveModelStore @Inject constructor(
             val convo = inferenceExecutor.submit(Callable { ensureConversationOnGateThread() })
                 .get(INIT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
 
-            suspendCancellableCoroutine<Unit> { cont ->
-                val callback = object : MessageCallback {
-                    override fun onMessage(message: Message) {
-                        val delta = message.toString()
-                        if (delta.startsWith("<ctrl")) return
-                        try {
-                            onPartial(delta, false)
-                        } catch (t: Throwable) {
-                            Log.w(TAG, "onPartial threw", t)
+            withTimeout(GENERATION_TIMEOUT_MS) {
+                suspendCancellableCoroutine<Unit> { cont ->
+                    val callback = object : MessageCallback {
+                        override fun onMessage(message: Message) {
+                            val delta = message.toString()
+                            if (delta.startsWith("<ctrl")) return
+                            try {
+                                onPartial(delta, false)
+                            } catch (t: Throwable) {
+                                Log.w(TAG, "onPartial threw", t)
+                            }
+                        }
+
+                        override fun onDone() {
+                            try {
+                                onPartial("", true)
+                            } catch (_: Throwable) {
+                            }
+                            if (cont.isActive) cont.resume(Unit)
+                        }
+
+                        override fun onError(throwable: Throwable) {
+                            if (throwable is CancellationException) {
+                                Log.i(TAG, "Inference cancelled")
+                                if (cont.isActive) cont.resume(Unit)
+                            } else {
+                                Log.e(TAG, "Inference error", throwable)
+                                if (cont.isActive) cont.resumeWithException(throwable)
+                            }
                         }
                     }
 
-                    override fun onDone() {
+                    cont.invokeOnCancellation {
                         try {
-                            onPartial("", true)
+                            convo.cancelProcess()
                         } catch (_: Throwable) {
                         }
-                        if (cont.isActive) cont.resume(Unit)
                     }
 
-                    override fun onError(throwable: Throwable) {
-                        if (throwable is CancellationException) {
-                            Log.i(TAG, "Inference cancelled")
-                            if (cont.isActive) cont.resume(Unit)
-                        } else {
-                            Log.e(TAG, "Inference error", throwable)
-                            if (cont.isActive) cont.resumeWithException(throwable)
-                        }
-                    }
-                }
-
-                cont.invokeOnCancellation {
                     try {
-                        convo.cancelProcess()
-                    } catch (_: Throwable) {
-                    }
-                }
-
-                try {
-                    inferenceExecutor.submit {
-                        try {
-                            convo.sendMessageAsync(
-                                Contents.of(Content.Text(prompt)),
-                                callback,
-                                emptyMap<String, String>(),
-                            )
-                        } catch (e: Throwable) {
-                            if (cont.isActive) cont.resumeWithException(e)
+                        inferenceExecutor.submit {
+                            try {
+                                convo.sendMessageAsync(
+                                    Contents.of(Content.Text(prompt)),
+                                    callback,
+                                    emptyMap<String, String>(),
+                                )
+                            } catch (e: Throwable) {
+                                if (cont.isActive) cont.resumeWithException(e)
+                            }
                         }
+                    } catch (e: Throwable) {
+                        if (cont.isActive) cont.resumeWithException(e)
                     }
-                } catch (e: Throwable) {
-                    if (cont.isActive) cont.resumeWithException(e)
                 }
             }
         }

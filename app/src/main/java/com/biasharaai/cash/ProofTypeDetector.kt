@@ -8,8 +8,8 @@ object ProofTypeDetector {
         val upper = text.uppercase()
         return when {
             isMpesaSms(upper) -> ProofType.MPESA_SMS
+            isOrangeMoney(upper) || isAirtel(upper) || isMtnMomo(upper) -> ProofType.MOBILE_MONEY_SMS
             isKplc(upper) -> ProofType.UTILITY_BILL
-            isAirtel(upper) || isMtnMomo(upper) -> ProofType.MPESA_SMS
             isTillSlip(upper) -> ProofType.TILL_SLIP
             isSupplierBill(upper) -> ProofType.SUPPLIER_BILL
             isInvoice(upper) -> ProofType.INVOICE
@@ -29,7 +29,11 @@ object ProofTypeDetector {
 
     private fun isMtnMomo(u: String) =
         u.contains("MTN MOMO") || u.contains("MTN MOBILE MONEY") ||
-        (u.contains("MTN") && u.contains("TXN ID"))
+        (u.contains("MTN") && (u.contains("TXN ID") || u.contains("TXNID") || u.contains("TRANSACTION ID")))
+
+    private fun isOrangeMoney(u: String) =
+        u.contains("ORANGE MONEY") || u.contains("ORANGEMONEY") ||
+        (u.contains("ORANGE") && (u.contains("TRANSACTION ID") || u.contains("REF")))
 
     private fun isKplc(u: String) =
         u.contains("KENYA POWER") || u.contains("KPLC") ||

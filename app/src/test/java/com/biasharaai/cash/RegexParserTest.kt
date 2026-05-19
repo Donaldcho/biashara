@@ -61,6 +61,27 @@ class RegexParserTest {
         assertEquals(LedgerDirection.MONEY_IN, result!!.suggestedDirection)
     }
 
+    @Test
+    fun mtn_momo_fcfa_sms_parses_correctly() {
+        val sms = "MTN MoMo: You have received FCFA 12 500 from PAUL. Txn ID: ABC12345. Balance FCFA 40 000."
+        val result = RegexParser.parse(sms)
+        assertNotNull(result)
+        assertEquals(12500.0, result!!.amount!!, 0.01)
+        assertEquals("ABC12345", result.reference)
+        assertEquals(ProofType.MOBILE_MONEY_SMS, result.proofType)
+        assertEquals(LedgerDirection.MONEY_IN, result.suggestedDirection)
+    }
+
+    @Test
+    fun orange_money_xaf_sms_parses_correctly() {
+        val sms = "Orange Money: paiement recu XAF 3 000. Reference: OM123456. Merci."
+        val result = RegexParser.parse(sms)
+        assertNotNull(result)
+        assertEquals(3000.0, result!!.amount!!, 0.01)
+        assertEquals("OM123456", result.reference)
+        assertEquals(ProofType.MOBILE_MONEY_SMS, result.proofType)
+    }
+
     // ── KES / Amount patterns ────────────────────────────────────────────
 
     @Test
@@ -85,6 +106,14 @@ class RegexParserTest {
         val result = RegexParser.parse(text)
         assertNotNull(result)
         assertEquals(5000.0, result!!.amount!!, 0.01)
+    }
+
+    @Test
+    fun fcfa_suffix_amount_parsed() {
+        val text = "Payment received 4 500 FCFA. Ref: CM20250501"
+        val result = RegexParser.parse(text)
+        assertNotNull(result)
+        assertEquals(4500.0, result!!.amount!!, 0.01)
     }
 
     // ── KPLC / Utility ──────────────────────────────────────────────────
@@ -190,6 +219,16 @@ class RegexParserTest {
     @Test
     fun detector_identifies_mpesa() {
         assertEquals(ProofType.MPESA_SMS, ProofTypeDetector.detect("M-PESA Confirmed Ksh 200"))
+    }
+
+    @Test
+    fun detector_identifies_mtn_momo() {
+        assertEquals(ProofType.MOBILE_MONEY_SMS, ProofTypeDetector.detect("MTN MoMo FCFA 500 Txn ID ABC123"))
+    }
+
+    @Test
+    fun detector_identifies_orange_money() {
+        assertEquals(ProofType.MOBILE_MONEY_SMS, ProofTypeDetector.detect("Orange Money XAF 500 Reference OM123456"))
     }
 
     @Test

@@ -122,6 +122,12 @@
       "defaultEnabled": true
     },
     {
+      "skillId": "update_business_profile_from_online",
+      "displayName": "Update business profile from online source",
+      "schemaJson": "{\"type\":\"object\",\"properties\":{\"url\":{\"type\":\"string\"},\"apply\":{\"type\":\"boolean\",\"default\":false}},\"required\":[\"url\"]}",
+      "defaultEnabled": true
+    },
+    {
       "skillId": "query_services",
       "displayName": "Query services",
       "schemaJson": "{\"type\":\"object\",\"properties\":{\"days\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":365}},\"required\":[\"days\"]}",

@@ -21,6 +21,7 @@ import com.biasharaai.skills.builtin.QueryBusinessProfileSkill
 import com.biasharaai.skills.builtin.QueryServicesSkill
 import com.biasharaai.skills.builtin.TeachUserSkill
 import com.biasharaai.skills.builtin.TranscribeVoiceSkill
+import com.biasharaai.skills.builtin.UpdateBusinessProfileFromOnlineSkill
 import com.biasharaai.skills.builtin.UpdateDataSkill
 import dagger.Module
 import dagger.Provides
@@ -53,4 +54,7 @@ object SkillModule {
     @Provides @IntoSet fun provideTeachUserSkill(skill: TeachUserSkill): BiasharaSkill = skill
     @Provides @IntoSet fun provideQueryBusinessProfileSkill(skill: QueryBusinessProfileSkill): BiasharaSkill = skill
     @Provides @IntoSet fun provideQueryServicesSkill(skill: QueryServicesSkill): BiasharaSkill = skill
+    @Provides @IntoSet fun provideUpdateBusinessProfileFromOnlineSkill(
+        skill: UpdateBusinessProfileFromOnlineSkill,
+    ): BiasharaSkill = skill
 }

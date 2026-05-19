@@ -18,7 +18,7 @@ class MoneyFormatter @Inject constructor(
 
     private fun resolvedCurrencyCode(): String =
         cartRepository.activeSettings.value?.currencyCode?.trim()?.takeIf { it.isNotEmpty() }
-            ?: "KES"
+            ?: RegionalDefaults.CURRENCY_CODE
 
     /** Currency-aware formatter (reflects latest [activeSettings] each call). */
     fun numberFormat(): NumberFormat {
@@ -27,7 +27,7 @@ class MoneyFormatter @Inject constructor(
             try {
                 currency = Currency.getInstance(code)
             } catch (_: IllegalArgumentException) {
-                currency = Currency.getInstance("KES")
+                currency = Currency.getInstance(RegionalDefaults.CURRENCY_CODE)
             }
         }
     }

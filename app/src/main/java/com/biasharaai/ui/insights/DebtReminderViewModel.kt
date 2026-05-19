@@ -9,6 +9,7 @@ import com.biasharaai.data.local.db.AppSettingsDao
 import com.biasharaai.data.local.db.CustomerDao
 import com.biasharaai.data.local.db.DebtDao
 import com.biasharaai.locale.LanguagePreferences
+import com.biasharaai.money.RegionalDefaults
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -70,7 +71,7 @@ class DebtReminderViewModel @Inject constructor(
                         return@withContext DebtReminderEvent.Message(R.string.credit_remind_no_phone)
                     }
                     val settings = appSettingsDao.getSettingsSync()
-                    val currency = settings?.currencyCode ?: "KES"
+                    val currency = settings?.currencyCode ?: RegionalDefaults.CURRENCY_CODE
                     val daysOld = TimeUnit.MILLISECONDS.toDays(
                         (System.currentTimeMillis() - debt.createdAt).coerceAtLeast(0L),
                     ).toInt()
@@ -86,6 +87,7 @@ Amount owed: ${debt.amount} $currency.
 Days outstanding: $daysOld.
 ${if (dueFormatted != null) "Payment was due on $dueFormatted." else ""}
 Keep the message under 60 words. Do not use formal legal language.
+For Cameroon, prefer simple French or English wording and show the amount in FCFA when the currency is XAF.
                     """.trimIndent()
                     val body = if (gemmaService.isAvailable) {
                         runCatching { gemmaService.generateResponse(prompt).trim() }

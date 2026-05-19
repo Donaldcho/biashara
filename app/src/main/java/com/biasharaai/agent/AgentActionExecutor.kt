@@ -8,6 +8,7 @@ import com.biasharaai.data.local.db.AgentActionDao
 import com.biasharaai.data.local.db.CustomerDao
 import com.biasharaai.data.local.db.DebtDao
 import com.biasharaai.data.local.db.ProductDao
+import com.biasharaai.whatsapp.WhatsAppIntegration
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -19,7 +20,7 @@ import javax.inject.Singleton
 /**
  * A9 — Executes owner-approved [AgentAction] rows: the bridge from agent output to real app effects.
  *
- * **SEND_SMS** only opens the system composer ([Intent.ACTION_SENDTO]); the app never sends SMS autonomously.
+ * **SEND_SMS** / **SEND_WHATSAPP** only open user-controlled composers; the app never sends messages autonomously.
  */
 sealed class ExecutionResult {
     data object Success : ExecutionResult()
@@ -44,6 +45,7 @@ class AgentActionExecutor @Inject constructor(
         val result = withContext(Dispatchers.IO) {
             when (action.actionVerb) {
                 "SEND_SMS" -> executeSendSms(action)
+                "SEND_WHATSAPP" -> executeSendWhatsApp(action)
                 "UPDATE_PRICE" -> executeUpdatePrice(action, requireSuggestedPrice = true)
                 "REVIEW_PRICE" -> executeUpdatePrice(action, requireSuggestedPrice = false)
                 "OPEN_SCREEN" -> ExecutionResult.RequiresNavigation
@@ -67,6 +69,24 @@ class AgentActionExecutor @Inject constructor(
             }
         }
         return result
+    }
+
+    private suspend fun executeSendWhatsApp(action: AgentAction): ExecutionResult {
+        val map = parsePayloadMap(action.actionPayload) ?: return ExecutionResult.Error("Missing payload")
+        val phone = (map["phone"] as? String)?.trim().orEmpty()
+        val message = (map["draftMessage"] as? String)?.trim()
+            ?: (map["message"] as? String)?.trim().orEmpty()
+        if (message.isEmpty()) return ExecutionResult.Error("Invalid WhatsApp payload")
+        return try {
+            withContext(Dispatchers.Main) {
+                if (!WhatsAppIntegration.sendText(context, message, phone.ifBlank { null })) {
+                    error("No WhatsApp handler available")
+                }
+            }
+            ExecutionResult.Success
+        } catch (e: Exception) {
+            ExecutionResult.Error(e.localizedMessage)
+        }
     }
 
     /** Keeps [debtDao] / [customerDao] wired for upcoming obligation & customer execution paths. */

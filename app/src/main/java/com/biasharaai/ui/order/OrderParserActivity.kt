@@ -40,8 +40,7 @@ class OrderParserActivity : AppCompatActivity() {
         setSupportActionBar(binding.toolbar)
         binding.toolbar.setNavigationOnClickListener { finish() }
 
-        val text = intent.getStringExtra(Intent.EXTRA_TEXT)
-            ?.trim()
+        val text = extractIncomingOrderText(intent)
             ?.take(OrderParserViewModel.MAX_SHARED_TEXT_CHARS)
             .orEmpty()
         if (text.isEmpty()) {
@@ -73,6 +72,32 @@ class OrderParserActivity : AppCompatActivity() {
             showReviewIfNeeded()
         }
     }
+
+    private fun extractIncomingOrderText(intent: Intent): String? {
+        val candidates = listOfNotNull(
+            intent.getCharSequenceExtra(Intent.EXTRA_PROCESS_TEXT)?.toString(),
+            intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString(),
+            intent.getStringExtra(Intent.EXTRA_SUBJECT),
+            intent.clipData?.let { clip ->
+                (0 until clip.itemCount)
+                    .asSequence()
+                    .mapNotNull { i -> clip.getItemAt(i).coerceToText(this)?.toString() }
+                    .joinToString("\n")
+            },
+        )
+        return candidates
+            .asSequence()
+            .map { cleanSharedOrderText(it) }
+            .firstOrNull { it.isNotBlank() }
+    }
+
+    private fun cleanSharedOrderText(raw: String): String =
+        raw.lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .filterNot { it.startsWith("Forwarded", ignoreCase = true) }
+            .joinToString("\n")
+            .trim()
 
     private fun renderState(state: OrderParserUiState) {
         when (state) {

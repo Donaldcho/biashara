@@ -13,4 +13,8 @@ data class ChatMessage(
     val timestamp: Long = System.currentTimeMillis(),
     /** `1` user marked helpful, `-1` not helpful; `null` no vote. Persisted for assistant rows. */
     val feedbackVote: Int? = null,
+    /** New-response UI metadata; older persisted messages leave this empty. */
+    val sourceTags: List<String> = emptyList(),
+    val confidenceLabel: String? = null,
+    val actionHint: String? = null,
 )

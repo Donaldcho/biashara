@@ -60,6 +60,7 @@ class AgentFeedFragment : BaseFragment() {
             onSnooze = { viewModel.snooze(it) },
             onDismiss = { viewModel.dismiss(it) },
             onView = { navigateReview(it) },
+            onFeedback = { action, helpful -> viewModel.submitFeedback(action, helpful) },
         )
     }
 
@@ -106,6 +107,8 @@ class AgentFeedFragment : BaseFragment() {
                         binding.textGreeting.text = state.greeting
                         binding.textDate.text = state.dateLine
                         binding.chipAttention.text = state.attentionLabel
+                        binding.textAiBriefTitle.text = state.brief.title
+                        binding.textAiBriefBody.text = state.brief.body
                         adapter.submitList(state.rows)
                         val empty = state.rows.isEmpty()
                         binding.recyclerActions.isVisible = !empty
@@ -117,6 +120,14 @@ class AgentFeedFragment : BaseFragment() {
                     viewModel.events.collect { event ->
                         when (event) {
                             is AgentFeedEvent.ApproveSuccess -> flashApproveSuccessCard(event.actionId)
+                            is AgentFeedEvent.FeedbackSaved -> {
+                                val message = if (event.hidesSimilarReports) {
+                                    R.string.agent_feedback_saved_hide_similar
+                                } else {
+                                    R.string.agent_feedback_saved
+                                }
+                                Snackbar.make(binding.root, message, Snackbar.LENGTH_SHORT).show()
+                            }
                             is AgentFeedEvent.ApproveNeedsNavigation -> {
                                 if (navigateReviewIfPossible(event.action)) {
                                     viewModel.markExecutedAfterNavigation(event.action.id)

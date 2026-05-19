@@ -38,6 +38,7 @@ class EmbeddingEngine {
      * Returns a 384-element embedding vector for [text].
      * Returns a zero vector if the engine is not loaded.
      */
+    @Synchronized
     fun embed(text: String): FloatArray {
         val interp = interpreter ?: return FloatArray(EMBEDDING_DIM)
         val tokenIds = tokenize(text)

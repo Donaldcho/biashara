@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.swiperefreshlayout.widget.SwipeRefreshLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/swipe_refresh"
     android:layout_width="match_parent"
@@ -40,20 +41,78 @@
             android:textAlignment="viewStart"
             tools:text="3 things need your attention" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/button_prepare_supplier_visit"
-            style="@style/Widget.Material3.Button.TextButton"
-            android:layout_width="wrap_content"
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_ai_brief"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:text="@string/home_prepare_supplier_visit_title" />
+            android:layout_marginTop="10dp"
+            app:cardElevation="1dp"
+            app:strokeColor="@color/biashara_border"
+            app:strokeWidth="1dp">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/button_open_ledger"
-            style="@style/Widget.Material3.Button.TextButton"
-            android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="14dp">
+
+                <TextView
+                    android:id="@+id/text_ai_brief_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/agent_feed_brief_title"
+                    android:textAlignment="viewStart"
+                    android:textAppearance="?attr/textAppearanceLabelLarge"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/text_ai_brief_body"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textAlignment="viewStart"
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                    android:textColor="?android:attr/textColorSecondary"
+                    tools:text="Start with: Cash flow summary. Last completed week: FCFA120000 revenue; products led, with Soap on top." />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <LinearLayout
+            android:id="@+id/row_quick_actions"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/home_open_ledger" />
+            android:layout_marginTop="10dp"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/button_prepare_supplier_visit"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:maxLines="2"
+                android:minHeight="54dp"
+                android:text="@string/home_prepare_supplier_visit_title"
+                android:textAlignment="center"
+                app:icon="@drawable/ic_supplier_visit"
+                app:iconGravity="textStart"
+                app:iconPadding="8dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/button_open_ledger"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:maxLines="2"
+                android:minHeight="54dp"
+                android:text="@string/home_open_ledger"
+                android:textAlignment="center"
+                app:icon="@drawable/ic_receipt"
+                app:iconGravity="textStart"
+                app:iconPadding="8dp" />
+        </LinearLayout>
 
         <FrameLayout
             android:layout_width="match_parent"

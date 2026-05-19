@@ -2,12 +2,16 @@ package com.biasharaai.ui.chat
 
 import android.Manifest
 import android.app.Activity
+import android.content.ClipData
 import android.content.Context
+import android.content.ClipboardManager
+import android.content.DialogInterface
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.speech.RecognizerIntent
+import android.text.InputType
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -200,11 +204,100 @@ class ChatFragment : BaseFragment() {
             onAssistantFeedback = { messageId, vote ->
                 viewModel.submitAssistantFeedback(messageId, vote)
             },
+            onMessageMenu = { message ->
+                showMessageActions(message)
+            },
         )
         binding.recyclerChat.apply {
             layoutManager = LinearLayoutManager(requireContext()).apply { stackFromEnd = true }
             adapter = chatAdapter
         }
+    }
+
+    private fun showMessageActions(message: ChatMessage) {
+        val actions = mutableListOf<Pair<String, () -> Unit>>()
+        if (message.text.isNotBlank()) {
+            actions += getString(R.string.chat_message_copy) to { copyMessage(message) }
+        }
+        if (message.stableId > 0L) {
+            actions += getString(R.string.chat_message_edit) to { showEditMessageDialog(message) }
+            actions += getString(R.string.chat_message_delete) to { showDeleteMessageDialog(message) }
+        }
+        if (actions.isEmpty()) return
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.chat_message_actions)
+            .setItems(actions.map { it.first }.toTypedArray()) { _, which ->
+                actions.getOrNull(which)?.second?.invoke()
+            }
+            .show()
+    }
+
+    private fun copyMessage(message: ChatMessage) {
+        val text = message.text.trim()
+        if (text.isBlank()) return
+        val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(
+            ClipData.newPlainText(getString(R.string.chat_message_clip_label), text),
+        )
+        Snackbar.make(binding.root, R.string.chat_message_copied, Snackbar.LENGTH_SHORT).show()
+    }
+
+    private fun showEditMessageDialog(message: ChatMessage) {
+        if (message.stableId <= 0L) {
+            Snackbar.make(binding.root, R.string.chat_message_action_unavailable, Snackbar.LENGTH_SHORT).show()
+            return
+        }
+        val input = EditText(requireContext()).apply {
+            setText(message.text)
+            setSelection(text?.length ?: 0)
+            minLines = 3
+            maxLines = 8
+            setSingleLine(false)
+            inputType = InputType.TYPE_CLASS_TEXT or
+                InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+                InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+        }
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.chat_message_edit_title)
+            .setView(input)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.chat_message_save, null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(DialogInterface.BUTTON_POSITIVE).setOnClickListener {
+                val edited = input.text?.toString()?.trim().orEmpty()
+                if (edited.isBlank()) {
+                    input.error = getString(R.string.chat_message_empty_error)
+                    return@setOnClickListener
+                }
+                viewModel.editMessage(message.stableId, edited) {
+                    _binding?.root?.let { root ->
+                        Snackbar.make(root, R.string.chat_message_edited, Snackbar.LENGTH_SHORT).show()
+                    }
+                }
+                dialog.dismiss()
+            }
+        }
+        dialog.show()
+    }
+
+    private fun showDeleteMessageDialog(message: ChatMessage) {
+        if (message.stableId <= 0L) {
+            Snackbar.make(binding.root, R.string.chat_message_action_unavailable, Snackbar.LENGTH_SHORT).show()
+            return
+        }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.chat_message_delete_title)
+            .setMessage(R.string.chat_message_delete_body)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.chat_message_delete) { _, _ ->
+                viewModel.deleteMessage(message.stableId) {
+                    _binding?.root?.let { root ->
+                        Snackbar.make(root, R.string.chat_message_deleted, Snackbar.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            .show()
     }
 
     private fun rebuildSuggestionChips() {

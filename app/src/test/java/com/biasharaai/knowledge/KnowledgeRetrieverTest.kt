@@ -1,6 +1,7 @@
 package com.biasharaai.knowledge
 
 import com.biasharaai.ai.EmbeddingEngine
+import com.biasharaai.data.local.db.BusinessMemoryEntryDao
 import com.biasharaai.data.local.db.KnowledgeChunk
 import com.biasharaai.data.local.db.KnowledgeChunkDao
 import io.mockk.coEvery
@@ -15,6 +16,7 @@ import org.junit.Test
 class KnowledgeRetrieverTest {
 
     private lateinit var chunkDao: KnowledgeChunkDao
+    private lateinit var memoryDao: BusinessMemoryEntryDao
     private lateinit var embeddingEngine: EmbeddingEngine
     private lateinit var retriever: KnowledgeRetriever
 
@@ -33,9 +35,11 @@ class KnowledgeRetrieverTest {
     @Before
     fun setUp() {
         chunkDao = mockk()
+        memoryDao = mockk()
         embeddingEngine = mockk()
         every { embeddingEngine.isLoaded } returns false
-        retriever = KnowledgeRetriever(chunkDao, embeddingEngine)
+        coEvery { memoryDao.getActive(any()) } returns emptyList()
+        retriever = KnowledgeRetriever(chunkDao, embeddingEngine, memoryDao)
     }
 
     @Test

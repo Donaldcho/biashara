@@ -18,6 +18,7 @@ import com.biasharaai.databinding.FragmentCreditBinding
 import com.biasharaai.money.MoneyFormatter
 import com.biasharaai.pos.cart.CartRepository
 import com.biasharaai.ui.base.BaseFragment
+import com.biasharaai.whatsapp.WhatsAppIntegration
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
@@ -126,6 +127,11 @@ class CreditFragment : BaseFragment() {
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.credit_remind_preview_title)
             .setView(scroll)
+            .setNeutralButton(R.string.credit_send_via_whatsapp) { _, _ ->
+                if (!WhatsAppIntegration.sendText(requireContext(), draft.smsBody, draft.phone)) {
+                    Snackbar.make(binding.root, R.string.credit_whatsapp_intent_failed, Snackbar.LENGTH_LONG).show()
+                }
+            }
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(R.string.credit_send_via_sms) { _, _ ->
                 val uri = Uri.parse("smsto:${Uri.encode(draft.phone)}")

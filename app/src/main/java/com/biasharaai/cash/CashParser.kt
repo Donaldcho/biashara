@@ -75,10 +75,11 @@ class CashParser @Inject constructor(
     """.trimIndent()
 
     private fun fullPrompt(text: String, dirHint: String) = """
-        You are a financial document parser for an East African small business app.
+        You are a financial document parser for a Cameroon-first small business app.
+        Prioritise FCFA/XAF amounts, MTN MoMo, and Orange Money before East African examples.
         Extract these fields from the text below. Direction: $dirHint.
         Return ONLY a JSON object: {"amount":float or null,"reference":"string or null",
-        "counterparty":"string or null","date":"YYYY-MM-DD or null","proof_type":"MPESA_SMS|RECEIPT|INVOICE|SUPPLIER_BILL|BANK_SLIP|UTILITY_BILL|TILL_SLIP|UNKNOWN"}
+        "counterparty":"string or null","date":"YYYY-MM-DD or null","proof_type":"MOBILE_MONEY_SMS|MPESA_SMS|RECEIPT|INVOICE|SUPPLIER_BILL|BANK_SLIP|UTILITY_BILL|TILL_SLIP|UNKNOWN"}
         Text: ${text.take(1500)}
     """.trimIndent()
 

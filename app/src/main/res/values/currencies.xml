@@ -2,6 +2,7 @@
 <resources>
     <!-- ISO 4217 codes and labels (same order). Shown in Settings → Currency. -->
     <string-array name="supported_currency_codes">
+        <item>XAF</item>
         <item>KES</item>
         <item>NGN</item>
         <item>GHS</item>
@@ -10,7 +11,6 @@
         <item>TZS</item>
         <item>RWF</item>
         <item>XOF</item>
-        <item>XAF</item>
         <item>MAD</item>
         <item>EGP</item>
         <item>ETB</item>
@@ -27,6 +27,7 @@
         <item>BWP</item>
     </string-array>
     <string-array name="supported_currency_names">
+        <item>Central African CFA franc (XAF / FCFA)</item>
         <item>Kenyan Shilling (KES)</item>
         <item>Nigerian Naira (NGN)</item>
         <item>Ghanaian Cedi (GHS)</item>
@@ -35,7 +36,6 @@
         <item>Tanzanian Shilling (TZS)</item>
         <item>Rwandan Franc (RWF)</item>
         <item>West African CFA franc (XOF)</item>
-        <item>Central African CFA franc (XAF)</item>
         <item>Moroccan Dirham (MAD)</item>
         <item>Egyptian Pound (EGP)</item>
         <item>Ethiopian Birr (ETB)</item>

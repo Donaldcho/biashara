@@ -14,6 +14,7 @@ import com.biasharaai.data.local.db.LedgerEntryType
 import com.biasharaai.data.local.db.ParserEngine
 import com.biasharaai.data.local.db.ProofType
 import com.biasharaai.data.local.db.ReviewStatus
+import com.biasharaai.money.RegionalDefaults
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -55,7 +56,7 @@ class CashMovementRepository @Inject constructor(
 
     suspend fun saveCashMovement(request: CashMovementRequest): CashMovementResult =
         withContext(Dispatchers.IO) {
-            val currency = appSettingsDao.getSettingsSync()?.currencyCode ?: "KES"
+            val currency = appSettingsDao.getSettingsSync()?.currencyCode ?: RegionalDefaults.CURRENCY_CODE
 
             // Compress thumbnail outside the transaction (pure CPU work).
             val thumbnailBytes = request.thumbnail?.let { bmp ->

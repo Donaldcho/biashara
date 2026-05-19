@@ -12,6 +12,7 @@ import com.biasharaai.cloud.BusinessAnalyticsJsonExporter
 import com.biasharaai.cloud.CloudAnalysisHttpClient
 import com.biasharaai.cloud.CloudAnalysisSettings
 import com.biasharaai.cloud.CloudAnalysisSettingsStore
+import com.biasharaai.cloud.EnterpriseDeploymentMode
 import com.biasharaai.data.local.db.AppSettings
 import com.biasharaai.data.local.db.AppSettingsDao
 import com.biasharaai.licence.Edition
@@ -59,6 +60,8 @@ class SettingsViewModel @Inject constructor(
     val licenceKey: StateFlow<LicenceKey?> = _licenceKey.asStateFlow()
 
     val isProEnabled: Boolean get() = productLineManager.isProEnabled()
+
+    val isEnterprisePro: Boolean get() = productLineManager.isEnterprisePro()
 
     /** Singleton POS / shop settings row (currency, tax, …). */
     val shopSettings: StateFlow<AppSettings?> = appSettingsDao.getSettings()
@@ -162,8 +165,32 @@ class SettingsViewModel @Inject constructor(
     val isCloudUploading: StateFlow<Boolean> = _isCloudUploading.asStateFlow()
 
     fun saveCloudAnalysis(enabled: Boolean, endpointUrl: String, newApiKeyIfNonBlank: String?) {
+        saveCloudAnalysis(
+            enabled = enabled,
+            deploymentMode = _cloudSettings.value.deploymentMode,
+            endpointUrl = endpointUrl,
+            newApiKeyIfNonBlank = newApiKeyIfNonBlank,
+        )
+    }
+
+    fun saveCloudAnalysis(
+        enabled: Boolean,
+        deploymentMode: EnterpriseDeploymentMode,
+        endpointUrl: String,
+        newApiKeyIfNonBlank: String?,
+    ) {
         viewModelScope.launch(Dispatchers.IO) {
-            cloudAnalysisSettingsStore.save(enabled, endpointUrl, newApiKeyIfNonBlank)
+            val effectiveMode = if (productLineManager.isEnterprisePro()) {
+                deploymentMode
+            } else {
+                EnterpriseDeploymentMode.CLOUD
+            }
+            cloudAnalysisSettingsStore.save(
+                enabled = enabled,
+                deploymentMode = effectiveMode,
+                endpointUrl = endpointUrl,
+                newApiKeyIfNonBlank = newApiKeyIfNonBlank,
+            )
             _cloudSettings.value = cloudAnalysisSettingsStore.load()
             _events.emit(Event.CloudSettingsSaved)
         }
@@ -330,4 +357,3 @@ class SettingsViewModel @Inject constructor(
         const val CLOUD_ERR_MISSING_KEY = "__cloud_missing_key__"
     }
 }
-

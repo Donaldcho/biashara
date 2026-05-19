@@ -79,6 +79,7 @@ class InventoryListViewModel @Inject constructor(
 
                 if (simulatedHistory.size >= DemandForecaster.MIN_DATA_POINTS) {
                     val forecast = demandForecaster.predictDemand(
+                        productId = product.id,
                         productName = product.name,
                         salesHistory = simulatedHistory,
                     )

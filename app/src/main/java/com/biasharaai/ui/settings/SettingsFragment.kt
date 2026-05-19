@@ -22,12 +22,15 @@ import com.biasharaai.ai.DownloadState
 import com.biasharaai.ai.InferenceSettingsStore
 import com.biasharaai.ai.InferenceUiConfig
 import com.biasharaai.ai.ModelDownloadManager
+import com.biasharaai.cloud.EnterpriseDeploymentMode
 import com.biasharaai.databinding.FragmentSettingsBinding
+import com.biasharaai.money.RegionalDefaults
 import com.biasharaai.ui.base.BaseFragment
 import com.biasharaai.ui.order.OrderParserActivity
 import com.biasharaai.productline.ProductLineManager
 import com.biasharaai.productline.showProRequiredSnackbar
 import com.biasharaai.ui.order.showOrderParserTierBlockedDialogIfNeeded
+import com.biasharaai.whatsapp.WhatsAppIntegration
 import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -77,6 +80,7 @@ class SettingsFragment : BaseFragment() {
         setupInferenceConfigurations()
         setupCloudAnalysis()
         setupOrderParserFromClipboard()
+        setupWhatsappIntegration()
         setupVoiceSettingsNav()
         setupLedgerNav()
         setupLicence()
@@ -127,7 +131,7 @@ class SettingsFragment : BaseFragment() {
                 viewModel.shopSettings.collect { s ->
                     val codes = resources.getStringArray(R.array.supported_currency_codes)
                     val names = resources.getStringArray(R.array.supported_currency_names)
-                    val code = s?.currencyCode?.uppercase(Locale.ROOT) ?: "KES"
+                    val code = s?.currencyCode?.uppercase(Locale.ROOT) ?: RegionalDefaults.CURRENCY_CODE
                     val idx = codes.indexOf(code).let { if (it >= 0) it else 0 }
                     binding.textCurrencyCurrent.text = names[idx]
                 }
@@ -172,6 +176,7 @@ class SettingsFragment : BaseFragment() {
                 viewModel.licenceKey.collect { key ->
                     if (key == null) {
                         binding.textLicenceCurrent.text = getString(R.string.settings_licence_invalid)
+                        updateEnterpriseDeploymentVisibility()
                         return@collect
                     }
                     binding.textLicenceCurrent.text = getString(
@@ -180,6 +185,7 @@ class SettingsFragment : BaseFragment() {
                         getString(viewModel.editionNameRes(key.edition)),
                         key.maxDevices,
                     )
+                    updateEnterpriseDeploymentVisibility()
                 }
             }
         }
@@ -188,7 +194,8 @@ class SettingsFragment : BaseFragment() {
     private fun showCurrencyPicker() {
         val codes = resources.getStringArray(R.array.supported_currency_codes)
         val names = resources.getStringArray(R.array.supported_currency_names)
-        val current = viewModel.shopSettings.value?.currencyCode?.uppercase(Locale.ROOT) ?: "KES"
+        val current = viewModel.shopSettings.value?.currencyCode?.uppercase(Locale.ROOT)
+            ?: RegionalDefaults.CURRENCY_CODE
         val checked = codes.indexOf(current).let { if (it >= 0) it else 0 }
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.settings_currency_dialog_title)
@@ -239,6 +246,29 @@ class SettingsFragment : BaseFragment() {
                     },
                 )
             }
+        }
+    }
+
+    private fun setupWhatsappIntegration() {
+        val installed = WhatsAppIntegration.isInstalled(requireContext())
+        binding.textWhatsappStatus.text = getString(
+            if (installed) {
+                R.string.settings_whatsapp_status_ready
+            } else {
+                R.string.settings_whatsapp_status_missing
+            },
+        )
+        binding.btnOpenWhatsapp.setOnClickListener {
+            if (!WhatsAppIntegration.open(requireContext())) {
+                Snackbar.make(binding.root, R.string.settings_whatsapp_open_failed, Snackbar.LENGTH_LONG).show()
+            }
+        }
+        binding.btnWhatsappHelp.setOnClickListener {
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.settings_whatsapp_how_to)
+                .setMessage(R.string.settings_whatsapp_help_body)
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
         }
     }
 
@@ -552,6 +582,8 @@ class SettingsFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.cloudSettings.collect { s ->
+                    updateEnterpriseDeploymentVisibility()
+                    applyDeploymentMode(s.deploymentMode)
                     binding.switchCloudAnalysisEnabled.setOnCheckedChangeListener(null)
                     if (binding.switchCloudAnalysisEnabled.isChecked != s.enabled) {
                         binding.switchCloudAnalysisEnabled.isChecked = s.enabled
@@ -569,6 +601,7 @@ class SettingsFragment : BaseFragment() {
             val keyText = binding.inputCloudApiKey.text?.toString()?.trim().orEmpty()
             viewModel.saveCloudAnalysis(
                 enabled = binding.switchCloudAnalysisEnabled.isChecked,
+                deploymentMode = selectedDeploymentMode(),
                 endpointUrl = binding.inputCloudEndpoint.text?.toString().orEmpty(),
                 newApiKeyIfNonBlank = keyText.ifBlank { null },
             )
@@ -591,9 +624,35 @@ class SettingsFragment : BaseFragment() {
                     viewModel.uploadCloudSqliteDatabase()
                 }
                 .setNegativeButton(android.R.string.cancel, null)
-                .show()
+            .show()
         }
     }
+
+    private fun updateEnterpriseDeploymentVisibility() {
+        val visibility = if (viewModel.isEnterprisePro) View.VISIBLE else View.GONE
+        binding.textEnterpriseDeploymentTitle.visibility = visibility
+        binding.textEnterpriseDeploymentBody.visibility = visibility
+        binding.toggleEnterpriseDeploymentMode.visibility = visibility
+        if (!viewModel.isEnterprisePro) {
+            binding.toggleEnterpriseDeploymentMode.check(R.id.btn_deployment_cloud)
+        }
+    }
+
+    private fun applyDeploymentMode(mode: EnterpriseDeploymentMode) {
+        binding.toggleEnterpriseDeploymentMode.check(
+            when (mode) {
+                EnterpriseDeploymentMode.ON_PREMISE -> R.id.btn_deployment_on_premise
+                EnterpriseDeploymentMode.CLOUD -> R.id.btn_deployment_cloud
+            },
+        )
+    }
+
+    private fun selectedDeploymentMode(): EnterpriseDeploymentMode =
+        if (binding.toggleEnterpriseDeploymentMode.checkedButtonId == R.id.btn_deployment_cloud) {
+            EnterpriseDeploymentMode.CLOUD
+        } else {
+            EnterpriseDeploymentMode.ON_PREMISE
+        }
 
     private fun updateInferenceSectionVisibility() {
         val vis = if (viewModel.isAiCapable) View.VISIBLE else View.GONE

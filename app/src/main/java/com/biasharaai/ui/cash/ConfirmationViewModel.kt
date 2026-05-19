@@ -10,6 +10,7 @@ import com.biasharaai.data.local.db.LedgerDirection
 import com.biasharaai.data.local.db.LedgerEntryType
 import com.biasharaai.data.local.db.ParserEngine
 import com.biasharaai.data.local.db.ProofType
+import com.biasharaai.money.RegionalDefaults
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -36,8 +37,8 @@ class ConfirmationViewModel @Inject constructor(
     val uiState: StateFlow<ConfirmationUiState> = _uiState
 
     val currencySymbol: StateFlow<String> = appSettingsDao.getSettings()
-        .map { it?.currencySymbol ?: "KSh" }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "KSh")
+        .map { it?.currencySymbol ?: RegionalDefaults.CURRENCY_SYMBOL }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), RegionalDefaults.CURRENCY_SYMBOL)
 
     fun save(
         direction: LedgerDirection,

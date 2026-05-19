@@ -161,10 +161,14 @@ class BiasharaTtsEngine @Inject constructor(
             .replace(Regex("[*_~`]"), "")
             .replace(Regex("\\n+"), ". ")
         return when (lang.lowercase()) {
-            "sw" -> stripped.replace(Regex("KSh", RegexOption.IGNORE_CASE), "Shilingi")
+            "sw" -> stripped
+                .replace(Regex("KSh", RegexOption.IGNORE_CASE), "Shilingi")
+                .replace(Regex("\\b(?:FCFA|XAF)\\b", RegexOption.IGNORE_CASE), "franc CFA")
+            "fr" -> stripped.replace(Regex("\\b(?:FCFA|XAF)\\b", RegexOption.IGNORE_CASE), "franc CFA")
             "am" -> stripped.replace(Regex("ETB", RegexOption.IGNORE_CASE), "Birr")
             else -> stripped
                 .replace(Regex("₦"), "Naira")
+                .replace(Regex("\\b(?:FCFA|XAF)\\b", RegexOption.IGNORE_CASE), "franc CFA")
                 .replace(Regex("\\bNGN\\b", RegexOption.IGNORE_CASE), "Naira")
                 .replace(Regex("\\bETB\\b", RegexOption.IGNORE_CASE), "Birr")
         }.trim()

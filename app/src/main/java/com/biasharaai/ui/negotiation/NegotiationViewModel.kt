@@ -7,6 +7,7 @@ import com.biasharaai.ai.GemmaService
 import com.biasharaai.data.local.db.AppSettingsDao
 import com.biasharaai.data.local.db.ProductDao
 import com.biasharaai.locale.LanguagePreferences
+import com.biasharaai.money.RegionalDefaults
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -89,7 +90,7 @@ class NegotiationViewModel @Inject constructor(
         viewModelScope.launch {
             _generateState.value = NegotiationGenerateState.Loading
             val settings = withContext(Dispatchers.IO) { appSettingsDao.getSettingsSync() }
-            val currency = settings?.currencyCode ?: "KES"
+            val currency = settings?.currencyCode ?: RegionalDefaults.CURRENCY_CODE
             val language = languageLabelForPrompt()
             val itemsList = buildItemsList(input.selectedProductIds, input.extraItemsText)
             if (itemsList.isBlank()) {
@@ -108,6 +109,7 @@ class NegotiationViewModel @Inject constructor(
 You are helping a small business owner in $cityTrim, $countryTrim
 negotiate with a supplier. Respond in $language.
 Use a warm, confident, respectful tone appropriate for local business culture.
+If the country is Cameroon or not specified, assume FCFA pricing and Cameroon supplier norms.
 
 They want to buy: $itemsList.
 Their total budget is: $budget $currency.

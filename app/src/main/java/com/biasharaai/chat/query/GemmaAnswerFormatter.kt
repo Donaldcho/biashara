@@ -3,6 +3,7 @@ package com.biasharaai.chat.query
 import android.util.Log
 import com.biasharaai.ai.CapabilityTier
 import com.biasharaai.ai.GemmaService
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -41,6 +42,12 @@ class GemmaAnswerFormatter @Inject constructor(
             return varied
         }
 
+        // Skip polishing for very short single-fact answers — already readable, and the
+        // blocking generateResponse() call would be clearly perceptible to the user.
+        if (factualAnswer.length < 120) {
+            Log.d(TAG, "structured_polish_skip reason=too_short len=${factualAnswer.length}")
+            return factualAnswer
+        }
         if (factualAnswer.length > 4_000) {
             Log.d(TAG, "structured_polish_skip reason=too_long len=${factualAnswer.length}")
             return factualAnswer
@@ -67,7 +74,12 @@ class GemmaAnswerFormatter @Inject constructor(
                 append("\n\nQuestion: ")
                 append(userQuestion.trim())
             }
-            val polished = gemmaService.generateResponse(prompt).trim()
+            val polished = withTimeoutOrNull(POLISH_TIMEOUT_MS) {
+                gemmaService.generateResponse(prompt).trim()
+            } ?: run {
+                Log.w(TAG, "structured_polish_skip reason=timeout ms=$POLISH_TIMEOUT_MS")
+                return factualAnswer
+            }
             val out = when {
                 polished.isBlank() -> {
                     Log.d(TAG, "structured_polish_skip reason=blank_model_output")
@@ -101,5 +113,6 @@ class GemmaAnswerFormatter @Inject constructor(
 
     companion object {
         private const val TAG = "GemmaAnswerFmt"
+        private const val POLISH_TIMEOUT_MS = 8_000L
     }
 }

@@ -3,6 +3,7 @@ package com.biasharaai.data.local.db
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import com.biasharaai.money.RegionalDefaults
 
 /**
  * Single-row app-wide settings (POS receipts, tax, printer, voice/TTS prefs). Row `id` is always `1`.
@@ -13,10 +14,10 @@ data class AppSettings(
     val id: Int = 1,
     @ColumnInfo(name = "business_name", defaultValue = "My Business")
     val businessName: String = "My Business",
-    @ColumnInfo(name = "currency_code", defaultValue = "KES")
-    val currencyCode: String = "KES",
-    @ColumnInfo(name = "currency_symbol", defaultValue = "KSh")
-    val currencySymbol: String = "KSh",
+    @ColumnInfo(name = "currency_code", defaultValue = "XAF")
+    val currencyCode: String = RegionalDefaults.CURRENCY_CODE,
+    @ColumnInfo(name = "currency_symbol", defaultValue = "FCFA")
+    val currencySymbol: String = RegionalDefaults.CURRENCY_SYMBOL,
     @ColumnInfo(name = "tax_rate", defaultValue = "0.0")
     val taxRate: Double = 0.0,
     @ColumnInfo(name = "tax_label", defaultValue = "Tax")

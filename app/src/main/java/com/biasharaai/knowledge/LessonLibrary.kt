@@ -81,7 +81,7 @@ class LessonLibrary @Inject constructor() {
                     LessonStep(1, "Open the POS screen from the bottom navigation.", "Tap POS (cart icon)", StepActionType.TAP),
                     LessonStep(2, "Tap a product to add it to the cart. Tap multiple times to increase quantity, or swipe to adjust.", actionType = StepActionType.TAP),
                     LessonStep(3, "Review the total at the bottom. Tap 'Charge' when ready.", "Tap Charge", StepActionType.TAP),
-                    LessonStep(4, "Choose the payment method: Cash, M-Pesa, or other mobile money.", actionType = StepActionType.TAP),
+                    LessonStep(4, "Choose the payment method: Cash, MTN MoMo, Orange Money, or another mobile money option.", actionType = StepActionType.TAP),
                     LessonStep(5, "Enter the amount received. The app calculates change automatically.", actionType = StepActionType.TYPE),
                     LessonStep(6, "Tap 'Complete Sale'. The sale is recorded and you can print a receipt.", "Tap Complete Sale", StepActionType.CONFIRM),
                 ),
@@ -216,7 +216,7 @@ class LessonLibrary @Inject constructor() {
                 steps = listOf(
                     LessonStep(1, "Open Settings from the bottom navigation bar.", actionType = StepActionType.TAP),
                     LessonStep(2, "Set your Business Name — this appears on receipts.", actionType = StepActionType.TYPE),
-                    LessonStep(3, "Set your Currency (e.g. KES for Kenya Shillings, TZS for Tanzania).", actionType = StepActionType.TYPE),
+                    LessonStep(3, "Set your Currency (FCFA/XAF is the default for Cameroon).", actionType = StepActionType.TYPE),
                     LessonStep(4, "Set your Tax Rate if you charge VAT or local tax.", actionType = StepActionType.TYPE),
                     LessonStep(5, "Tap Save. These settings apply across the app immediately.", actionType = StepActionType.CONFIRM),
                 ),

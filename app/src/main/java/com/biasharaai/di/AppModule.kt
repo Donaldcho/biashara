@@ -15,6 +15,7 @@ import com.biasharaai.ai.InferenceSettingsStore
 import com.biasharaai.ai.ModelDownloadManager
 import com.biasharaai.data.local.db.AppDatabase
 import com.biasharaai.data.local.db.AgentActionDao
+import com.biasharaai.data.local.db.AgentAdviceFeedbackDao
 import com.biasharaai.data.local.db.AgentRunLogDao
 import com.biasharaai.data.local.db.ModelDescriptorDao
 import com.biasharaai.data.local.db.PendingNotificationDao
@@ -117,6 +118,10 @@ object AppModule {
     fun provideAgentActionDao(database: AppDatabase): AgentActionDao = database.agentActionDao()
 
     @Provides
+    fun provideAgentAdviceFeedbackDao(database: AppDatabase): AgentAdviceFeedbackDao =
+        database.agentAdviceFeedbackDao()
+
+    @Provides
     fun provideAgentSettingDao(database: AppDatabase): AgentSettingDao = database.agentSettingDao()
 
     @Provides
@@ -176,6 +181,15 @@ object AppModule {
 
     @Provides
     fun provideBusinessProfileDao(database: AppDatabase): BusinessProfileDao = database.businessProfileDao()
+
+    @Provides
+    fun provideBusinessKpiSnapshotDao(database: AppDatabase): com.biasharaai.data.local.db.BusinessKpiSnapshotDao = database.businessKpiSnapshotDao()
+
+    @Provides
+    fun provideForecastCalibrationDao(database: AppDatabase): com.biasharaai.data.local.db.ForecastCalibrationDao = database.forecastCalibrationDao()
+
+    @Provides
+    fun provideBusinessMemoryEntryDao(database: AppDatabase): com.biasharaai.data.local.db.BusinessMemoryEntryDao = database.businessMemoryEntryDao()
 
     @Provides
     @Singleton

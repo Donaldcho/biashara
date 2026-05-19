@@ -9,6 +9,7 @@ import com.biasharaai.data.local.db.ProductDao
 import com.biasharaai.data.local.db.SaleLineItemDao
 import com.biasharaai.data.local.db.TransactionDao
 import com.biasharaai.locale.LanguagePreferences
+import com.biasharaai.profile.BusinessProfileRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.first
 import java.time.DayOfWeek
@@ -34,6 +35,7 @@ class ConversationalQueryLayer @Inject constructor(
     private val debtDao: DebtDao,
     private val gemmaAnswerFormatter: GemmaAnswerFormatter,
     private val chatMemoryRepository: ChatMemoryRepository,
+    private val businessProfileRepository: BusinessProfileRepository,
     @ApplicationContext private val appContext: Context,
 ) {
 
@@ -166,6 +168,16 @@ class ConversationalQueryLayer @Inject constructor(
         )
         val memoryPrefix = chatMemoryRepository.formatMemoryPrefixForFacts()
 
+        val profileAnswer = businessProfileAnswer(q, fmt)
+        if (profileAnswer != null) {
+            return gemmaAnswerFormatter.maybePolish(
+                question,
+                memoryPrefix + profileAnswer,
+                languageDisplayName,
+                polishHints,
+            )
+        }
+
         if (costNeedle != null && (q.contains("cost") || q.contains("price") || q.contains("how much"))) {
             val m = products.filter { it.name.contains(costNeedle, ignoreCase = true) }
             if (m.isNotEmpty()) {
@@ -223,5 +235,68 @@ class ConversationalQueryLayer @Inject constructor(
     companion object {
         private const val DAYS_ANALYTICS = 400L
         private const val MS_PER_DAY = 24L * 60L * 60L * 1000L
+    }
+
+    private suspend fun businessProfileAnswer(
+        q: String,
+        fmt: (Double) -> String,
+    ): String? {
+        val profile = try {
+            businessProfileRepository.getOrCreate()
+        } catch (_: Exception) {
+            return null
+        }
+        if (!profile.hasIdentity()) return null
+
+        fun hasAny(vararg needles: String): Boolean = needles.any { q.contains(it) }
+        fun valueOrMissing(label: String, value: String?): String =
+            "$label: ${value?.takeIf { it.isNotBlank() } ?: "not recorded"}."
+
+        if (hasAny("what do you know about my business", "summarize my business", "summarise my business", "my business profile")) {
+            val target = profile.targetCustomer?.takeIf { it.isNotBlank() } ?: "not recorded"
+            val offer = profile.whatTheyOffer() ?: "not recorded"
+            val location = profile.location?.takeIf { it.isNotBlank() } ?: "not recorded"
+            val goal = profile.businessGoal?.takeIf { it.isNotBlank() } ?: "not recorded"
+            val targetMoney = profile.monthlyRevenueTarget?.let(fmt) ?: "not set"
+            return "Business profile: ${profile.businessName}. Owner: ${profile.ownerName.ifBlank { "not recorded" }}. " +
+                "Type: ${profile.businessType}. Offers: $offer. Target customers: $target. " +
+                "Location: $location. Monthly revenue target: $targetMoney. Goal: $goal."
+        }
+
+        if (hasAny("business name", "name of my business", "what is my business called")) {
+            return "Your business name is ${profile.businessName}."
+        }
+        if (hasAny("owner name", "who owns", "who am i", "my name")) {
+            return valueOrMissing("Owner", profile.ownerName)
+        }
+        if (hasAny("what do i sell", "what do we sell", "what do i offer", "what does my business offer", "services offered", "products sold")) {
+            return "Recorded offer: ${profile.whatTheyOffer() ?: "not recorded"}."
+        }
+        if (hasAny("business type", "type of business")) {
+            return "Business type: ${profile.businessType}."
+        }
+        if (hasAny("target customer", "target customers", "who are my customers", "main customers")) {
+            return valueOrMissing("Target customers", profile.targetCustomer)
+        }
+        if (hasAny("where is my business", "business location", "where are we located", "my location")) {
+            return valueOrMissing("Location", profile.location)
+        }
+        if (hasAny("open hours", "opening hours", "when are we open", "open days", "business hours")) {
+            val open = listOfNotNull(
+                profile.openDays?.takeIf { it.isNotBlank() },
+                profile.openHours?.takeIf { it.isNotBlank() },
+            ).joinToString(", ")
+            return valueOrMissing("Open", open)
+        }
+        if (hasAny("suppliers", "main supplier", "who supplies")) {
+            return valueOrMissing("Suppliers", profile.mainSuppliers)
+        }
+        if (hasAny("business goal", "my goal", "growth goal")) {
+            return valueOrMissing("Business goal", profile.businessGoal)
+        }
+        if (hasAny("revenue target", "sales target", "monthly target", "hitting my target")) {
+            return "Monthly revenue target: ${profile.monthlyRevenueTarget?.let(fmt) ?: "not set"}."
+        }
+        return null
     }
 }

@@ -241,7 +241,7 @@
     <string name="settings_pro_features_off">hidden</string>
     <string name="settings_section_regional">Regional</string>
     <string name="settings_currency_title">Shop currency</string>
-    <string name="settings_currency_summary">Used for prices, POS, receipts, and money shown in insights.</string>
+    <string name="settings_currency_summary">Default is FCFA/XAF for Cameroon. Used for prices, POS, receipts, and insights.</string>
     <string name="settings_currency_change">Change currency</string>
     <string name="settings_currency_dialog_title">Choose currency</string>
     <string name="settings_currency_saved">Currency updated</string>
@@ -263,7 +263,7 @@
     <string name="voice_ui_speak_stop">Stop reading</string>
 
     <!-- Cash Flow Insights (Prompt 9) -->
-    <string name="insights_title">Cash Flow Insights</string>
+    <string name="insights_title">Business Telemetry</string>
     <string name="insights_chart_title">Income vs Expenses</string>
     <string name="insights_label_income">Income</string>
     <string name="insights_label_expenses">Expenses</string>
@@ -271,9 +271,30 @@
     <string name="insights_net_negative">⚠ Net: -%1$s</string>
     <string name="insights_narrative_title">AI Business Advisor</string>
     <string name="insights_refresh">Refresh</string>
+    <string name="insights_telemetry_title">Business telemetry</string>
+    <string name="insights_live_label">Live</string>
+    <string name="insights_updated_format">Updated %1$s</string>
+    <string name="insights_period_today">Today</string>
+    <string name="insights_period_7d">7D</string>
+    <string name="insights_period_30d">30D</string>
+    <string name="insights_period_month">Month</string>
+    <string name="insights_metric_revenue">Revenue</string>
+    <string name="insights_metric_expenses">Expenses</string>
+    <string name="insights_metric_net">Net cash</string>
+    <string name="insights_metric_transactions">Transactions</string>
+    <string name="insights_metric_average_ticket">Average sale</string>
+    <string name="insights_trend_title">Trend</string>
+    <string name="insights_top_products_title">Top Products</string>
+    <string name="insights_top_services_title">Top Services</string>
+    <string name="insights_revenue_source_title">Revenue Source</string>
+    <string name="insights_label_services">Services</string>
+    <string name="insights_label_products">Products</string>
+    <string name="insights_top_product_row">%1$s — %2$s (%3$d sold)</string>
+    <string name="insights_top_service_row">%1$s — %2$s (%3$d sessions)</string>
 
     <!-- Native script labels for the picker (same in every locale). -->
     <string name="lang_native_en" translatable="false">English</string>
+    <string name="lang_native_fr" translatable="false">Français</string>
     <string name="lang_native_sw" translatable="false">Kiswahili</string>
     <string name="lang_native_ha" translatable="false">Hausa</string>
     <string name="lang_native_yo" translatable="false">Yorùbá</string>
@@ -304,6 +325,22 @@
     <string name="chat_fallback_no_data">You haven\'t added any products or recorded any transactions yet. Open Inventory or Sales to get started.</string>
     <string name="chat_feedback_positive">Helpful</string>
     <string name="chat_feedback_negative">Not helpful</string>
+    <string name="chat_message_actions">Message actions</string>
+    <string name="chat_message_copy">Copy</string>
+    <string name="chat_message_edit">Edit</string>
+    <string name="chat_message_delete">Delete</string>
+    <string name="chat_message_save">Save</string>
+    <string name="chat_message_clip_label">Chat message</string>
+    <string name="chat_message_copied">Message copied.</string>
+    <string name="chat_message_edited">Message updated.</string>
+    <string name="chat_message_deleted">Message deleted.</string>
+    <string name="chat_message_edit_title">Edit message</string>
+    <string name="chat_message_delete_title">Delete message?</string>
+    <string name="chat_message_delete_body">Remove this message from the chat history?</string>
+    <string name="chat_message_empty_error">Message cannot be empty.</string>
+    <string name="chat_message_action_unavailable">That message is not ready yet.</string>
+    <string name="chat_answer_based_on">Based on: %1$s</string>
+    <string name="chat_answer_meta_join">%1$s · %2$s</string>
     <string name="chat_error_generic">Sorry, something went wrong. Please try again.</string>
     <string name="chat_ai_timeout_with_summary">The on-device model took too long. Here is a quick answer from your records:\n\n%1$s</string>
 
@@ -470,14 +507,15 @@
     <string name="payment_confirm">Confirm sale</string>
     <string name="payment_cancel">Cancel</string>
     <string name="payment_network_label">Network</string>
+    <string name="payment_network_mtn">MTN MoMo</string>
+    <string name="payment_network_orange">Orange Money</string>
     <string name="payment_network_mpesa">M-Pesa</string>
-    <string name="payment_network_mtn">MTN</string>
     <string name="payment_network_airtel">Airtel</string>
     <string name="payment_network_other">Other</string>
-    <string name="payment_ref_hint">Reference (optional)</string>
+    <string name="payment_ref_hint">Transaction ID / reference (optional)</string>
     <string name="payment_paste_sms">Paste confirmation SMS</string>
     <string name="payment_paste_sms_title">Paste confirmation message</string>
-    <string name="payment_paste_sms_hint">Paste the SMS or USSD reply from your carrier</string>
+    <string name="payment_paste_sms_hint">Paste the MTN MoMo, Orange Money, M-Pesa, or Airtel SMS/USSD reply</string>
     <string name="payment_paste_apply">Extract reference</string>
     <string name="payment_sms_parse_failed">Could not find a reference in that text.</string>
     <string name="payment_credit_need_customer">Please select a customer to sell on credit.</string>
@@ -542,9 +580,11 @@
     <string name="credit_row_amount_days">%1$s · %2$d days outstanding</string>
     <string name="credit_remind">Remind</string>
     <string name="credit_mark_paid">Paid</string>
-    <string name="credit_remind_preview_title">SMS preview</string>
+    <string name="credit_remind_preview_title">Reminder preview</string>
     <string name="credit_send_via_sms">Send via SMS</string>
+    <string name="credit_send_via_whatsapp">Send via WhatsApp</string>
     <string name="credit_sms_intent_failed">Could not open the SMS app.</string>
+    <string name="credit_whatsapp_intent_failed">Could not open WhatsApp.</string>
     <string name="credit_debt_missing">That debt is no longer available.</string>
     <string name="credit_customer_missing">Customer record is missing.</string>
     <string name="credit_remind_no_phone">Add a phone number for this customer to send a reminder.</string>
@@ -649,6 +689,12 @@
     <string name="settings_order_parser_body">Share a customer message from WhatsApp (or any app) to Biashara AI, or paste the order text from your clipboard below.</string>
     <string name="settings_order_parser_clipboard">Parse order from clipboard</string>
     <string name="settings_order_parser_clipboard_empty">Clipboard is empty.</string>
+    <string name="settings_whatsapp_open">Open WhatsApp</string>
+    <string name="settings_whatsapp_how_to">How WhatsApp works</string>
+    <string name="settings_whatsapp_status_ready">WhatsApp is installed. Share a customer order message to Biashara AI, or select message text and choose Biashara AI.</string>
+    <string name="settings_whatsapp_status_missing">WhatsApp is not installed. You can still paste copied order text from any messaging app.</string>
+    <string name="settings_whatsapp_open_failed">Could not open WhatsApp.</string>
+    <string name="settings_whatsapp_help_body">Biashara AI does not read WhatsApp chats automatically. Open WhatsApp, copy or share a customer order message to Biashara AI, review matched products, then record the sale.</string>
 
     <plurals name="negotiation_products_selected_count">
         <item quantity="one">%d product selected</item>
@@ -664,6 +710,16 @@
     <string name="agent_feed_empty_illustration_cd">All clear</string>
     <string name="agent_feed_empty_message">Everything looks good! Your business is running smoothly.</string>
     <string name="agent_feed_listen_review">Listen to review</string>
+    <string name="agent_feed_brief_title">Today\'s AI brief</string>
+    <string name="agent_feed_brief_clear">No urgent AI report is waiting. Check the ledger before closing the day.</string>
+    <string name="agent_feed_brief_focus">Start with: %1$s.</string>
+    <string name="agent_feed_brief_kpi_service_lead">Last completed week: %1$s revenue; services led products.</string>
+    <string name="agent_feed_brief_kpi_product_lead">Last completed week: %1$s revenue; products led, with %2$s on top.</string>
+    <string name="agent_feed_brief_kpi_neutral">Last completed week: %1$s revenue across %2$d transactions.</string>
+    <string name="agent_feedback_positive">Helpful</string>
+    <string name="agent_feedback_negative">Not helpful</string>
+    <string name="agent_feedback_saved">Feedback saved.</string>
+    <string name="agent_feedback_saved_hide_similar">Feedback saved. Similar reports will stay hidden for now.</string>
     <string name="agent_action_review">Review</string>
     <string name="agent_action_approve">Approve ✓</string>
     <string name="agent_action_reject">Reject ✗</string>
@@ -683,6 +739,16 @@
     <plurals name="agent_feed_attention">
         <item quantity="one">%d thing needs your attention</item>
         <item quantity="other">%d things need your attention</item>
+    </plurals>
+
+    <plurals name="agent_feed_brief_priority_count">
+        <item quantity="one">%1$d high-priority item; start with: %2$s.</item>
+        <item quantity="other">%1$d high-priority items; start with: %2$s.</item>
+    </plurals>
+
+    <plurals name="agent_feed_brief_hidden_repeats">
+        <item quantity="one">%d repeated report is hidden by your feedback.</item>
+        <item quantity="other">%d repeated reports are hidden by your feedback.</item>
     </plurals>
 
     <string name="notification_channel_agent_alerts">Business alerts</string>
@@ -750,6 +816,7 @@
     </string-array>
     <string-array name="voice_language_mode_values">
         <item>AUTO</item>
+        <item>fr</item>
         <item>sw</item>
         <item>en</item>
         <item>am</item>
@@ -758,6 +825,7 @@
     </string-array>
     <string-array name="voice_language_mode_labels">
         <item>Automatic</item>
+        <item>Français</item>
         <item>Kiswahili</item>
         <item>English</item>
         <item>Amharic</item>
@@ -836,10 +904,10 @@
     <string name="cash_manual_title">Manual cash entry</string>
     <string name="cash_manual_save">Save</string>
     <string name="cash_unverified_toast">Saving unverified cash-out. Attach proof later.</string>
-    <string name="cash_sms_import_title">Paste M-Pesa SMS</string>
-    <string name="cash_sms_import_hint">Paste the full SMS text here…</string>
+    <string name="cash_sms_import_title">Paste mobile money SMS</string>
+    <string name="cash_sms_import_hint">Paste the full MTN MoMo, Orange Money, M-Pesa, or Airtel SMS here…</string>
     <string name="cash_sms_import_parse">Parse</string>
-    <string name="cash_sms_import_clipboard_detected">M-Pesa SMS detected in clipboard. Tap to paste.</string>
+    <string name="cash_sms_import_clipboard_detected">Mobile money SMS detected in clipboard. Tap to paste.</string>
     <string name="cash_evidence_title">Capture proof</string>
     <string name="cash_quick_scan_in">Scan In</string>
     <string name="cash_quick_scan_out">Scan Out</string>
@@ -861,7 +929,7 @@
     <string name="cash_category_stock_purchase">Stock purchase</string>
     <string name="cash_category_refund">Refund given</string>
     <string name="cash_category_salary">Salary / wages</string>
-    <string name="cash_category_utility">Utilities (KPLC, water…)</string>
+    <string name="cash_category_utility">Utilities (electricity, water…)</string>
     <string name="cash_category_transport">Transport / fuel</string>
     <string name="cash_category_rent">Rent</string>
     <string name="cash_category_owner_draw">Owner withdrawal</string>

@@ -12,6 +12,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.biasharaai.R
 import com.biasharaai.databinding.FragmentCollectBalanceBinding
 import com.biasharaai.money.MoneyFormatter
+import com.biasharaai.money.RegionalDefaults
 import com.biasharaai.pos.payment.PrimaryPaymentTab
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.snackbar.Snackbar
@@ -85,7 +86,11 @@ class CollectBalanceBottomSheet : BottomSheetDialogFragment() {
                         tab = tab,
                         cashTendered = if (tab == PrimaryPaymentTab.CASH) tender else null,
                         cashChange = change,
-                        mobileNetwork = if (tab == PrimaryPaymentTab.MOBILE_MONEY) "MPESA" else null,
+                        mobileNetwork = if (tab == PrimaryPaymentTab.MOBILE_MONEY) {
+                            RegionalDefaults.MOBILE_MONEY_NETWORK
+                        } else {
+                            null
+                        },
                         mobileRef = null,
                     )
                 ) {

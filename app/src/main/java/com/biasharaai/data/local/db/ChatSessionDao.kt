@@ -59,4 +59,23 @@ interface ChatSessionDao {
 
     @Query("UPDATE chat_session_messages SET feedback_vote = :vote WHERE id = :messageId")
     suspend fun updateMessageFeedback(messageId: Long, vote: Int?)
+
+    @Query("UPDATE chat_session_messages SET body = :body WHERE id = :messageId")
+    suspend fun updateMessageBody(messageId: Long, body: String)
+
+    @Query("DELETE FROM chat_session_messages WHERE id = :messageId")
+    suspend fun deleteMessage(messageId: Long)
+
+    @Query(
+        """
+        UPDATE chat_sessions
+        SET updated_at = :updatedAt
+        WHERE id = (
+            SELECT session_id FROM chat_session_messages
+            WHERE id = :messageId
+            LIMIT 1
+        )
+        """,
+    )
+    suspend fun touchSessionForMessage(messageId: Long, updatedAt: Long = System.currentTimeMillis())
 }

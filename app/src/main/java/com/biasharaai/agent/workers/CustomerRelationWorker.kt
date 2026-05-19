@@ -22,6 +22,7 @@ import com.biasharaai.data.local.db.CustomerDao
 import com.biasharaai.data.local.db.Debt
 import com.biasharaai.data.local.db.DebtRepository
 import com.biasharaai.locale.LanguagePreferences
+import com.biasharaai.money.RegionalDefaults
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.text.DateFormat
@@ -70,7 +71,7 @@ class CustomerRelationWorker(
         }
 
         val app = appSettingsDao.getSettingsSync()
-        val currency = app?.currencyCode ?: "KES"
+        val currency = app?.currencyCode ?: RegionalDefaults.CURRENCY_CODE
         var actionsInserted = 0
 
         for (customerId in allCustomerIds) {

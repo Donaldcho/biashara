@@ -8,9 +8,21 @@ import javax.inject.Singleton
 data class CloudAnalysisSettings(
     val enabled: Boolean,
     val endpointUrl: String,
+    val deploymentMode: EnterpriseDeploymentMode,
     /** Non-null when a key was saved; actual secret is not exposed outside the store. */
     val hasApiKey: Boolean,
 )
+
+enum class EnterpriseDeploymentMode {
+    ON_PREMISE,
+    CLOUD,
+    ;
+
+    companion object {
+        fun parse(raw: String?): EnterpriseDeploymentMode? =
+            entries.firstOrNull { it.name.equals(raw?.trim(), ignoreCase = true) }
+    }
+}
 
 /**
  * Persists optional cloud analytics endpoint and API key.
@@ -25,6 +37,7 @@ class CloudAnalysisSettingsStore @Inject constructor(
     companion object {
         private const val PREFS = "cloud_analysis_prefs"
         private const val KEY_ENABLED = "enabled"
+        private const val KEY_DEPLOYMENT_MODE = "deployment_mode"
         private const val KEY_URL = "endpoint_url"
         private const val KEY_API_KEY = "api_key"
     }
@@ -33,9 +46,18 @@ class CloudAnalysisSettingsStore @Inject constructor(
 
     fun load(): CloudAnalysisSettings {
         val key = prefs.getString(KEY_API_KEY, null).orEmpty()
+        val enabled = prefs.getBoolean(KEY_ENABLED, false)
+        val deploymentMode = EnterpriseDeploymentMode.parse(
+            prefs.getString(KEY_DEPLOYMENT_MODE, null),
+        ) ?: if (enabled) {
+            EnterpriseDeploymentMode.CLOUD
+        } else {
+            EnterpriseDeploymentMode.ON_PREMISE
+        }
         return CloudAnalysisSettings(
-            enabled = prefs.getBoolean(KEY_ENABLED, false),
+            enabled = enabled,
             endpointUrl = prefs.getString(KEY_URL, "").orEmpty(),
+            deploymentMode = deploymentMode,
             hasApiKey = key.isNotEmpty(),
         )
     }
@@ -49,8 +71,26 @@ class CloudAnalysisSettingsStore @Inject constructor(
      * stored API key; when null or blank, the previous key is left unchanged.
      */
     fun save(enabled: Boolean, endpointUrl: String, newApiKeyIfNonBlank: String?) {
+        save(
+            enabled = enabled,
+            deploymentMode = load().deploymentMode,
+            endpointUrl = endpointUrl,
+            newApiKeyIfNonBlank = newApiKeyIfNonBlank,
+        )
+    }
+
+    /**
+     * Persists the Enterprise deployment target and upload credentials.
+     */
+    fun save(
+        enabled: Boolean,
+        deploymentMode: EnterpriseDeploymentMode,
+        endpointUrl: String,
+        newApiKeyIfNonBlank: String?,
+    ) {
         val ed = prefs.edit()
             .putBoolean(KEY_ENABLED, enabled)
+            .putString(KEY_DEPLOYMENT_MODE, deploymentMode.name)
             .putString(KEY_URL, endpointUrl.trim())
         val trimmed = newApiKeyIfNonBlank?.trim()
         if (!trimmed.isNullOrEmpty()) {

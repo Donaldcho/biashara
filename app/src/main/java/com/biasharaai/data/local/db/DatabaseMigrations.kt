@@ -331,7 +331,7 @@ object DatabaseMigrations {
                     urgency TEXT NOT NULL,
                     execution_type TEXT NOT NULL DEFAULT 'REQUIRES_APPROVAL',
                     headline TEXT NOT NULL,
-                    detail TEXT NOT NULL DEFAULT '',
+                    detail TEXT NOT NULL,
                     action_payload TEXT,
                     action_verb TEXT,
                     status TEXT NOT NULL DEFAULT 'PENDING',
@@ -1055,6 +1055,179 @@ object DatabaseMigrations {
         }
     }
 
+    /** Cameroon-first regional defaults: FCFA/XAF replaces the previous Kenya fallback. */
+    val MIGRATION_33_34 = object : Migration(33, 34) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS app_settings_new (
+                    id INTEGER NOT NULL PRIMARY KEY,
+                    business_name TEXT NOT NULL DEFAULT 'My Business',
+                    currency_code TEXT NOT NULL DEFAULT 'XAF',
+                    currency_symbol TEXT NOT NULL DEFAULT 'FCFA',
+                    tax_rate REAL NOT NULL DEFAULT 0.0,
+                    tax_label TEXT NOT NULL DEFAULT 'Tax',
+                    receipt_footer TEXT NOT NULL DEFAULT 'Thank you!',
+                    quick_sale_mode INTEGER NOT NULL DEFAULT 0,
+                    allow_price_override INTEGER NOT NULL DEFAULT 1,
+                    bluetooth_printer_address TEXT,
+                    printer_paper_width INTEGER NOT NULL DEFAULT 58,
+                    voice_input_enabled INTEGER NOT NULL DEFAULT 1,
+                    whisper_model_id TEXT NOT NULL DEFAULT 'whisper-tiny',
+                    silence_timeout_ms INTEGER NOT NULL DEFAULT 2500,
+                    voice_language_mode TEXT NOT NULL DEFAULT 'AUTO',
+                    tts_enabled INTEGER NOT NULL DEFAULT 1,
+                    tts_speech_rate REAL NOT NULL DEFAULT 0.9,
+                    tts_pitch REAL NOT NULL DEFAULT 1.0,
+                    tts_auto_read_agent_alerts INTEGER NOT NULL DEFAULT 0,
+                    tts_auto_read_query_answers INTEGER NOT NULL DEFAULT 1,
+                    pro_onboarding_shown INTEGER NOT NULL DEFAULT 0,
+                    pro_activated_at INTEGER,
+                    voucher_signing_key TEXT
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                """
+                INSERT INTO app_settings_new (
+                    id, business_name, currency_code, currency_symbol, tax_rate, tax_label,
+                    receipt_footer, quick_sale_mode, allow_price_override, bluetooth_printer_address,
+                    printer_paper_width, voice_input_enabled, whisper_model_id, silence_timeout_ms,
+                    voice_language_mode, tts_enabled, tts_speech_rate, tts_pitch,
+                    tts_auto_read_agent_alerts, tts_auto_read_query_answers, pro_onboarding_shown,
+                    pro_activated_at, voucher_signing_key
+                )
+                SELECT
+                    id,
+                    business_name,
+                    CASE WHEN currency_code = 'KES' THEN 'XAF' ELSE currency_code END,
+                    CASE WHEN currency_symbol = 'KSh' THEN 'FCFA' ELSE currency_symbol END,
+                    tax_rate,
+                    tax_label,
+                    receipt_footer,
+                    quick_sale_mode,
+                    allow_price_override,
+                    bluetooth_printer_address,
+                    printer_paper_width,
+                    voice_input_enabled,
+                    whisper_model_id,
+                    silence_timeout_ms,
+                    voice_language_mode,
+                    tts_enabled,
+                    tts_speech_rate,
+                    tts_pitch,
+                    tts_auto_read_agent_alerts,
+                    tts_auto_read_query_answers,
+                    pro_onboarding_shown,
+                    pro_activated_at,
+                    voucher_signing_key
+                FROM app_settings
+                """.trimIndent(),
+            )
+            db.execSQL("DROP TABLE app_settings")
+            db.execSQL("ALTER TABLE app_settings_new RENAME TO app_settings")
+            db.execSQL("INSERT OR IGNORE INTO app_settings (id) VALUES (1)")
+            addColumnIfMissing(db, "chat_session_messages", "source_tags", "TEXT")
+            addColumnIfMissing(db, "chat_session_messages", "confidence_label", "TEXT")
+            addColumnIfMissing(db, "chat_session_messages", "action_hint", "TEXT")
+        }
+    }
+
+    val MIGRATION_34_35 = object : Migration(34, 35) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS business_kpi_snapshots (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    week_start_millis INTEGER NOT NULL,
+                    week_revenue REAL NOT NULL,
+                    last_week_revenue REAL NOT NULL,
+                    product_revenue REAL NOT NULL,
+                    service_revenue REAL NOT NULL,
+                    tx_count INTEGER NOT NULL,
+                    new_customers INTEGER NOT NULL,
+                    returning_customers INTEGER NOT NULL,
+                    top_product_name TEXT NOT NULL,
+                    top_product_revenue REAL NOT NULL,
+                    top_service_name TEXT,
+                    service_sessions INTEGER NOT NULL DEFAULT 0,
+                    best_day TEXT NOT NULL,
+                    best_hour INTEGER NOT NULL,
+                    credit_outstanding REAL NOT NULL,
+                    recorded_at INTEGER NOT NULL DEFAULT 0
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS index_business_kpi_snapshots_week_start_millis ON business_kpi_snapshots(week_start_millis)",
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS forecast_calibrations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    product_id INTEGER NOT NULL,
+                    product_name TEXT NOT NULL,
+                    window_start_millis INTEGER NOT NULL,
+                    predicted_day1 INTEGER NOT NULL,
+                    predicted_day2 INTEGER NOT NULL,
+                    predicted_day3 INTEGER NOT NULL,
+                    actual_day1 INTEGER,
+                    actual_day2 INTEGER,
+                    actual_day3 INTEGER,
+                    bias_ratio REAL,
+                    recorded_at INTEGER NOT NULL DEFAULT 0
+                )
+                """.trimIndent(),
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_forecast_calibrations_product_id ON forecast_calibrations(product_id)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_forecast_calibrations_window_start_millis ON forecast_calibrations(window_start_millis)")
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS business_memory_entries (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    type TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    keywords TEXT,
+                    embedding_blob BLOB,
+                    source TEXT,
+                    created_at INTEGER NOT NULL DEFAULT 0,
+                    expires_at INTEGER
+                )
+                """.trimIndent(),
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_business_memory_entries_type ON business_memory_entries(type)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_business_memory_entries_created_at ON business_memory_entries(created_at)")
+        }
+    }
+
+    val MIGRATION_35_36 = object : Migration(35, 36) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS agent_advice_feedback (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    agent_action_id INTEGER NOT NULL,
+                    agent_type TEXT NOT NULL,
+                    content_hash TEXT NOT NULL,
+                    headline TEXT NOT NULL,
+                    detail TEXT NOT NULL DEFAULT '',
+                    vote INTEGER NOT NULL,
+                    created_at INTEGER NOT NULL
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS index_agent_advice_feedback_agent_action_id ON agent_advice_feedback(agent_action_id)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_agent_advice_feedback_content_hash_created_at ON agent_advice_feedback(content_hash, created_at)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_agent_advice_feedback_vote_created_at ON agent_advice_feedback(vote, created_at)",
+            )
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_3_5,
         MIGRATION_5_6,
@@ -1085,6 +1258,9 @@ object DatabaseMigrations {
         MIGRATION_30_31,
         MIGRATION_31_32,
         MIGRATION_32_33,
+        MIGRATION_33_34,
+        MIGRATION_34_35,
+        MIGRATION_35_36,
     )
 
     private fun addColumnIfMissing(

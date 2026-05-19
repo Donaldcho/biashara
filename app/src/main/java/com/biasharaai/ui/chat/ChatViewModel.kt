@@ -22,18 +22,24 @@ import com.biasharaai.data.local.db.ProductDao
 import com.biasharaai.analytics.SalesIntelligenceRepository
 import com.biasharaai.data.local.db.TransactionDao
 import com.biasharaai.data.local.db.TransactionType
+import com.biasharaai.knowledge.KnowledgeIngestor
+import com.biasharaai.knowledge.KnowledgeRetriever
 import com.biasharaai.locale.LanguagePreferences
+import com.biasharaai.profile.BusinessProfileRepository
+import com.biasharaai.profile.OnlineBusinessProfileUpdater
 import com.biasharaai.ui.base.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Locale
@@ -60,6 +66,10 @@ class ChatViewModel @Inject constructor(
     private val imageChatAnalyzer: ImageChatAnalyzer,
     private val wikipediaSkillClient: WikipediaSkillClient,
     private val remoteSkillManifestStore: RemoteSkillManifestStore,
+    private val knowledgeIngestor: KnowledgeIngestor,
+    private val knowledgeRetriever: KnowledgeRetriever,
+    private val businessProfileRepository: BusinessProfileRepository,
+    private val onlineBusinessProfileUpdater: OnlineBusinessProfileUpdater,
     @ApplicationContext private val appContext: Context,
     private val inferenceSettingsStore: InferenceSettingsStore,
     private val chatQueryHistoryStore: ChatQueryHistoryStore,
@@ -74,6 +84,7 @@ class ChatViewModel @Inject constructor(
 
     companion object {
         private const val TAG = "ChatViewModel"
+        private const val CHAT_MODEL_TIMEOUT_MS = 75_000L
         private val TEMP_MESSAGE_ID = AtomicLong(-1L)
 
         /** Shown so the model knows which facts come from which local tables (no raw SQL). */
@@ -252,6 +263,7 @@ class ChatViewModel @Inject constructor(
             val placeholderIndex = _messages.value.lastIndex
             val streamed = StringBuilder()
             var sessionId = -1L
+            var fallbackQuestionForError = bodyForDb
 
             try {
                 sessionId = chatSessionRepository.ensureActiveSession(
@@ -301,6 +313,7 @@ class ChatViewModel @Inject constructor(
                 val catalogQuery = mergeUserTextAndVisualForCatalog(trimmedVisible, visualSummary)
                 val structuredQ = trimmedVisible.ifBlank { effectiveForModel }
                 val fallbackQ = catalogQuery.ifBlank { structuredQ }
+                fallbackQuestionForError = fallbackQ
 
                 if (trimmedVisible.isNotBlank()) {
                     chatQueryHistoryStore.recordQuery(trimmedVisible)
@@ -322,6 +335,32 @@ class ChatViewModel @Inject constructor(
                 }
                 chatSessionRepository.updateTitleFromFirstUserLine(sessionId, bodyForDb)
 
+                val onlineProfileUpdate = maybeUpdateBusinessProfileFromOnline(structuredQ)
+                if (onlineProfileUpdate != null) {
+                    val metadata = ChatAnswerQuality.metadataFor(
+                        question = structuredQ,
+                        source = ChatAnswerSource.ONLINE_SOURCE,
+                        hasImage = !imageAbsolutePath.isNullOrBlank(),
+                    )
+                    replacePlaceholder(placeholderIndex, onlineProfileUpdate, metadata)
+                    persistAssistantAndFixRow(sessionId, placeholderIndex, onlineProfileUpdate, metadata)
+                    injectTranscriptIntoNextGemmaPrompt = false
+                    return@launch
+                }
+
+                val appHelp = maybeAnswerAppHelp(structuredQ)
+                if (appHelp != null) {
+                    val metadata = ChatAnswerQuality.metadataFor(
+                        question = structuredQ,
+                        source = ChatAnswerSource.APP_KNOWLEDGE,
+                        hasImage = !imageAbsolutePath.isNullOrBlank(),
+                    )
+                    replacePlaceholder(placeholderIndex, appHelp, metadata)
+                    persistAssistantAndFixRow(sessionId, placeholderIndex, appHelp, metadata)
+                    injectTranscriptIntoNextGemmaPrompt = false
+                    return@launch
+                }
+
                 val structuredPrimary = conversationalQueryLayer.tryStructuredAnswer(structuredQ, langName)
                 val structured = structuredPrimary
                     ?: if (fallbackQ != structuredQ) {
@@ -330,22 +369,41 @@ class ChatViewModel @Inject constructor(
                         null
                     }
                 if (structured != null) {
-                    replacePlaceholder(placeholderIndex, structured)
-                    persistAssistantAndFixRow(sessionId, placeholderIndex, structured)
+                    val metadata = ChatAnswerQuality.metadataFor(
+                        question = structuredQ,
+                        source = ChatAnswerSource.STRUCTURED_LOCAL_DATA,
+                        hasImage = !imageAbsolutePath.isNullOrBlank(),
+                    )
+                    replacePlaceholder(placeholderIndex, structured, metadata)
+                    persistAssistantAndFixRow(sessionId, placeholderIndex, structured, metadata)
                     injectTranscriptIntoNextGemmaPrompt = false
                     return@launch
                 }
 
                 if (!gemmaService.isAvailable) {
                     val fb = generateFallbackResponse(fallbackQ)
-                    replacePlaceholder(placeholderIndex, fb)
-                    persistAssistantAndFixRow(sessionId, placeholderIndex, fb)
+                    val metadata = ChatAnswerQuality.metadataFor(
+                        question = fallbackQ,
+                        source = ChatAnswerSource.LOCAL_RULES,
+                        hasImage = !imageAbsolutePath.isNullOrBlank(),
+                    )
+                    replacePlaceholder(placeholderIndex, fb, metadata)
+                    persistAssistantAndFixRow(sessionId, placeholderIndex, fb, metadata)
                     injectTranscriptIntoNextGemmaPrompt = false
                     return@launch
                 }
 
                 val memoryBlock = chatMemoryRepository.buildMemoryBlockForPrompt()
                 val context = buildBusinessContext(catalogQuery, visualSummary)
+                val modelMetadata = ChatAnswerQuality.metadataFor(
+                    question = fallbackQ,
+                    source = if (imageAbsolutePath.isNullOrBlank()) {
+                        ChatAnswerSource.ON_DEVICE_AI
+                    } else {
+                        ChatAnswerSource.IMAGE_PLUS_AI
+                    },
+                    hasImage = !imageAbsolutePath.isNullOrBlank(),
+                )
                 val prompt = buildPrompt(
                     businessContext = context,
                     userQuestion = effectiveForModel,
@@ -357,18 +415,20 @@ class ChatViewModel @Inject constructor(
                 var firstTokenMs = 0L
 
                 try {
-                    gemmaService.generateStreaming(prompt) { delta, done ->
-                        if (delta.isNotEmpty()) {
-                            if (firstTokenMs == 0L) {
-                                firstTokenMs = System.currentTimeMillis()
-                                Log.d(TAG, "First token after ${firstTokenMs - startMs}ms (prompt=${prompt.length} chars)")
+                    withTimeout(CHAT_MODEL_TIMEOUT_MS) {
+                        gemmaService.generateStreaming(prompt) { delta, done ->
+                            if (delta.isNotEmpty()) {
+                                if (firstTokenMs == 0L) {
+                                    firstTokenMs = System.currentTimeMillis()
+                                    Log.d(TAG, "First token after ${firstTokenMs - startMs}ms (prompt=${prompt.length} chars)")
+                                }
+                                streamed.append(delta)
+                                updatePlaceholder(placeholderIndex, streamed.toString(), modelMetadata)
+                                if (_isThinking.value) _isThinking.value = false
                             }
-                            streamed.append(delta)
-                            updatePlaceholder(placeholderIndex, streamed.toString())
-                            if (_isThinking.value) _isThinking.value = false
-                        }
-                        if (done) {
-                            _isThinking.value = false
+                            if (done) {
+                                _isThinking.value = false
+                            }
                         }
                     }
                     val totalMs = System.currentTimeMillis() - startMs
@@ -389,8 +449,32 @@ class ChatViewModel @Inject constructor(
                     Log.w(TAG, "AI first-token timed out — showing offline summary")
                     val fb = generateFallbackResponse(fallbackQ)
                     val msg = localizedContext().getString(R.string.chat_ai_timeout_with_summary, fb)
-                    replacePlaceholder(placeholderIndex, msg)
-                    persistAssistantAndFixRow(sessionId, placeholderIndex, msg)
+                    val metadata = ChatAnswerQuality.metadataFor(
+                        question = fallbackQ,
+                        source = ChatAnswerSource.LOCAL_RULES,
+                        hasImage = !imageAbsolutePath.isNullOrBlank(),
+                    )
+                    replacePlaceholder(placeholderIndex, msg, metadata)
+                    persistAssistantAndFixRow(sessionId, placeholderIndex, msg, metadata)
+                    injectTranscriptIntoNextGemmaPrompt = false
+                    return@launch
+                } catch (_: TimeoutCancellationException) {
+                    Log.w(TAG, "AI generation timed out after ${CHAT_MODEL_TIMEOUT_MS}ms")
+                    val partial = streamed.toString().trim()
+                    if (partial.isNotBlank()) {
+                        updatePlaceholder(placeholderIndex, partial, modelMetadata)
+                        persistAssistantAndFixRow(sessionId, placeholderIndex, partial, modelMetadata)
+                    } else {
+                        val fb = generateFallbackResponse(fallbackQ)
+                        val msg = localizedContext().getString(R.string.chat_ai_timeout_with_summary, fb)
+                        val metadata = ChatAnswerQuality.metadataFor(
+                            question = fallbackQ,
+                            source = ChatAnswerSource.LOCAL_RULES,
+                            hasImage = !imageAbsolutePath.isNullOrBlank(),
+                        )
+                        replacePlaceholder(placeholderIndex, msg, metadata)
+                        persistAssistantAndFixRow(sessionId, placeholderIndex, msg, metadata)
+                    }
                     injectTranscriptIntoNextGemmaPrompt = false
                     return@launch
                 } catch (cancelled: CancellationException) {
@@ -402,27 +486,37 @@ class ChatViewModel @Inject constructor(
                     } else {
                         partial + suffix
                     }
-                    updatePlaceholder(placeholderIndex, finalText)
-                    persistAssistantAndFixRow(sessionId, placeholderIndex, finalText)
+                    updatePlaceholder(placeholderIndex, finalText, modelMetadata)
+                    persistAssistantAndFixRow(sessionId, placeholderIndex, finalText, modelMetadata)
                     injectTranscriptIntoNextGemmaPrompt = false
                     throw cancelled
                 } catch (aiError: Exception) {
                     Log.w(TAG, "AI inference failed, falling back to rules", aiError)
                     val fb = generateFallbackResponse(fallbackQ)
-                    replacePlaceholder(placeholderIndex, fb)
-                    persistAssistantAndFixRow(sessionId, placeholderIndex, fb)
+                    val metadata = ChatAnswerQuality.metadataFor(
+                        question = fallbackQ,
+                        source = ChatAnswerSource.LOCAL_RULES,
+                        hasImage = !imageAbsolutePath.isNullOrBlank(),
+                    )
+                    replacePlaceholder(placeholderIndex, fb, metadata)
+                    persistAssistantAndFixRow(sessionId, placeholderIndex, fb, metadata)
                     injectTranscriptIntoNextGemmaPrompt = false
                     return@launch
                 }
 
                 val modelText = streamed.toString().trim()
                 if (modelText.isNotBlank()) {
-                    persistAssistantAndFixRow(sessionId, placeholderIndex, modelText)
+                    persistAssistantAndFixRow(sessionId, placeholderIndex, modelText, modelMetadata)
                 } else {
                     Log.w(TAG, "AI returned blank, falling back to rules")
                     val fb = generateFallbackResponse(fallbackQ)
-                    replacePlaceholder(placeholderIndex, fb)
-                    persistAssistantAndFixRow(sessionId, placeholderIndex, fb)
+                    val metadata = ChatAnswerQuality.metadataFor(
+                        question = fallbackQ,
+                        source = ChatAnswerSource.LOCAL_RULES,
+                        hasImage = !imageAbsolutePath.isNullOrBlank(),
+                    )
+                    replacePlaceholder(placeholderIndex, fb, metadata)
+                    persistAssistantAndFixRow(sessionId, placeholderIndex, fb, metadata)
                 }
                 injectTranscriptIntoNextGemmaPrompt = false
             } catch (cancelled: CancellationException) {
@@ -430,9 +524,14 @@ class ChatViewModel @Inject constructor(
             } catch (e: Exception) {
                 Log.e(TAG, "Chat response failed completely", e)
                 val err = localizedContext().getString(R.string.chat_error_generic)
-                replacePlaceholder(placeholderIndex, err)
+                val metadata = ChatAnswerQuality.metadataFor(
+                    question = fallbackQuestionForError,
+                    source = ChatAnswerSource.LOCAL_RULES,
+                    hasImage = !imageAbsolutePath.isNullOrBlank(),
+                )
+                replacePlaceholder(placeholderIndex, err, metadata)
                 if (sessionId > 0L) {
-                    persistAssistantAndFixRow(sessionId, placeholderIndex, err)
+                    persistAssistantAndFixRow(sessionId, placeholderIndex, err, metadata)
                 }
                 injectTranscriptIntoNextGemmaPrompt = false
             } finally {
@@ -442,16 +541,32 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    private suspend fun persistAssistantAndFixRow(sessionId: Long, placeholderIndex: Int, body: String) {
+    private suspend fun persistAssistantAndFixRow(
+        sessionId: Long,
+        placeholderIndex: Int,
+        body: String,
+        metadata: ChatAnswerMetadata? = null,
+    ) {
         val text = body.trim().ifBlank {
             localizedContext().getString(R.string.chat_fallback_generic)
         }
-        val aid = chatSessionRepository.appendAssistantMessage(sessionId, text)
+        val aid = chatSessionRepository.appendAssistantMessage(
+            sessionId = sessionId,
+            text = text,
+            sourceTags = metadata?.sourceTags.orEmpty(),
+            confidenceLabel = metadata?.confidenceLabel,
+            actionHint = metadata?.actionHint,
+        )
         if (aid > 0L) {
             withContext(Dispatchers.Main.immediate) {
                 val list = _messages.value.toMutableList()
                 if (placeholderIndex in list.indices) {
-                    list[placeholderIndex] = list[placeholderIndex].copy(stableId = aid)
+                    list[placeholderIndex] = list[placeholderIndex].copy(
+                        stableId = aid,
+                        sourceTags = metadata?.sourceTags ?: list[placeholderIndex].sourceTags,
+                        confidenceLabel = metadata?.confidenceLabel ?: list[placeholderIndex].confidenceLabel,
+                        actionHint = metadata?.actionHint ?: list[placeholderIndex].actionHint,
+                    )
                     _messages.value = list
                 }
             }
@@ -474,6 +589,38 @@ class ChatViewModel @Inject constructor(
                 withContext(Dispatchers.Main.immediate) { _messages.value = rows }
             }
         }
+    }
+
+    fun editMessage(messageId: Long, newText: String, onDone: () -> Unit = {}) {
+        val text = newText.trim()
+        if (messageId <= 0L || text.isBlank()) return
+        if (_isGenerating.value) stopGeneration()
+        viewModelScope.launch(Dispatchers.IO) {
+            chatSessionRepository.updateMessageText(messageId, text)
+            reloadActiveMessages()
+            gemmaService.resetSession()
+            injectTranscriptIntoNextGemmaPrompt = true
+            withContext(Dispatchers.Main.immediate) { onDone() }
+        }
+    }
+
+    fun deleteMessage(messageId: Long, onDone: () -> Unit = {}) {
+        if (messageId <= 0L) return
+        if (_isGenerating.value) stopGeneration()
+        viewModelScope.launch(Dispatchers.IO) {
+            chatSessionRepository.deleteMessage(messageId)
+            reloadActiveMessages()
+            gemmaService.resetSession()
+            injectTranscriptIntoNextGemmaPrompt = true
+            withContext(Dispatchers.Main.immediate) { onDone() }
+        }
+    }
+
+    private suspend fun reloadActiveMessages() {
+        val sid = chatSessionRepository.getActiveSessionIdFromStore()
+        if (sid == ChatActiveSessionStore.NO_SESSION) return
+        val rows = chatSessionRepository.loadMessagesForUi(sid)
+        withContext(Dispatchers.Main.immediate) { _messages.value = rows }
     }
 
     /** Stop generation in flight. The bubble keeps whatever text was already streamed. */
@@ -515,20 +662,131 @@ class ChatViewModel @Inject constructor(
         generationJob?.cancel()
     }
 
-    private fun updatePlaceholder(index: Int, text: String) {
+    private fun updatePlaceholder(index: Int, text: String, metadata: ChatAnswerMetadata? = null) {
         val list = _messages.value.toMutableList()
         if (index in list.indices) {
-            list[index] = list[index].copy(text = text)
+            list[index] = list[index].copy(
+                text = text,
+                sourceTags = metadata?.sourceTags ?: list[index].sourceTags,
+                confidenceLabel = metadata?.confidenceLabel ?: list[index].confidenceLabel,
+                actionHint = metadata?.actionHint ?: list[index].actionHint,
+            )
             _messages.value = list
         }
     }
 
-    private fun replacePlaceholder(index: Int, text: String) {
+    private fun replacePlaceholder(index: Int, text: String, metadata: ChatAnswerMetadata? = null) {
         val safeText = text.ifBlank {
             localizedContext().getString(R.string.chat_fallback_generic)
         }
-        updatePlaceholder(index, safeText)
+        updatePlaceholder(index, safeText, metadata)
     }
+
+    private suspend fun maybeAnswerAppHelp(question: String): String? {
+        if (!looksLikeAppHelpQuestion(question)) return null
+        val lang = resolveUserLanguageCode()
+        var primary = knowledgeRetriever.retrieve(
+            query = question,
+            languageCode = lang,
+            topK = 3,
+        )
+        if (primary.isEmpty()) {
+            runCatching { knowledgeIngestor.ingestLanguage(lang) }
+            primary = knowledgeRetriever.retrieve(
+                query = question,
+                languageCode = lang,
+                topK = 3,
+            )
+        }
+        val results = if (primary.isNotEmpty() || lang == "en") {
+            primary
+        } else {
+            runCatching { knowledgeIngestor.ingestLanguage("en") }
+            knowledgeRetriever.retrieve(
+                query = question,
+                languageCode = "en",
+                topK = 3,
+            )
+        }
+        if (results.isEmpty()) return null
+        val context = results.joinToString("\n\n") { stripKnowledgeMetadata(it.chunk.contentText) }
+            .trim()
+            .take(1_800)
+        if (context.isBlank()) return null
+        return buildString {
+            append("From the Biashara AI app guide:\n\n")
+            append(context)
+        }
+    }
+
+    private suspend fun maybeUpdateBusinessProfileFromOnline(question: String): String? {
+        val q = question.lowercase(Locale.ROOT)
+        val wantsOnlineUpdate = q.containsAnyKeyword("update", "refresh", "sync", "import") &&
+            q.containsAnyKeyword("business profile", "business data", "my business", "profile") &&
+            q.contains("https://")
+        if (!wantsOnlineUpdate) return null
+        val url = Regex("""https://\S+""")
+            .find(question)
+            ?.value
+            ?.trimEnd('.', ',', ')', ']', '"', '\'')
+            ?: return "Send an https:// URL for the business source you want to import."
+        val result = onlineBusinessProfileUpdater.apply(url)
+        return result.fold(
+            onSuccess = { update ->
+                if (update.appliedFields.isEmpty()) {
+                    "I checked ${update.sourceUrl}, but I did not find supported business profile fields to save."
+                } else {
+                    buildString {
+                        append("Updated the business profile from ${update.sourceUrl}.\n\n")
+                        update.appliedFields.forEach { (field, value) ->
+                            append("- ")
+                            append(field)
+                            append(": ")
+                            append(value)
+                            append("\n")
+                        }
+                        append("\nReview it in Settings > Business profile.")
+                    }
+                }
+            },
+            onFailure = { error ->
+                "I could not update the business profile from that online source: " +
+                    (error.message ?: "unknown error")
+            },
+        )
+    }
+
+    private fun looksLikeAppHelpQuestion(question: String): Boolean {
+        val q = question.lowercase(Locale.ROOT)
+        val asksHow = q.containsAnyKeyword(
+            "how do i", "how can i", "how to", "where do i", "where can i",
+            "show me how", "steps", "guide me", "help me use",
+        )
+        val appTerms = q.containsAnyKeyword(
+            "app", "biashara", "screen", "button", "tap", "settings", "inventory", "product",
+            "sales", "pos", "receipt", "barcode", "printer", "ledger", "customer", "debt",
+            "voice", "agent", "business profile", "model", "chat",
+        )
+        val directFeatureHelp = q.containsAnyKeyword(
+            "add product", "edit product", "delete product", "scan receipt", "record sale",
+            "print receipt", "scan barcode", "set up business profile", "change language",
+            "download model", "cash count", "close day",
+        )
+        val businessFactQuestion = q.containsAnyKeyword(
+            "how much did", "how many sales", "profit", "revenue", "income", "expense",
+            "stock left", "best selling", "owe me", "customer spent",
+        )
+        return (asksHow && appTerms && !businessFactQuestion) || directFeatureHelp
+    }
+
+    private fun stripKnowledgeMetadata(text: String): String =
+        text.lineSequence()
+            .filterNot { line ->
+                val trimmed = line.trim()
+                trimmed.startsWith("feature_id:") || trimmed.startsWith("language:")
+            }
+            .joinToString("\n")
+            .trim()
 
     /**
      * Build only the slice of business data that looks relevant to [userQuestion].
@@ -569,6 +827,13 @@ class ChatViewModel @Inject constructor(
         val sb = StringBuilder()
         sb.appendLine(DATABASE_SCHEMA_HINT)
         sb.appendLine()
+        val profileContext = runCatching {
+            businessProfileRepository.buildAgentContextHeader()
+        }.getOrNull()
+        if (!profileContext.isNullOrBlank()) {
+            sb.appendLine(profileContext)
+            sb.appendLine()
+        }
         if (slimGemmaContext) {
             sb.appendLine("Context mode: focused facts only (question matched specific business keywords).")
             sb.appendLine()
@@ -973,7 +1238,7 @@ class ChatViewModel @Inject constructor(
     ): String {
         val langName = languageNameForPrompt(resolveUserLanguageCode())
         return buildString {
-            append("Answer in $langName. ")
+            append(ChatAnswerQuality.promptGuidance(langName))
             append(
                 "When the user asks about today or today's sales, use the fact line that starts with " +
                     "\"Today (\" and those numbers (not lifetime totals). ",

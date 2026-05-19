@@ -7,12 +7,15 @@ import com.biasharaai.ai.CapabilityTier
 import com.biasharaai.ai.DeviceCapabilityChecker
 import com.biasharaai.ai.GemmaService
 import com.biasharaai.ai.ModelDownloadManager
+import com.biasharaai.data.local.db.SaleLineItemDao
+import com.biasharaai.data.local.db.ServiceDeliveryDao
 import com.biasharaai.data.local.db.Transaction
 import com.biasharaai.data.local.db.TransactionDao
 import com.biasharaai.data.local.db.TransactionRepository
 import com.biasharaai.data.local.db.TransactionType
 import com.biasharaai.money.MoneyFormatter
 import com.biasharaai.pos.cart.CartRepository
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
@@ -49,6 +52,8 @@ class CashFlowInsightsViewModelTest {
     private lateinit var transactionRepository: TransactionRepository
     private lateinit var gemmaService: GemmaService
     private lateinit var cashFlowAnalyzer: CashFlowAnalyzer
+    private lateinit var saleLineItemDao: SaleLineItemDao
+    private lateinit var serviceDeliveryDao: ServiceDeliveryDao
 
     private val sampleTransactions = listOf(
         Transaction(id = 1, type = TransactionType.INCOME, amount = 10000.0, description = "Sales", date = System.currentTimeMillis()),
@@ -80,6 +85,12 @@ class CashFlowInsightsViewModelTest {
 
         transactionDao = mockk(relaxed = true)
         transactionRepository = TransactionRepository(transactionDao)
+        saleLineItemDao = mockk(relaxed = true)
+        serviceDeliveryDao = mockk(relaxed = true)
+        coEvery { saleLineItemDao.sumPosRevenueBetween(any(), any()) } returns 0.0
+        coEvery { saleLineItemDao.netProductSalesInPeriod(any(), any()) } returns emptyList()
+        coEvery { serviceDeliveryDao.sumChargedInPeriod(any(), any()) } returns 0.0
+        coEvery { serviceDeliveryDao.netServiceSalesInPeriod(any(), any()) } returns emptyList()
         gemmaService = mockk(relaxed = true)
         every { gemmaService.isAvailable } returns false
         val appContext = mockk<Context>(relaxed = true)
@@ -111,7 +122,7 @@ class CashFlowInsightsViewModelTest {
     fun `after loading completes state is not loading`() {
         every { transactionDao.getTransactionsByPeriod(any(), any()) } returns flowOf(sampleTransactions)
 
-        val viewModel = CashFlowInsightsViewModel(transactionRepository, cashFlowAnalyzer)
+        val viewModel = CashFlowInsightsViewModel(transactionRepository, cashFlowAnalyzer, saleLineItemDao, serviceDeliveryDao)
         awaitIoCompletion()
 
         assertFalse("Should not be loading after completion", viewModel.uiState.value.isLoading)
@@ -121,7 +132,7 @@ class CashFlowInsightsViewModelTest {
     fun `calculates correct totals from transactions`() {
         every { transactionDao.getTransactionsByPeriod(any(), any()) } returns flowOf(sampleTransactions)
 
-        val viewModel = CashFlowInsightsViewModel(transactionRepository, cashFlowAnalyzer)
+        val viewModel = CashFlowInsightsViewModel(transactionRepository, cashFlowAnalyzer, saleLineItemDao, serviceDeliveryDao)
         awaitIoCompletion()
 
         val state = viewModel.uiState.value
@@ -134,7 +145,7 @@ class CashFlowInsightsViewModelTest {
     fun `insights text is not empty after loading`() {
         every { transactionDao.getTransactionsByPeriod(any(), any()) } returns flowOf(sampleTransactions)
 
-        val viewModel = CashFlowInsightsViewModel(transactionRepository, cashFlowAnalyzer)
+        val viewModel = CashFlowInsightsViewModel(transactionRepository, cashFlowAnalyzer, saleLineItemDao, serviceDeliveryDao)
         awaitIoCompletion()
 
         assertTrue(
@@ -147,7 +158,7 @@ class CashFlowInsightsViewModelTest {
     fun `period label is set after loading`() {
         every { transactionDao.getTransactionsByPeriod(any(), any()) } returns flowOf(sampleTransactions)
 
-        val viewModel = CashFlowInsightsViewModel(transactionRepository, cashFlowAnalyzer)
+        val viewModel = CashFlowInsightsViewModel(transactionRepository, cashFlowAnalyzer, saleLineItemDao, serviceDeliveryDao)
         awaitIoCompletion()
 
         assertTrue(
@@ -160,7 +171,7 @@ class CashFlowInsightsViewModelTest {
     fun `refresh reloads insights`() {
         every { transactionDao.getTransactionsByPeriod(any(), any()) } returns flowOf(sampleTransactions)
 
-        val viewModel = CashFlowInsightsViewModel(transactionRepository, cashFlowAnalyzer)
+        val viewModel = CashFlowInsightsViewModel(transactionRepository, cashFlowAnalyzer, saleLineItemDao, serviceDeliveryDao)
         awaitIoCompletion()
 
         val firstInsights = viewModel.uiState.value.insightsText

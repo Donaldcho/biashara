@@ -111,7 +111,26 @@ class ChatSessionRepository @Inject constructor(
         chatSessionDao.updateMessageFeedback(messageId, vote)
     }
 
-    suspend fun appendAssistantMessage(sessionId: Long, text: String): Long {
+    suspend fun updateMessageText(messageId: Long, text: String) {
+        val t = text.trim()
+        if (messageId <= 0L || t.isBlank()) return
+        chatSessionDao.updateMessageBody(messageId, t)
+        chatSessionDao.touchSessionForMessage(messageId)
+    }
+
+    suspend fun deleteMessage(messageId: Long) {
+        if (messageId <= 0L) return
+        chatSessionDao.touchSessionForMessage(messageId)
+        chatSessionDao.deleteMessage(messageId)
+    }
+
+    suspend fun appendAssistantMessage(
+        sessionId: Long,
+        text: String,
+        sourceTags: List<String> = emptyList(),
+        confidenceLabel: String? = null,
+        actionHint: String? = null,
+    ): Long {
         val t = text.trim()
         if (t.isBlank()) return -1L
         maybeTrimSession(sessionId)
@@ -121,6 +140,9 @@ class ChatSessionRepository @Inject constructor(
                 role = ROLE_ASSISTANT,
                 body = t,
                 imagePath = null,
+                sourceTags = encodeSourceTags(sourceTags),
+                confidenceLabel = confidenceLabel,
+                actionHint = actionHint,
             ),
         )
         chatSessionDao.touchSession(sessionId)
@@ -149,7 +171,16 @@ class ChatSessionRepository @Inject constructor(
             imageUri = imagePath,
             timestamp = createdAt,
             feedbackVote = feedbackVote,
+            sourceTags = decodeSourceTags(sourceTags),
+            confidenceLabel = confidenceLabel,
+            actionHint = actionHint,
         )
+
+    private fun encodeSourceTags(tags: List<String>): String? =
+        tags.map { it.trim() }.filter { it.isNotBlank() }.takeIf { it.isNotEmpty() }?.joinToString("|")
+
+    private fun decodeSourceTags(raw: String?): List<String> =
+        raw?.split('|')?.map { it.trim() }?.filter { it.isNotBlank() }.orEmpty()
 
     companion object {
         const val ROLE_USER = "user"

@@ -19,6 +19,8 @@ object RegexParser {
     // ── Amount patterns ─────────────────────────────────────────────────
 
     private val AMOUNT_PATTERNS = listOf(
+        // FCFA 1 234 / XAF 1234 / 1,234 FCFA
+        Regex("""(?:FCFA|XAF|CFA)\s*([\d\s,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE),
         // KSh 1,234.56 / Ksh1234 / KES 500
         Regex("""(?:KSh|Ksh|KES)\s*([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE),
         // NGN / ₦
@@ -30,14 +32,14 @@ object RegexParser {
         // Total 1234.00 (till slips)
         Regex("""Total[:\s]+([\d,]+(?:\.\d{1,2})?)""", RegexOption.IGNORE_CASE),
         // bare number with currency suffix e.g. "1,234 KES"
-        Regex("""([\d,]+(?:\.\d{1,2})?)\s*(?:KES|KSh|NGN|ETB)""", RegexOption.IGNORE_CASE),
+        Regex("""([\d\s,]+(?:\.\d{1,2})?)\s*(?:FCFA|XAF|CFA|KES|KSh|NGN|ETB)""", RegexOption.IGNORE_CASE),
     )
 
     // ── Reference patterns ──────────────────────────────────────────────
 
     private val MPESA_REF = Regex("""([A-Z0-9]{10})\s+Confirmed""", RegexOption.IGNORE_CASE)
-    private val TRANSACTION_ID_REF = Regex("""Transaction\s+ID[:\s]+([A-Z0-9]{8,16})""", RegexOption.IGNORE_CASE)
-    private val MTN_REF = Regex("""TxnID[:\s]+([A-Z0-9]{8,16})""", RegexOption.IGNORE_CASE)
+    private val TRANSACTION_ID_REF = Regex("""Transaction\s*(?:ID|Id|No|Number)?[:\s#]+([A-Z0-9]{6,24})""", RegexOption.IGNORE_CASE)
+    private val MTN_REF = Regex("""Txn\s*ID[:\s#]+([A-Z0-9]{6,24})""", RegexOption.IGNORE_CASE)
     private val GENERIC_REF = Regex("""(?:Ref|Reference|REF)[.:\s#]+([A-Z0-9\-/]{4,20})""", RegexOption.IGNORE_CASE)
 
     // ── Date patterns ───────────────────────────────────────────────────
@@ -73,7 +75,12 @@ object RegexParser {
     )
 
     private val MTN_MOMO = Regex(
-        """MTN\s+Mobile\s+Money.*?(?:UGX|RWF|GHS|XAF)\s*([\d,]+(?:\.\d{2})?).*?TxnID[:\s]+([A-Z0-9]{8,16})""",
+        """(?:MTN\s+(?:MoMo|Mobile\s+Money)|MTN).*?(?:FCFA|XAF|CFA|UGX|RWF|GHS)\s*([\d\s,]+(?:\.\d{1,2})?).*?(?:Txn\s*ID|Transaction\s*ID|Ref)[:\s#]+([A-Z0-9]{6,24})""",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+    )
+
+    private val ORANGE_MONEY = Regex(
+        """(?:Orange\s+Money|OrangeMoney|ORANGE).*?(?:FCFA|XAF|CFA)\s*([\d\s,]+(?:\.\d{1,2})?).*?(?:Transaction\s*ID|Txn\s*ID|Ref)[:\s#]+([A-Z0-9]{6,24})""",
         setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
     )
 
@@ -113,7 +120,7 @@ object RegexParser {
         val counterparty = extractCounterparty(text)
         val parsedDate = extractDate(text)
 
-        val confidence = computeConfidence(amount, reference, counterparty, proofType)
+        val confidence = computeConfidence(amount, reference, counterparty, proofType, parsedDate, upper)
         if (confidence < MIN_CONFIDENCE) return null
 
         val dir = direction ?: inferDirection(upper)
@@ -136,13 +143,16 @@ object RegexParser {
     private fun extractAmount(text: String, proofType: ProofType): Double? {
         val patterns: List<Regex> = when (proofType) {
             ProofType.MPESA_SMS -> listOf(MPESA_CONFIRMED) + AMOUNT_PATTERNS
+            ProofType.MOBILE_MONEY_SMS -> listOf(MTN_MOMO, ORANGE_MONEY, AIRTEL_CONFIRMED) + AMOUNT_PATTERNS
             ProofType.UTILITY_BILL -> listOf(KPLC_AMOUNT) + AMOUNT_PATTERNS
             ProofType.TILL_SLIP -> listOf(TILL_TOTAL) + AMOUNT_PATTERNS
             else -> AMOUNT_PATTERNS
         }
         for (pattern in patterns) {
             val m = pattern.find(text) ?: continue
-            val raw = (m.groupValues.getOrNull(1) ?: m.value).replace(",", "")
+            val raw = (m.groupValues.getOrNull(1) ?: m.value)
+                .replace(",", "")
+                .replace(" ", "")
             return raw.toDoubleOrNull()?.takeIf { it > 0 }
         }
         return null
@@ -151,6 +161,7 @@ object RegexParser {
     private fun extractReference(text: String, proofType: ProofType): String? {
         val patterns = when (proofType) {
             ProofType.MPESA_SMS -> listOf(MPESA_REF, TRANSACTION_ID_REF, GENERIC_REF)
+            ProofType.MOBILE_MONEY_SMS -> listOf(MTN_REF, TRANSACTION_ID_REF, GENERIC_REF)
             else -> listOf(TRANSACTION_ID_REF, MTN_REF, GENERIC_REF)
         }
         for (p in patterns) {
@@ -186,14 +197,22 @@ object RegexParser {
         reference: String?,
         counterparty: String?,
         proofType: ProofType,
+        parsedDate: Long?,
+        upper: String,
     ): Float {
         var score = 0f
         if (amount != null) score += 0.40f
         if (reference != null) score += 0.35f
         if (counterparty != null) score += 0.10f
-        if (proofType != ProofType.UNKNOWN) score += 0.15f
+        if (proofType != ProofType.UNKNOWN) score += 0.20f
+        if (parsedDate != null) score += 0.10f
+        if (hasTransactionCue(upper)) score += 0.20f
         return score.coerceIn(0f, 1f)
     }
+
+    private fun hasTransactionCue(upper: String): Boolean =
+        listOf("PAYMENT", "PAID", "RECEIVED", "SENT", "CASH", "DELIVERY", "PURCHASE", "TOTAL")
+            .any { upper.contains(it) }
 
     private fun inferDirection(upper: String): LedgerDirection {
         if (OUT_KEYWORDS.any { upper.contains(it) }) return LedgerDirection.MONEY_OUT

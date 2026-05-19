@@ -362,6 +362,7 @@
                 android:padding="16dp">
 
                 <TextView
+                    android:id="@+id/text_whatsapp_status"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/settings_order_parser_body"
@@ -369,12 +370,29 @@
                     android:textColor="?android:attr/textColorSecondary" />
 
                 <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_open_whatsapp"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/settings_whatsapp_open"
+                    app:icon="@drawable/ic_nav_chat" />
+
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_order_parser_from_clipboard"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="8dp"
                     android:text="@string/settings_order_parser_clipboard" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_whatsapp_help"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/settings_whatsapp_how_to" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 

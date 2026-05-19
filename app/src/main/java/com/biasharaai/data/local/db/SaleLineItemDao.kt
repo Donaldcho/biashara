@@ -69,6 +69,19 @@ interface SaleLineItemDao {
     )
     suspend fun saleLinesInPeriod(startMillis: Long, endMillis: Long): List<SaleLineItem>
 
+    @Query(
+        """
+        SELECT IFNULL(SUM(sl.quantity), 0) FROM sale_line_items sl
+        INNER JOIN transactions t ON t.id = sl.transaction_id
+        WHERE t.type = 'INCOME'
+          AND sl.quantity > 0
+          AND sl.product_id = :productId
+          AND t.date >= :startMillis
+          AND t.date < :endExclusiveMillis
+        """,
+    )
+    suspend fun soldQuantityForProductBetween(productId: Long, startMillis: Long, endExclusiveMillis: Long): Int
+
     /**
      * Net product sales (INCOME lines minus RETURN lines) grouped by product.
      * Return rows carry negative [SaleLineItem.quantity] and [SaleLineItem.line_total].
@@ -132,7 +145,7 @@ interface SaleLineItemDao {
     @Query("SELECT * FROM sale_line_items ORDER BY id ASC")
     suspend fun getAllLineItems(): List<SaleLineItem>
 
-    // ── Opportunity spotter (A7) — co-purchase pairs on completed POS sales ─────────────
+    // Opportunity spotter (A7): co-purchase pairs on completed POS sales
 
     /**
      * Product pairs sold together on the same INCOME receipt at least [minCoCount] times since [sinceMillis].
@@ -153,7 +166,7 @@ interface SaleLineItemDao {
     )
     suspend fun getTopCoPurchasePairs(sinceMillis: Long, minCoCount: Int = 3): List<CoPurchasePair>
 
-    /** Phase 6 X5 — gross margin on POS lines in a date window (cost from [products]). */
+    /** Phase 6 X5: gross margin on POS lines in a date window (cost from [products]). */
     @Query(
         """
         SELECT IFNULL(SUM((sl.unit_price - IFNULL(p.cost, 0)) * sl.quantity), 0)
@@ -177,3 +190,4 @@ interface SaleLineItemDao {
     )
     suspend fun sumPosRevenueBetween(startMillis: Long, endExclusiveMillis: Long): Double
 }
+

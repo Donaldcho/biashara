@@ -49,7 +49,7 @@ class ForecastDemandSkill @Inject constructor(
             )
         }
 
-        val forecast = demandForecaster.predictDemand(product.name, history)
+        val forecast = demandForecaster.predictDemand(productId, product.name, history)
         if (forecast.isBlank()) {
             return@withContext SkillResult.Failure("FORECAST_EMPTY", "Could not produce a forecast.")
         }

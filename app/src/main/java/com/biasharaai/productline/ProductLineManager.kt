@@ -22,6 +22,8 @@ class ProductLineManager @Inject constructor(
 
     fun isSmePlusAndPro(): Boolean = isProEnabled() && editionManager.isSmePlus()
 
+    fun isEnterprisePro(): Boolean = isProEnabled() && editionManager.isEnterprise()
+
     /** Instrumented / unit tests only. */
     fun applyLicenceKeyForTests(keyString: String) {
         licenceValidator.storeLicenceKey(keyString).getOrThrow()

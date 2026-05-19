@@ -327,17 +327,23 @@
                     android:orientation="vertical">
 
                     <com.google.android.material.radiobutton.MaterialRadioButton
-                        android:id="@+id/net_mpesa"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:checked="true"
-                        android:text="@string/payment_network_mpesa" />
-
-                    <com.google.android.material.radiobutton.MaterialRadioButton
                         android:id="@+id/net_mtn"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:checked="true"
                         android:text="@string/payment_network_mtn" />
+
+                    <com.google.android.material.radiobutton.MaterialRadioButton
+                        android:id="@+id/net_orange"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/payment_network_orange" />
+
+                    <com.google.android.material.radiobutton.MaterialRadioButton
+                        android:id="@+id/net_mpesa"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/payment_network_mpesa" />
 
                     <com.google.android.material.radiobutton.MaterialRadioButton
                         android:id="@+id/net_airtel"

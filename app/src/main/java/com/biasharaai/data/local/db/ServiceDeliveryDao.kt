@@ -1,11 +1,18 @@
 package com.biasharaai.data.local.db
 
+import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
+
+data class ServiceNetSalesRow(
+    @ColumnInfo(name = "service_name") val serviceName: String,
+    @ColumnInfo(name = "sessions") val sessions: Int,
+    @ColumnInfo(name = "revenue") val revenue: Double,
+)
 
 @Dao
 interface ServiceDeliveryDao {
@@ -52,4 +59,18 @@ interface ServiceDeliveryDao {
         """,
     )
     suspend fun sumChargedInPeriod(startMillis: Long, endMillis: Long): Double
+
+    @Query(
+        """
+        SELECT si.name AS service_name, COUNT(*) AS sessions,
+            IFNULL(SUM(sd.charged_amount), 0) AS revenue
+        FROM service_deliveries sd
+        INNER JOIN service_items si ON si.id = sd.service_item_id
+        WHERE sd.delivered_at >= :startMillis AND sd.delivered_at <= :endMillis
+          AND sd.charged_amount > 0
+        GROUP BY sd.service_item_id
+        ORDER BY revenue DESC
+        """,
+    )
+    suspend fun netServiceSalesInPeriod(startMillis: Long, endMillis: Long): List<ServiceNetSalesRow>
 }

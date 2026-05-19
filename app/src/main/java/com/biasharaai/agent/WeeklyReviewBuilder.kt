@@ -11,6 +11,7 @@ import com.biasharaai.data.local.db.ServiceDeliveryDao
 import com.biasharaai.data.local.db.ServiceItemDao
 import com.biasharaai.data.local.db.TransactionDao
 import com.biasharaai.data.local.db.TransactionType
+import com.biasharaai.money.RegionalDefaults
 import com.biasharaai.productline.ProductLineManager
 import com.biasharaai.service.ServiceInsightsHelper
 import java.time.DayOfWeek
@@ -102,7 +103,7 @@ class WeeklyReviewBuilder @Inject constructor(
 
         val app = appSettingsDao.getSettingsSync()
         val businessName = app?.businessName?.takeIf { it.isNotBlank() } ?: "My shop"
-        val currencySymbol = app?.currencySymbol?.takeIf { it.isNotBlank() } ?: "KSh"
+        val currencySymbol = app?.currencySymbol?.takeIf { it.isNotBlank() } ?: RegionalDefaults.CURRENCY_SYMBOL
 
         val agentSettings = agentSettingDao.getSettingsSync() ?: AgentSetting()
         val serviceStats = if (productLineManager.isProEnabled()) {

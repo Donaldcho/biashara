@@ -104,9 +104,10 @@ class PaymentDialogFragment : DialogFragment() {
         binding.groupMobileNetwork.setOnCheckedChangeListener { _, checkedId ->
             val code = when (checkedId) {
                 R.id.net_mtn -> "MTN"
+                R.id.net_orange -> "ORANGE"
                 R.id.net_airtel -> "AIRTEL"
-                R.id.net_other -> "OTHER"
-                else -> "MPESA"
+                R.id.net_mpesa -> "MPESA"
+                else -> "OTHER"
             }
             viewModel.setMobileMoneyNetwork(code)
         }

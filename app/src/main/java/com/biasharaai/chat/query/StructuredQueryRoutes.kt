@@ -307,9 +307,11 @@ internal suspend fun structuredQueryPart1(
         val v = linesInRange(t0, t1).filter { it.paymentMethod.equals("CASH", true) }.sumOf { it.lineTotal }
         return polish(question, "POS lines today paid as CASH sum to ${fmt(v)} (line totals).", languageDisplayName)
     }
-    if (q.contains("m-pesa") || q.contains("mpesa") || q.contains("mobile money")) {
+    if (q.contains("momo") || q.contains("mtn") || q.contains("orange money") ||
+        q.contains("m-pesa") || q.contains("mpesa") || q.contains("mobile money")
+    ) {
         if (q.contains("today")) {
-            val keys = listOf("MOMO", "MPESA", "MOBILE", "M_PESA")
+            val keys = listOf("MTN", "MOMO", "ORANGE", "MPESA", "MOBILE", "M_PESA")
             val v = linesInRange(t0, t1).filter { line ->
                 keys.any { line.paymentMethod.contains(it, true) }
             }.sumOf { it.lineTotal }

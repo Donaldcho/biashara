@@ -86,9 +86,14 @@ class SmsImportFragment : BaseFragment() {
         val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         val text = clipboard.primaryClip?.getItemAt(0)?.text?.toString() ?: return
         val upper = text.uppercase()
-        val looksLikeMpesa = (upper.contains("M-PESA") || upper.contains("MPESA") || upper.contains("CONFIRMED")) &&
-            upper.contains("KSH")
-        if (looksLikeMpesa) {
+        val looksLikeMobileMoney =
+            ((upper.contains("MTN") && (upper.contains("MOMO") || upper.contains("MOBILE MONEY"))) ||
+                upper.contains("ORANGE MONEY") ||
+                upper.contains("M-PESA") ||
+                upper.contains("MPESA") ||
+                upper.contains("CONFIRMED")) &&
+                (upper.contains("FCFA") || upper.contains("XAF") || upper.contains("CFA") || upper.contains("KSH"))
+        if (looksLikeMobileMoney) {
             _binding?.cardClipboard?.isVisible = true
         }
     }
