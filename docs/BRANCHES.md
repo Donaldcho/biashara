@@ -15,7 +15,10 @@ Keep it updated when you add long-lived integration lines or change the default 
 | Work on **stable line** (U prompts, POS, chat) | `git fetch origin && git checkout release/biashara-phase4` |
 | Work on **Voice layer** (Whisper STT + TTS, prompts V0–V9) | `git fetch origin && git checkout feat/voice-layer-stt-tts` — see [`docs/VOICE_LAYER_HANDBOOK_V1.md`](./VOICE_LAYER_HANDBOOK_V1.md) (alignment) and [`docs/VOICE_LAYER_HANDBOOK_V1_SPEC.md`](./VOICE_LAYER_HANDBOOK_V1_SPEC.md) (full spec) |
 | Work on **POS feature line** (historical) | `git fetch origin && git checkout feat/pos-module` |
+| Work on **Pro stable** (services POS, v1.3.0) | `git fetch origin && git checkout release/pro-stable-v1.3.0` |
+| Work on **Enterprise deployment** (on-prem / cloud analytics) | `git fetch origin && git checkout feat/enterprise-deployment` |
 | Start a **new** task from latest integration | `git fetch origin && git checkout release/biashara-phase4 && git pull && git checkout -b feat/<short-topic>` |
+| Start a **new** task from Pro stable | `git fetch origin && git checkout release/pro-stable-v1.3.0 && git pull && git checkout -b feat/<short-topic>` |
 
 ---
 
@@ -26,6 +29,8 @@ main
  └── feat/pos-module          (POS / earlier integration — pushed earlier)
        └── release/biashara-phase4   (stable line: U-track + POS + Phase 6 models/skills, …)
              └── feat/voice-layer-stt-tts   (Voice layer v1 handbook — Whisper + TTS)
+       └── release/pro-stable-v1.3.0   (Pro stable: services POS, unified receipts, v1.3.0)
+             └── feat/enterprise-deployment   (Enterprise on-prem / cloud deployment & uploads)
 ```
 
 - **`main`** — release-aligned default; treat as **protected** (PR + review + CI before merge).

@@ -5,7 +5,7 @@
 - **Last shipped (Pro):** Services POS, mixed payments, unified receipts (`PosReceiptAssembler`), business profile (Phase 10), net sales intelligence (`SalesIntelligenceRepository`), Pro agent workers.
 - **AppDatabase version:** **33** (latest **32→33** `service_vouchers.source_transaction_id`; **31→32** `business_profile`; **30→31** mixed-sale columns; **28→29** services tables).
 - **Phase:** Pro POS + intelligence hardening on top of Phase C cash capture, Phase 7 KB, Phase 6 skills/agents, voice V9.
-- **Active git lines:** **`release/pro-stable-v1.3.0`** (Pro stable); legacy **`release/biashara-phase4`**; feature **`feat/voice-layer-stt-tts`**.
+- **Active git lines:** **`release/pro-stable-v1.3.0`** (Pro stable); **`feat/enterprise-deployment`** (Enterprise on-prem / cloud); legacy **`release/biashara-phase4`**; feature **`feat/voice-layer-stt-tts`**.
 - **Key Notes (Phase 4 — A track):**
   - All agents are **additive** — no existing shipped code is deleted; extend schema and features in place.
   - **Phase 4a (A1–A4)** targets **zero Gemma dependency** so agent value applies on **all** device tiers (`RULES_BASED` / `PARTIAL_AI` / `FULL_AI`).
