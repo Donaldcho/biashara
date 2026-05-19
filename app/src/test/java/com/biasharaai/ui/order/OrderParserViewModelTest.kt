@@ -132,8 +132,8 @@ class OrderParserViewModelTest {
         coEvery { productDao.findProductByNameFuzzy("Unknown") } returns null
         every { appSettingsDao.getSettingsSync() } returns AppSettings(taxRate = 0.0)
         coEvery {
-            saleRepository.commitPosSale(any(), any(), any(), any(), any(), any(), any(), any())
-        } returns 999L
+            saleRepository.commitPosSale(any(), any(), any(), any(), any(), any(), any(), any(), any())
+        } returns com.biasharaai.data.local.db.PosSaleCommitResult(transactionId = 999L)
 
         val vm = newViewModel()
         vm.startParse("x")

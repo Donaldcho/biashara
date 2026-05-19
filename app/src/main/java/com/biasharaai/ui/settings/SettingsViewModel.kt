@@ -14,6 +14,11 @@ import com.biasharaai.cloud.CloudAnalysisSettings
 import com.biasharaai.cloud.CloudAnalysisSettingsStore
 import com.biasharaai.data.local.db.AppSettings
 import com.biasharaai.data.local.db.AppSettingsDao
+import com.biasharaai.licence.Edition
+import com.biasharaai.licence.LicenceKey
+import com.biasharaai.licence.LicenceValidator
+import com.biasharaai.licence.ProductLine
+import com.biasharaai.productline.ProductLineManager
 import com.biasharaai.ui.base.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -46,7 +51,14 @@ class SettingsViewModel @Inject constructor(
     private val cloudAnalysisSettingsStore: CloudAnalysisSettingsStore,
     private val businessAnalyticsJsonExporter: BusinessAnalyticsJsonExporter,
     private val cloudAnalysisHttpClient: CloudAnalysisHttpClient,
+    private val licenceValidator: LicenceValidator,
+    private val productLineManager: ProductLineManager,
 ) : BaseViewModel() {
+
+    private val _licenceKey = MutableStateFlow(licenceValidator.getStoredKey())
+    val licenceKey: StateFlow<LicenceKey?> = _licenceKey.asStateFlow()
+
+    val isProEnabled: Boolean get() = productLineManager.isProEnabled()
 
     /** Singleton POS / shop settings row (currency, tax, …). */
     val shopSettings: StateFlow<AppSettings?> = appSettingsDao.getSettings()
@@ -99,6 +111,25 @@ class SettingsViewModel @Inject constructor(
                     ),
                 )
             }
+        }
+    }
+
+    fun refreshLicenceState() {
+        _licenceKey.value = licenceValidator.getStoredKey()
+    }
+
+    fun applyLicenceKey(keyString: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = licenceValidator.storeLicenceKey(keyString.trim())
+            result.fold(
+                onSuccess = {
+                    _licenceKey.value = it
+                    _events.emit(Event.LicenceApplied(productLineManager.isProEnabled()))
+                },
+                onFailure = {
+                    _events.emit(Event.LicenceInvalid(it.message ?: "Invalid licence"))
+                },
+            )
         }
     }
 
@@ -278,6 +309,19 @@ class SettingsViewModel @Inject constructor(
         data object CloudSettingsSaved : Event()
         data object CloudUploadSucceeded : Event()
         data class CloudUploadFailed(val message: String) : Event()
+        data class LicenceApplied(val proEnabled: Boolean) : Event()
+        data class LicenceInvalid(val message: String) : Event()
+    }
+
+    fun productLineNameRes(productLine: ProductLine): Int = when (productLine) {
+        ProductLine.SHOP -> com.biasharaai.R.string.settings_product_line_shop
+        ProductLine.PRO -> com.biasharaai.R.string.settings_product_line_pro
+    }
+
+    fun editionNameRes(edition: Edition): Int = when (edition) {
+        Edition.PRIVATE -> com.biasharaai.R.string.settings_edition_private
+        Edition.SME -> com.biasharaai.R.string.settings_edition_sme
+        Edition.ENTERPRISE -> com.biasharaai.R.string.settings_edition_enterprise
     }
 
     companion object {

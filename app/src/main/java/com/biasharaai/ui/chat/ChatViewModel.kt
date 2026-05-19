@@ -19,7 +19,7 @@ import com.biasharaai.data.local.db.ChatSessionEntity
 import com.biasharaai.data.local.db.ChatSessionRepository
 import com.biasharaai.data.local.db.Product
 import com.biasharaai.data.local.db.ProductDao
-import com.biasharaai.data.local.db.SaleLineItemDao
+import com.biasharaai.analytics.SalesIntelligenceRepository
 import com.biasharaai.data.local.db.TransactionDao
 import com.biasharaai.data.local.db.TransactionType
 import com.biasharaai.locale.LanguagePreferences
@@ -53,7 +53,7 @@ class ChatViewModel @Inject constructor(
     private val gemmaService: GemmaService,
     private val productDao: ProductDao,
     private val transactionDao: TransactionDao,
-    private val saleLineItemDao: SaleLineItemDao,
+    private val salesIntelligence: SalesIntelligenceRepository,
     private val conversationalQueryLayer: ConversationalQueryLayer,
     private val chatMemoryRepository: ChatMemoryRepository,
     private val chatSessionRepository: ChatSessionRepository,
@@ -763,30 +763,24 @@ class ChatViewModel @Inject constructor(
 
     private suspend fun loadTodaySalesSnapshot(): TodaySalesSnapshot {
         val (day, start, end) = todayLocalDateAndMillisRange()
-        val txs = transactionDao.getTransactionsBetween(start, end)
-            .filter { it.type == TransactionType.INCOME && it.amount > 0 }
+        val endExclusive = end + 1L
+        val summary = salesIntelligence.periodSummary(start, endExclusive)
+        val saleCount = transactionDao.countIncomeTransactionsBetween(start, endExclusive)
         return TodaySalesSnapshot(
             localDateIso = day.toString(),
-            total = txs.sumOf { it.amount },
-            count = txs.size,
+            total = summary.netRevenue,
+            count = saleCount.toInt(),
         )
     }
 
     /**
-     * Aggregates positive sale lines for today (POS) so the model can answer "what did we sell".
+     * Net product sales for today (after returns) so the model can answer "what did we sell".
      */
     private suspend fun aggregateTodaySoldLines(): List<Triple<String, Int, Double>> {
         val (_, start, end) = todayLocalDateAndMillisRange()
-        val lines = saleLineItemDao.saleLinesInPeriod(start, end)
-        return lines
-            .groupBy { it.productId }
-            .map { (_, rows) ->
-                val name = rows.first().productName
-                val qty = rows.sumOf { it.quantity }
-                val revenue = rows.sumOf { it.lineTotal }
-                Triple(name, qty, revenue)
-            }
-            .sortedByDescending { it.second }
+        val endExclusive = end + 1L
+        return salesIntelligence.netProductRanksInPeriod(start, endExclusive, minNetQty = 1)
+            .map { Triple(it.name, it.netQty, it.netRevenue) }
     }
 
     private suspend fun buildTodaySoldProductsFactLine(maxChars: Int = 2_000, take: Int = 40): String {
@@ -824,21 +818,17 @@ class ChatViewModel @Inject constructor(
     private suspend fun buildLastSevenDaysTopSellersLine(): String? {
         val zone = ZoneId.systemDefault()
         val today = LocalDate.now(zone)
-        val end = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
+        val endExclusive = today.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
         val start = today.minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli()
-        val lines = try {
-            saleLineItemDao.saleLinesInPeriod(start, end)
+        val ranks = try {
+            salesIntelligence.netProductRanksInPeriod(start, endExclusive, minNetQty = 1)
         } catch (_: Exception) {
             return null
         }
-        if (lines.isEmpty()) return null
-        val top = lines
-            .groupBy { it.productId }
-            .map { (_, rows) -> rows.first().productName to rows.sumOf { it.quantity } }
-            .sortedByDescending { it.second }
-            .take(5)
-        return "Best-selling products last 7 days by units: " +
-            top.joinToString(", ") { "${it.first} (${it.second})" } + "."
+        if (ranks.isEmpty()) return null
+        val top = ranks.take(5)
+        return "Best-selling products last 7 days by net units (after returns): " +
+            top.joinToString(", ") { "${it.name} (${it.netQty})" } + "."
     }
 
     private fun formatProductFactLine(p: Product): String =

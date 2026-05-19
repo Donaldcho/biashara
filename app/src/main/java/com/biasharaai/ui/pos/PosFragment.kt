@@ -31,6 +31,7 @@ import com.biasharaai.ai.AudioCaptureHelper
 import com.biasharaai.ai.VoiceInputPreferences
 import com.biasharaai.ai.VoiceInputProcessor
 import com.biasharaai.data.local.db.Product
+import com.biasharaai.data.local.db.TransactionDao
 import com.biasharaai.databinding.FragmentPosBinding
 import com.biasharaai.databinding.ItemProductSearchResultBinding
 import com.biasharaai.pos.cart.CartItem
@@ -38,6 +39,8 @@ import com.biasharaai.pos.cart.CartManager
 import com.biasharaai.money.MoneyFormatter
 import com.biasharaai.pos.cart.CartRepository
 import com.biasharaai.ui.base.BaseFragment
+import com.biasharaai.productline.ProductLineManager
+import com.biasharaai.productline.showProRequiredSnackbar
 import com.biasharaai.ui.scanner.BarcodeScannerFragment
 import com.biasharaai.ui.scanner.ScanMode
 import com.google.android.material.chip.Chip
@@ -74,7 +77,14 @@ class PosFragment : BaseFragment() {
     @Inject
     lateinit var voiceInputPreferences: VoiceInputPreferences
 
+    @Inject
+    lateinit var productLineManager: ProductLineManager
+
+    @Inject
+    lateinit var transactionDao: TransactionDao
+
     private lateinit var productGridAdapter: ProductGridAdapter
+    private lateinit var serviceGridAdapter: ServiceGridAdapter
     private lateinit var searchAdapter: PosSearchResultsAdapter
 
     private var wideCartAdapter: CartAdapter? = null
@@ -119,6 +129,7 @@ class PosFragment : BaseFragment() {
         setupSearchView()
         setupCustomerChip()
         setupScanButton()
+        setupProPosUi()
         setupTransactionHistoryButton()
         setupPosOverflowMenu()
         setupCartInteractions()
@@ -127,6 +138,7 @@ class PosFragment : BaseFragment() {
         observeViewModel()
         observeScannerResult()
         observeCartAndTotals()
+        observeStaffPicker()
         applyLayoutMode()
     }
 
@@ -139,6 +151,14 @@ class PosFragment : BaseFragment() {
             formatMoney = { moneyFormatter.format(it) },
         )
         binding.recyclerProductGrid.adapter = productGridAdapter
+
+        serviceGridAdapter = ServiceGridAdapter(
+            formatMoney = { moneyFormatter.format(it) },
+            onServiceClick = { service -> viewModel.onServiceTapped(service) },
+            onServiceLongClick = { service -> showVoucherIssueSheet(service) },
+        )
+        binding.recyclerServiceGrid?.layoutManager = GridLayoutManager(requireContext(), span)
+        binding.recyclerServiceGrid?.adapter = serviceGridAdapter
 
         binding.recyclerSearchResults.layoutManager = LinearLayoutManager(requireContext())
         searchAdapter = PosSearchResultsAdapter(
@@ -162,13 +182,22 @@ class PosFragment : BaseFragment() {
             cartManager = cartManager,
             formatMoney = { moneyFormatter.format(it) },
             allowPriceOverride = cartRepository.activeSettings.value?.allowPriceOverride != false,
-            onRequestPriceOverride = { item ->
+            onRequestProductPriceOverride = { item ->
                 CartLinePriceOverrideDialog.show(
                     this,
                     item,
                     moneyFormatter::format,
                 ) { cartItem, newPrice ->
                     viewModel.applyLinePriceOverride(cartItem, newPrice)
+                }
+            },
+            onRequestServicePriceOverride = { line ->
+                ServiceCartLinePriceOverrideDialog.show(
+                    this,
+                    line,
+                    moneyFormatter::format,
+                ) { serviceLine, newPrice ->
+                    viewModel.applyServiceLinePriceOverride(serviceLine, newPrice)
                 }
             },
         )
@@ -338,6 +367,21 @@ class PosFragment : BaseFragment() {
                 }
             }.show(childFragmentManager, "customer_selector")
         }
+        binding.chipCustomer.setOnLongClickListener {
+            val customer = viewModel.selectedCustomer.value ?: return@setOnLongClickListener false
+            viewLifecycleOwner.lifecycleScope.launch {
+                val open = transactionDao.getOpenBalancesForCustomer(customer.id)
+                if (open.isEmpty()) {
+                    return@launch
+                }
+                CollectBalanceBottomSheet.newInstance(open.first().id).apply {
+                    onSettled = {
+                        Snackbar.make(binding.root, R.string.product_saved, Snackbar.LENGTH_SHORT).show()
+                    }
+                }.show(childFragmentManager, CollectBalanceBottomSheet.TAG)
+            }
+            true
+        }
     }
 
     private fun setupScanButton() {
@@ -350,6 +394,49 @@ class PosFragment : BaseFragment() {
                 ),
             )
         }
+        binding.btnScanServiceToken?.setOnClickListener {
+            if (!productLineManager.isProEnabled()) {
+                binding.root.showProRequiredSnackbar(productLineManager)
+                return@setOnClickListener
+            }
+            findNavController().navigate(
+                R.id.action_posFragment_to_barcodeScannerFragment,
+                bundleOf(
+                    BarcodeScannerFragment.ARG_SCAN_MODE to ScanMode.SCAN_TO_ADD.name,
+                    BarcodeScannerFragment.ARG_RETURN_BARCODE_TO_POS to true,
+                ),
+            )
+        }
+    }
+
+    private fun setupProPosUi() {
+        val pro = productLineManager.isProEnabled()
+        binding.chipGroupPosMode?.visibility = if (pro) View.VISIBLE else View.GONE
+        binding.btnScanServiceToken?.visibility = if (pro) View.VISIBLE else View.GONE
+        if (!pro) {
+            applyCatalogVisibility(PosCatalogMode.PRODUCTS)
+            return
+        }
+        binding.chipPosProducts?.setOnClickListener { viewModel.setCatalogMode(PosCatalogMode.PRODUCTS) }
+        binding.chipPosServices?.setOnClickListener { viewModel.setCatalogMode(PosCatalogMode.SERVICES) }
+        binding.chipPosBoth?.setOnClickListener { viewModel.setCatalogMode(PosCatalogMode.BOTH) }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    viewModel.catalogMode.collect { applyCatalogVisibility(it) }
+                }
+                launch {
+                    viewModel.allServices.collect { serviceGridAdapter.submitList(it) }
+                }
+            }
+        }
+    }
+
+    private fun applyCatalogVisibility(mode: PosCatalogMode) {
+        val showProducts = mode == PosCatalogMode.PRODUCTS || mode == PosCatalogMode.BOTH
+        val showServices = mode == PosCatalogMode.SERVICES || mode == PosCatalogMode.BOTH
+        binding.recyclerProductGrid.visibility = if (showProducts) View.VISIBLE else View.GONE
+        binding.recyclerServiceGrid?.visibility = if (showServices) View.VISIBLE else View.GONE
     }
 
     private fun setupTransactionHistoryButton() {
@@ -394,7 +481,15 @@ class PosFragment : BaseFragment() {
                             binding.chipCustomer.text = getString(R.string.pos_walk_in_customer)
                             binding.chipCustomer.setTextColor(walkInColor)
                         } else {
-                            binding.chipCustomer.text = customer.name
+                            val openBalance = transactionDao.sumOpenBalanceForCustomer(customer.id)
+                            binding.chipCustomer.text = if (openBalance > 0) {
+                                getString(
+                                    R.string.pos_open_balance,
+                                    moneyFormatter.format(openBalance),
+                                ) + " · ${customer.name}"
+                            } else {
+                                customer.name
+                            }
                             binding.chipCustomer.setTextColor(customerColor)
                         }
                     }
@@ -413,6 +508,15 @@ class PosFragment : BaseFragment() {
                         Snackbar.make(
                             binding.root,
                             getString(R.string.pos_barcode_not_found, code),
+                            Snackbar.LENGTH_SHORT,
+                        ).show()
+                    }
+                }
+                launch {
+                    viewModel.serviceScanMessage.collect { name ->
+                        Snackbar.make(
+                            binding.root,
+                            getString(R.string.pos_service_added, name),
                             Snackbar.LENGTH_SHORT,
                         ).show()
                     }
@@ -436,7 +540,7 @@ class PosFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
-                    cartManager.items.collect { lines ->
+                    cartManager.unifiedLines().collect { lines ->
                         val n = lines.sumOf { it.quantity }
                         binding.textCartBadge.text = if (n == 1) {
                             getString(R.string.pos_cart_items_count_one)
@@ -489,6 +593,38 @@ class PosFragment : BaseFragment() {
                 viewModel.addProductToCart(product, qty)
             }
             .show()
+    }
+
+    private fun showVoucherIssueSheet(service: com.biasharaai.data.local.db.ServiceItem) {
+        if (!productLineManager.isProEnabled()) {
+            binding.root.showProRequiredSnackbar(productLineManager)
+            return
+        }
+        val sheet = VoucherIssueBottomSheet.newInstance(service)
+        sheet.onConfirm = { params ->
+            viewModel.addVoucherToCart(params)
+            Snackbar.make(binding.root, R.string.voucher_added_to_cart, Snackbar.LENGTH_SHORT).show()
+        }
+        sheet.show(childFragmentManager, VoucherIssueBottomSheet.TAG)
+    }
+
+    private fun observeStaffPicker() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.pendingStaffPick.collect { service ->
+                    val count = viewModel.activeStaffCount.value
+                    if (count > 0) {
+                        StaffPickerBottomSheet.newInstance(service.name).apply {
+                            onSelected = { member ->
+                                viewModel.addServiceToCart(service, 1, member?.name)
+                            }
+                        }.show(childFragmentManager, StaffPickerBottomSheet.TAG)
+                    } else {
+                        viewModel.addServiceToCart(service, 1, null)
+                    }
+                }
+            }
+        }
     }
 
     override fun onDestroyView() {

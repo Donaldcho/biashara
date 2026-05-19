@@ -4,6 +4,8 @@ import com.biasharaai.knowledge.LessonLibrary
 import com.biasharaai.knowledge.TeachingEngine
 import com.biasharaai.knowledge.TeachingSuggestion
 import com.biasharaai.skills.SkillResult
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
@@ -13,6 +15,13 @@ import org.junit.Before
 import org.junit.Test
 
 class TeachUserSkillTest {
+
+    private val gson = Gson()
+
+    private fun SkillResult.Success.outputMap(): Map<String, Any?> {
+        val type = object : TypeToken<Map<String, Any?>>() {}.type
+        return gson.fromJson(outputJson, type)
+    }
 
     private lateinit var teachingEngine: TeachingEngine
     private lateinit var lessonLibrary: LessonLibrary
@@ -29,14 +38,14 @@ class TeachUserSkillTest {
     fun execute_invalidJson_returnsFailure() = runTest {
         val result = skill.execute("not-json")
         assertTrue(result is SkillResult.Failure)
-        assertEquals("INVALID_ARGS", (result as SkillResult.Failure).errorCode)
+        assertEquals("INVALID_ARGS", (result as SkillResult.Failure).code)
     }
 
     @Test
     fun execute_knownFeatureId_returnsLessonSteps() = runTest {
         val result = skill.execute("""{"featureId":"add_product","languageCode":"en"}""")
         assertTrue(result is SkillResult.Success)
-        val map = (result as SkillResult.Success).data as Map<*, *>
+        val map = (result as SkillResult.Success).outputMap()
         assertEquals("add_product", map["featureId"])
         assertTrue((map["stepCount"] as Int) > 0)
     }
@@ -45,7 +54,7 @@ class TeachUserSkillTest {
     fun execute_unknownFeatureId_returnsNoLessonFailure() = runTest {
         val result = skill.execute("""{"featureId":"totally_unknown_xyz"}""")
         assertTrue(result is SkillResult.Failure)
-        assertEquals("NO_LESSON", (result as SkillResult.Failure).errorCode)
+        assertEquals("NO_LESSON", (result as SkillResult.Failure).code)
     }
 
     @Test
@@ -58,7 +67,7 @@ class TeachUserSkillTest {
         )
         val result = skill.execute("""{}""")
         assertTrue(result is SkillResult.Success)
-        val map = (result as SkillResult.Success).data as Map<*, *>
+        val map = (result as SkillResult.Success).outputMap()
         assertEquals("pos_sale", map["featureId"])
     }
 
@@ -67,7 +76,7 @@ class TeachUserSkillTest {
         coEvery { teachingEngine.nextSuggestion("en") } returns null
         val result = skill.execute("""{}""")
         assertTrue(result is SkillResult.Success)
-        val map = (result as SkillResult.Success).data as Map<*, *>
+        val map = (result as SkillResult.Success).outputMap()
         assertEquals(true, map["allMastered"])
     }
 
@@ -75,7 +84,7 @@ class TeachUserSkillTest {
     fun execute_stepsContainRequiredFields() = runTest {
         val result = skill.execute("""{"featureId":"add_product"}""")
         assertTrue(result is SkillResult.Success)
-        val map = (result as SkillResult.Success).data as Map<*, *>
+        val map = (result as SkillResult.Success).outputMap()
         @Suppress("UNCHECKED_CAST")
         val steps = map["steps"] as List<Map<*, *>>
         val firstStep = steps.first()

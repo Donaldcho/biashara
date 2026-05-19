@@ -7,6 +7,7 @@ import com.biasharaai.R
 import com.biasharaai.agent.AgentActionBuilder
 import com.biasharaai.agent.AgentDecisionEngine
 import com.biasharaai.agent.AgentLoopRunner
+import com.biasharaai.agent.AgentPromptComposer
 import com.biasharaai.agent.AgentSystemPrompts
 import com.biasharaai.agent.AgentTypes
 import com.biasharaai.agent.CoPurchaseAnalyser
@@ -38,6 +39,7 @@ class OpportunitySpotterWorker(
     private val agentActionDao: AgentActionDao,
     private val agentDecisionEngine: AgentDecisionEngine,
     private val agentSettingDao: AgentSettingDao,
+    private val agentPromptComposer: AgentPromptComposer,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -86,10 +88,13 @@ Suggest cross-sell ideas for ${stats.businessName}.
 Co-purchase pairs (90d): $pairLines
 Call find_copurchase_pairs to verify if needed.
         """.trimIndent()
-        val system = AgentSystemPrompts.withLanguage(AgentSystemPrompts.OPPORTUNITY_SPOTTER, language)
+        val system = agentPromptComposer.enrichSystemPrompt(
+            AgentSystemPrompts.withLanguage(AgentSystemPrompts.OPPORTUNITY_SPOTTER, language),
+        )
+        val enrichedLegacy = agentPromptComposer.enrichLegacyPrompt(legacyPrompt)
 
         val body = try {
-            agentLoopRunner.runOrSendPrompt(userMessage, system, legacyPrompt)
+            agentLoopRunner.runOrSendPrompt(userMessage, system, enrichedLegacy)
         } catch (_: Exception) {
             agentDecisionEngine.buildRunLog(AgentTypes.OPPORTUNITY_SPOTTER, startWall, 0, "GEMMA_FAILED")
             return@withContext Result.success()

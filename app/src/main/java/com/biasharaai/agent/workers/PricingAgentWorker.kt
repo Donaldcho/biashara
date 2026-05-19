@@ -6,6 +6,7 @@ import androidx.work.WorkerParameters
 import com.biasharaai.agent.AgentActionBuilder
 import com.biasharaai.agent.AgentDecisionEngine
 import com.biasharaai.agent.AgentLoopRunner
+import com.biasharaai.agent.AgentPromptComposer
 import com.biasharaai.agent.AgentSystemPrompts
 import com.biasharaai.agent.AgentTypes
 import com.biasharaai.agent.PricingRuleEngine
@@ -31,6 +32,7 @@ class PricingAgentWorker(
     private val agentSettingDao: AgentSettingDao,
     private val agentLoopRunner: AgentLoopRunner,
     private val capabilityTier: CapabilityTier,
+    private val agentPromptComposer: AgentPromptComposer,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -69,11 +71,14 @@ class PricingAgentWorker(
                 Product id ${hit.product.id}: ${hit.product.name}. ${hit.factLine}
                 Call suggest_price if you need a data-backed suggestion, then give one sentence rationale.
             """.trimIndent()
-            val system = AgentSystemPrompts.withLanguage(AgentSystemPrompts.PRICING, language)
+            val system = agentPromptComposer.enrichSystemPrompt(
+                AgentSystemPrompts.withLanguage(AgentSystemPrompts.PRICING, language),
+            )
+            val enrichedLegacy = agentPromptComposer.enrichLegacyPrompt(legacyPrompt)
 
             val rationale = if (canUseGemma()) {
                 try {
-                    val raw = agentLoopRunner.runOrSendPrompt(userMessage, system, legacyPrompt)
+                    val raw = agentLoopRunner.runOrSendPrompt(userMessage, system, enrichedLegacy)
                     val line = raw.lineSequence().firstOrNull { it.isNotBlank() } ?: raw
                     if (line.isBlank()) {
                         ruleLabel + ": " + hit.factLine

@@ -18,9 +18,12 @@ import androidx.navigation.fragment.findNavController
 import com.biasharaai.R
 import com.biasharaai.data.local.db.ProductDao
 import com.biasharaai.databinding.FragmentBarcodeScannerBinding
+import com.biasharaai.productline.ProductLineManager
+import com.biasharaai.service.ServiceTokenCodec
 import com.biasharaai.ui.base.BaseFragment
 import com.biasharaai.ui.inventory.InventoryListFragment
 import com.biasharaai.ui.pos.PosFragment
+import com.biasharaai.ui.pos.ServiceReceiptScanFragment
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.firstOrNull
@@ -47,6 +50,9 @@ class BarcodeScannerFragment : BaseFragment() {
 
     @Inject
     lateinit var productDao: ProductDao
+
+    @Inject
+    lateinit var productLineManager: ProductLineManager
 
     private lateinit var cameraExecutor: ExecutorService
     private var barcodeAnalyzer: BarcodeAnalyzer? = null
@@ -189,6 +195,29 @@ class BarcodeScannerFragment : BaseFragment() {
     // ── Result handling ─────────────────────────────────────────────────
 
     private fun handleBarcodeResult(rawValue: String) {
+        if (BarcodeScanRouter.isServiceToken(rawValue)) {
+            if (!productLineManager.isProEnabled()) {
+                val root = _binding?.root
+                if (root != null) {
+                    Snackbar.make(root, R.string.scanner_service_token_shop, Snackbar.LENGTH_LONG).show()
+                    barcodeAnalyzer?.reset()
+                }
+                return
+            }
+            if (rawValue.startsWith(ServiceTokenCodec.PREFIX_RECEIPT) &&
+                rawValue.substringAfter(ServiceTokenCodec.PREFIX_RECEIPT).contains('.')
+            ) {
+                findNavController().navigate(
+                    R.id.serviceReceiptScanFragment,
+                    ServiceReceiptScanFragment.args(rawValue),
+                )
+                return
+            }
+            if (arguments?.getBoolean(ARG_RETURN_BARCODE_TO_POS, false) == true) {
+                returnBarcodeToPos(rawValue)
+                return
+            }
+        }
         when (scanMode) {
             ScanMode.SCAN_FOR_LOOKUP -> lookupProduct(rawValue)
             ScanMode.SCAN_TO_ADD -> {

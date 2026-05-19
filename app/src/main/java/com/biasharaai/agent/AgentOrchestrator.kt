@@ -14,8 +14,13 @@ import com.biasharaai.agent.workers.FraudSentinelWorker
 import com.biasharaai.agent.workers.OpportunitySpotterWorker
 import com.biasharaai.agent.workers.PricingAgentWorker
 import com.biasharaai.agent.workers.StockGuardianWorker
+import com.biasharaai.agent.workers.NoShowTrackerWorker
+import com.biasharaai.agent.workers.ServicePricingAgentWorker
+import com.biasharaai.agent.workers.UtilisationAgentWorker
+import com.biasharaai.agent.workers.VoucherExpiryAgentWorker
 import com.biasharaai.agent.workers.WeeklyReviewWorker
 import com.biasharaai.data.local.db.AgentSetting
+import com.biasharaai.productline.ProductLineManager
 import com.biasharaai.data.local.db.AgentSettingDao
 import com.biasharaai.ai.CapabilityTier
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -40,6 +45,7 @@ class AgentOrchestrator @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val agentSettingDao: AgentSettingDao,
     private val capabilityTier: CapabilityTier,
+    private val productLineManager: ProductLineManager,
 ) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -65,6 +71,66 @@ class AgentOrchestrator @Inject constructor(
         scheduleFraudSentinel(settings)
         scheduleWeeklyReview(settings)
         scheduleOpportunitySpotter(settings)
+        scheduleVoucherExpiryAgent(settings)
+        scheduleUtilisationAgent(settings)
+        scheduleNoShowTracker(settings)
+        scheduleServicePricingAgent(settings)
+    }
+
+    fun scheduleUtilisationAgent(settings: AgentSetting) {
+        if (!settings.masterSwitch || !productLineManager.isProEnabled() || !settings.utilisationAgentEnabled) {
+            wm.cancelUniqueWork(UNIQUE_UTILISATION_AGENT)
+            return
+        }
+        val constraints = Constraints.Builder().setRequiresBatteryNotLow(true).build()
+        val request = PeriodicWorkRequestBuilder<UtilisationAgentWorker>(1, TimeUnit.DAYS)
+            .setConstraints(constraints)
+            .build()
+        wm.enqueueUniquePeriodicWork(UNIQUE_UTILISATION_AGENT, ExistingPeriodicWorkPolicy.KEEP, request)
+    }
+
+    fun scheduleNoShowTracker(settings: AgentSetting) {
+        if (!settings.masterSwitch || !productLineManager.isProEnabled() || !settings.noShowTrackerEnabled) {
+            wm.cancelUniqueWork(UNIQUE_NO_SHOW_TRACKER)
+            return
+        }
+        val constraints = Constraints.Builder().setRequiresBatteryNotLow(true).build()
+        val request = PeriodicWorkRequestBuilder<NoShowTrackerWorker>(1, TimeUnit.DAYS)
+            .setConstraints(constraints)
+            .setInitialDelay(nextDelayToLocalHourMillis(21), TimeUnit.MILLISECONDS)
+            .build()
+        wm.enqueueUniquePeriodicWork(UNIQUE_NO_SHOW_TRACKER, ExistingPeriodicWorkPolicy.KEEP, request)
+    }
+
+    fun scheduleServicePricingAgent(settings: AgentSetting) {
+        if (!settings.masterSwitch || !productLineManager.isProEnabled() || !settings.servicePricingAgentEnabled) {
+            wm.cancelUniqueWork(UNIQUE_SERVICE_PRICING_AGENT)
+            return
+        }
+        val constraints = Constraints.Builder().setRequiresBatteryNotLow(true).build()
+        val request = PeriodicWorkRequestBuilder<ServicePricingAgentWorker>(7, TimeUnit.DAYS)
+            .setConstraints(constraints)
+            .build()
+        wm.enqueueUniquePeriodicWork(UNIQUE_SERVICE_PRICING_AGENT, ExistingPeriodicWorkPolicy.KEEP, request)
+    }
+
+    fun scheduleVoucherExpiryAgent(settings: AgentSetting) {
+        if (!settings.masterSwitch || !productLineManager.isProEnabled()) {
+            wm.cancelUniqueWork(UNIQUE_VOUCHER_EXPIRY)
+            return
+        }
+        val constraints = Constraints.Builder()
+            .setRequiresBatteryNotLow(true)
+            .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
+            .build()
+        val request = PeriodicWorkRequestBuilder<VoucherExpiryAgentWorker>(1, TimeUnit.DAYS)
+            .setConstraints(constraints)
+            .build()
+        wm.enqueueUniquePeriodicWork(
+            UNIQUE_VOUCHER_EXPIRY,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request,
+        )
     }
 
     fun scheduleStockGuardian(settings: AgentSetting) {
@@ -281,6 +347,10 @@ class AgentOrchestrator @Inject constructor(
         const val UNIQUE_FRAUD_REACTIVE = "fraud_check"
         const val UNIQUE_WEEKLY_REVIEW = "weekly_review"
         const val UNIQUE_OPPORTUNITY_SPOTTER = "opportunity_spotter"
+        const val UNIQUE_VOUCHER_EXPIRY = "voucher_expiry_agent"
+        const val UNIQUE_UTILISATION_AGENT = "utilisation_agent"
+        const val UNIQUE_NO_SHOW_TRACKER = "no_show_tracker"
+        const val UNIQUE_SERVICE_PRICING_AGENT = "service_pricing_agent"
 
         internal const val UNIQUE_RUN_NOW_STOCK = "agent_run_now_stock"
         internal const val UNIQUE_RUN_NOW_PRICING = "agent_run_now_pricing"

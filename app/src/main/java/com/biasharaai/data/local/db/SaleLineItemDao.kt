@@ -2,6 +2,7 @@ package com.biasharaai.data.local.db
 
 import androidx.room.ColumnInfo
 import androidx.room.Dao
+import com.biasharaai.analytics.ProductNetSalesRow
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -67,6 +68,35 @@ interface SaleLineItemDao {
         """,
     )
     suspend fun saleLinesInPeriod(startMillis: Long, endMillis: Long): List<SaleLineItem>
+
+    /**
+     * Net product sales (INCOME lines minus RETURN lines) grouped by product.
+     * Return rows carry negative [SaleLineItem.quantity] and [SaleLineItem.line_total].
+     */
+    @Query(
+        """
+        SELECT sl.product_id AS product_id, sl.product_name AS product_name,
+            CAST(IFNULL(SUM(sl.quantity), 0) AS INTEGER) AS net_qty,
+            IFNULL(SUM(sl.line_total), 0) AS net_revenue
+        FROM sale_line_items sl
+        INNER JOIN transactions t ON t.id = sl.transaction_id
+        WHERE t.type IN ('INCOME', 'RETURN')
+          AND t.date >= :startMillis AND t.date <= :endMillis
+        GROUP BY sl.product_id
+        ORDER BY net_qty DESC
+        """,
+    )
+    suspend fun netProductSalesInPeriod(startMillis: Long, endMillis: Long): List<ProductNetSalesRow>
+
+    @Query(
+        """
+        SELECT IFNULL(SUM(sl.line_total), 0) FROM sale_line_items sl
+        INNER JOIN transactions t ON t.id = sl.transaction_id
+        WHERE t.type = 'INCOME' AND sl.quantity > 0
+          AND t.date >= :startMillis AND t.date <= :endMillis
+        """,
+    )
+    suspend fun sumProductSalesInPeriod(startMillis: Long, endMillis: Long): Double
 
     /**
      * Positive POS lines since [sinceMillis] with transaction date and payment method for analytics.

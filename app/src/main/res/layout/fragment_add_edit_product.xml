@@ -286,6 +286,16 @@
 
         </com.google.android.material.textfield.TextInputLayout>
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_show_barcode"
+            style="@style/Widget.MaterialComponents.Button.TextButton.Icon"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/product_btn_show_barcode"
+            app:icon="@drawable/ic_barcode_scan"
+            app:iconSize="18dp" />
+
         <!-- Save Button -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_save"

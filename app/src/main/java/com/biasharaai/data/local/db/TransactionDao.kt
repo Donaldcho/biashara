@@ -110,6 +110,39 @@ interface TransactionDao {
     )
     suspend fun sumIncomeAmountBetween(startMillis: Long, endExclusiveMillis: Long): Double
 
+    /** Negative amounts (refunds). Add to [sumIncomeAmountBetween] for net revenue. */
+    @Query(
+        """
+        SELECT IFNULL(SUM(amount), 0) FROM transactions
+        WHERE type = 'RETURN' AND date >= :startMillis AND date < :endExclusiveMillis
+        """,
+    )
+    suspend fun sumReturnAmountBetween(startMillis: Long, endExclusiveMillis: Long): Double
+
+    @Query(
+        """
+        SELECT COUNT(*) FROM transactions
+        WHERE type = 'RETURN' AND date >= :startMillis AND date < :endExclusiveMillis
+        """,
+    )
+    suspend fun countReturnTransactionsBetween(startMillis: Long, endExclusiveMillis: Long): Long
+
+    @Query(
+        """
+        SELECT IFNULL(SUM(product_subtotal), 0) FROM transactions
+        WHERE type = 'INCOME' AND date >= :startMillis AND date < :endExclusiveMillis
+        """,
+    )
+    suspend fun sumProductSubtotalBetween(startMillis: Long, endExclusiveMillis: Long): Double
+
+    @Query(
+        """
+        SELECT IFNULL(SUM(service_subtotal), 0) FROM transactions
+        WHERE type = 'INCOME' AND date >= :startMillis AND date < :endExclusiveMillis
+        """,
+    )
+    suspend fun sumServiceSubtotalBetween(startMillis: Long, endExclusiveMillis: Long): Double
+
     @Query(
         """
         SELECT IFNULL(SUM(amount), 0) FROM transactions
@@ -146,4 +179,36 @@ interface TransactionDao {
         """,
     )
     suspend fun getIncomeDatesForCustomer(customerId: Long): List<Long>
+
+    @Query(
+        """
+        SELECT * FROM transactions
+        WHERE type = 'INCOME' AND balance_due > 0 AND settled_at IS NULL
+          AND parent_transaction_id IS NULL
+        ORDER BY date DESC
+        """,
+    )
+    fun observeOpenBalances(): Flow<List<Transaction>>
+
+    @Query(
+        """
+        SELECT * FROM transactions
+        WHERE type = 'INCOME' AND balance_due > 0 AND settled_at IS NULL
+          AND parent_transaction_id IS NULL AND customer_id = :customerId
+        ORDER BY date DESC
+        """,
+    )
+    suspend fun getOpenBalancesForCustomer(customerId: Long): List<Transaction>
+
+    @Query(
+        """
+        SELECT IFNULL(SUM(balance_due), 0) FROM transactions
+        WHERE type = 'INCOME' AND balance_due > 0 AND settled_at IS NULL
+          AND parent_transaction_id IS NULL AND customer_id = :customerId
+        """,
+    )
+    suspend fun sumOpenBalanceForCustomer(customerId: Long): Double
+
+    @Query("UPDATE transactions SET balance_due = :balanceDue, settled_at = :settledAt WHERE id = :id")
+    suspend fun updateBalanceSettlement(id: Long, balanceDue: Double, settledAt: Long?)
 }

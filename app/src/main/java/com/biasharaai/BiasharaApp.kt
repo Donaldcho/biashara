@@ -23,6 +23,8 @@ import com.biasharaai.skills.SkillRegistry
 import com.biasharaai.skills.packs.SkillPackManager
 import com.biasharaai.data.local.db.AppDatabase
 import com.biasharaai.knowledge.KnowledgeIngestor
+import com.biasharaai.licence.LicenceValidator
+import com.biasharaai.service.pro.ProOnboardingCardManager
 import com.biasharaai.di.WorkManagerEntryPoint
 import com.biasharaai.loss.LossAlertScheduler
 import dagger.hilt.android.HiltAndroidApp
@@ -51,10 +53,20 @@ class BiasharaApp : Application(), Configuration.Provider {
 
     @Inject lateinit var knowledgeIngestor: KnowledgeIngestor
 
+    @Inject lateinit var licenceValidator: LicenceValidator
+
+    @Inject lateinit var proOnboardingCardManager: ProOnboardingCardManager
+
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onCreate() {
         super.onCreate()
+        runCatching { licenceValidator.ensureDefaultLicence() }
+            .onFailure { Log.e(TAG, "ensureDefaultLicence failed", it) }
+        appScope.launch(Dispatchers.IO) {
+            runCatching { proOnboardingCardManager.checkAndShowIfNeeded() }
+                .onFailure { Log.e(TAG, "proOnboardingCardManager failed", it) }
+        }
         runCatching { WorkManager.initialize(this, workManagerConfiguration) }
             .onFailure { Log.e(TAG, "WorkManager.initialize failed", it) }
         appScope.launch {

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Default (light) fallback; overridden by res/color-night/ in dark theme. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:color="@color/biashara_surface_bright" android:state_checked="true" />
+    <item android:color="@color/biashara_nav_label_unselected" />
+</selector>

@@ -2,7 +2,10 @@ package com.biasharaai.ledger
 
 import com.biasharaai.data.local.db.LedgerEntry
 import com.biasharaai.data.local.db.LedgerEntryDao
+import com.biasharaai.data.local.db.LedgerEntryType
+import com.biasharaai.ledger.LedgerPnLCalculator
 import com.biasharaai.money.MoneyFormatter
+import com.biasharaai.productline.ProductLineManager
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -14,6 +17,8 @@ import javax.inject.Singleton
 class LedgerReportExporter @Inject constructor(
     private val ledgerEntryDao: LedgerEntryDao,
     private val moneyFormatter: MoneyFormatter,
+    private val productLineManager: ProductLineManager,
+    private val ledgerPnLCalculator: LedgerPnLCalculator,
 ) {
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
 
@@ -45,14 +50,35 @@ class LedgerReportExporter @Inject constructor(
     suspend fun buildSummaryText(from: Long, to: Long): String {
         val entries = ledgerEntryDao.getEntriesForReportSync(from, to)
         if (entries.isEmpty()) return "No ledger entries in this period."
+        val pnl = ledgerPnLCalculator.incomeBreakdown(from, to)
         val breakdown = ledgerEntryDao.getBreakdownByType(from, to)
         return buildString {
             appendLine("Ledger summary")
             appendLine("Entries: ${entries.size}")
             appendLine("Closing balance: ${moneyFormatter.format(entries.last().runningBalance)}")
             appendLine()
-            appendLine("By type:")
+            appendLine("INCOME")
+            appendLine("  Product Sales    ${moneyFormatter.format(pnl.productSales)}")
+            if (productLineManager.isProEnabled()) {
+                appendLine("  Service Sales    ${moneyFormatter.format(pnl.serviceSales)}")
+                if (pnl.voucherSales > 0) {
+                    appendLine("  Vouchers Sold    ${moneyFormatter.format(pnl.voucherSales)}")
+                }
+            }
+            appendLine("  ─────────────────")
+            appendLine("  Total Income     ${moneyFormatter.format(pnl.totalIncome)}")
+            appendLine()
+            appendLine("Other ledger types:")
             breakdown.forEach { row ->
+                if (row.type in listOf(
+                        LedgerEntryType.SALE_PRODUCT.name,
+                        LedgerEntryType.SALE_SERVICE.name,
+                        LedgerEntryType.SALE_MIXED.name,
+                        LedgerEntryType.VOUCHER_SALE.name,
+                    )
+                ) {
+                    return@forEach
+                }
                 append("• ").append(row.type).append(": ")
                 appendLine(moneyFormatter.format(row.total))
             }

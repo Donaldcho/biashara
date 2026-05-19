@@ -25,4 +25,14 @@ data class AgentSetting(
     @ColumnInfo(name = "quiet_hours_start") val quietHoursStart: Int = 22,
     @ColumnInfo(name = "quiet_hours_end") val quietHoursEnd: Int = 7,
     @ColumnInfo(name = "auto_approve_low_dismiss") val autoApproveLowDismiss: Boolean = true,
+    @ColumnInfo(name = "utilisation_agent_enabled", defaultValue = "1")
+    val utilisationAgentEnabled: Boolean = true,
+    @ColumnInfo(name = "utilisation_alert_threshold_pct", defaultValue = "60")
+    val utilisationAlertThresholdPct: Int = 60,
+    @ColumnInfo(name = "working_hours_per_day", defaultValue = "8")
+    val workingHoursPerDay: Int = 8,
+    @ColumnInfo(name = "no_show_tracker_enabled", defaultValue = "1")
+    val noShowTrackerEnabled: Boolean = true,
+    @ColumnInfo(name = "service_pricing_agent_enabled", defaultValue = "1")
+    val servicePricingAgentEnabled: Boolean = true,
 )

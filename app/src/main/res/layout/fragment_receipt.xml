@@ -105,6 +105,26 @@
                 tools:text="Tax: KSh 5" />
 
             <TextView
+                android:id="@+id/text_amount_paid"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:gravity="end"
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:visibility="gone"
+                tools:text="Paid now: KSh 50" />
+
+            <TextView
+                android:id="@+id/text_balance_due"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:gravity="end"
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:visibility="gone"
+                tools:text="Balance due: KSh 55" />
+
+            <TextView
                 android:id="@+id/text_grand_total"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -112,6 +132,15 @@
                 android:gravity="end"
                 android:textAppearance="?attr/textAppearanceTitleLarge"
                 tools:text="Total: KSh 105" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_view_voucher_qr"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/receipt_view_voucher_qr_one"
+                android:visibility="gone" />
 
             <TextView
                 android:id="@+id/text_footer"

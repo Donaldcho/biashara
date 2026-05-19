@@ -204,7 +204,7 @@ Message: $trimmed
                     splitLine2Method = null,
                     splitLine2Amount = null,
                 )
-                val txId = withContext(Dispatchers.IO) {
+                val commit = withContext(Dispatchers.IO) {
                     saleRepository.commitPosSale(
                         lines = cartItems,
                         taxAmount = taxAmount,
@@ -216,7 +216,7 @@ Message: $trimmed
                         transactionNoteTypeOverride = TransactionNoteTypes.WHATSAPP_ORDER,
                     )
                 }
-                _events.emit(OrderParserEvent.SaleRecorded(txId))
+                _events.emit(OrderParserEvent.SaleRecorded(commit.transactionId))
             } catch (e: Exception) {
                 _events.emit(OrderParserEvent.Toast(e.message ?: appContext.getString(R.string.order_parser_record_failed)))
             }

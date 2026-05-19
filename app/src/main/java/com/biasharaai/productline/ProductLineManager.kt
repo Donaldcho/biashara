@@ -1,31 +1,29 @@
 package com.biasharaai.productline
 
-import android.content.Context
-import dagger.hilt.android.qualifiers.ApplicationContext
+import com.biasharaai.licence.EditionManager
+import com.biasharaai.licence.LicenceValidator
+import com.biasharaai.licence.ProductLine
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Gates Pro-only ledger events (services, vouchers, warranty) until Pro SKU is wired.
- * Default install is **Shop** (product-only).
+ * Gates Pro-only features (services, vouchers, warranty) from [LicenceKey.productLine].
+ * Default install is **Shop** until a Pro licence is applied in Settings.
  */
 @Singleton
 class ProductLineManager @Inject constructor(
-    @ApplicationContext private val context: Context,
+    private val licenceValidator: LicenceValidator,
+    private val editionManager: EditionManager,
 ) {
-    fun isProEnabled(): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getBoolean(KEY_PRO_ENABLED, false)
+    fun productLine(): ProductLine =
+        licenceValidator.getStoredKey()?.productLine ?: ProductLine.SHOP
 
-    fun setProEnabledForTests(enabled: Boolean) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean(KEY_PRO_ENABLED, enabled)
-            .apply()
-    }
+    fun isProEnabled(): Boolean = productLine() == ProductLine.PRO
 
-    companion object {
-        private const val PREFS = "biashara_product_line"
-        private const val KEY_PRO_ENABLED = "pro_enabled"
+    fun isSmePlusAndPro(): Boolean = isProEnabled() && editionManager.isSmePlus()
+
+    /** Instrumented / unit tests only. */
+    fun applyLicenceKeyForTests(keyString: String) {
+        licenceValidator.storeLicenceKey(keyString).getOrThrow()
     }
 }

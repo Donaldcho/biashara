@@ -201,4 +201,26 @@ object AgentActionBuilder {
         relatedEntityId = dayStartMillis,
         relatedEntityType = "DAY",
     )
+
+    fun voucherExpiryReminder(
+        serviceName: String,
+        remainingUses: Int,
+        expiresAt: Long,
+        dedupeKey: String,
+        headlineOverride: String? = null,
+        detailOverride: String? = null,
+    ): AgentAction = AgentAction(
+        agentType = AgentTypes.VOUCHER_EXPIRY,
+        urgency = "MEDIUM",
+        executionType = "REQUIRES_APPROVAL",
+        headline = headlineOverride ?: "Voucher expiring: $serviceName",
+        detail = detailOverride ?: "$remainingUses use(s) left before ${java.time.Instant.ofEpochMilli(expiresAt)}",
+        actionPayload = dedupeKey,
+        actionVerb = "REVIEW_VOUCHERS",
+        status = "PENDING",
+        createdAt = System.currentTimeMillis(),
+        expiresAt = expiresAt,
+        relatedEntityId = null,
+        relatedEntityType = "VOUCHER",
+    )
 }

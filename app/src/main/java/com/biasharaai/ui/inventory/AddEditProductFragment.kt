@@ -2,14 +2,30 @@ package com.biasharaai.ui.inventory
 
 import android.Manifest
 import android.app.Activity
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.pdf.PdfDocument
 import android.os.Bundle
+import android.os.CancellationSignal
+import android.os.ParcelFileDescriptor
+import android.print.PageRange
+import android.print.PrintAttributes
+import android.print.PrintDocumentAdapter
+import android.print.PrintDocumentInfo
+import android.print.PrintManager
 import android.speech.RecognizerIntent
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.content.res.AppCompatResources
@@ -28,8 +44,10 @@ import com.biasharaai.ai.VoiceInputPreferences
 import com.biasharaai.ai.VoiceInputProcessor
 import com.biasharaai.data.local.db.Product
 import com.biasharaai.databinding.FragmentAddEditProductBinding
+import com.biasharaai.inventory.InventoryLabelGenerator
 import com.biasharaai.media.ProductPhotoStore
 import com.biasharaai.ui.base.BaseFragment
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textfield.TextInputLayout
 import dagger.hilt.android.AndroidEntryPoint
@@ -37,6 +55,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.FileOutputStream
 import java.util.Locale
 import javax.inject.Inject
 
@@ -182,6 +201,7 @@ class AddEditProductFragment : BaseFragment() {
         setupToolbar()
         observeVoiceInputForProductName()
         setupBarcodeScan()
+        setupBarcodeGenerator()
         setupLabelScan()
         setupSaveButton()
         setupSuggestPrice()
@@ -319,6 +339,100 @@ class AddEditProductFragment : BaseFragment() {
                 bundleOf("scan_mode" to "SCAN_TO_ADD"),
             )
         }
+    }
+
+    private fun setupBarcodeGenerator() {
+        binding.btnShowBarcode.setOnClickListener {
+            var value = binding.editBarcode.text?.toString()?.trim()
+            if (value.isNullOrBlank()) {
+                value = InventoryLabelGenerator.generateProductBarcodeNumber()
+                binding.editBarcode.setText(value)
+            }
+            showBarcodeDialog(value, onDismiss = null)
+        }
+    }
+
+    private fun showBarcodeDialog(value: String, onDismiss: (() -> Unit)?) {
+        val bitmap = InventoryLabelGenerator.generateBarcodeBitmap(value) ?: return
+        val pad = (24 * resources.displayMetrics.density).toInt()
+        val imageView = ImageView(requireContext()).apply {
+            setImageBitmap(bitmap)
+            adjustViewBounds = true
+            setPadding(pad, pad, pad, pad / 2)
+        }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.barcode_preview_title)
+            .setMessage(value)
+            .setView(imageView)
+            .setPositiveButton(R.string.barcode_print) { _, _ -> printBarcode(bitmap, value) }
+            .setNeutralButton(R.string.barcode_copied) { _, _ ->
+                val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("barcode", value))
+                Snackbar.make(binding.root, R.string.barcode_copied, Snackbar.LENGTH_SHORT).show()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .create()
+            .also { dialog ->
+                dialog.setOnDismissListener { onDismiss?.invoke() }
+                dialog.show()
+            }
+    }
+
+    private fun printBarcode(bitmap: Bitmap, value: String) {
+        val printManager = requireContext().getSystemService(Context.PRINT_SERVICE) as PrintManager
+        printManager.print(
+            "Barcode_$value",
+            object : PrintDocumentAdapter() {
+                override fun onLayout(
+                    old: PrintAttributes?,
+                    new: PrintAttributes,
+                    cancel: CancellationSignal?,
+                    callback: LayoutResultCallback,
+                    extras: Bundle?,
+                ) {
+                    if (cancel?.isCanceled == true) { callback.onLayoutCancelled(); return }
+                    callback.onLayoutFinished(
+                        PrintDocumentInfo.Builder("barcode_$value.pdf")
+                            .setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT)
+                            .setPageCount(1)
+                            .build(),
+                        new != old,
+                    )
+                }
+
+                override fun onWrite(
+                    pages: Array<out PageRange>?,
+                    dest: ParcelFileDescriptor?,
+                    cancel: CancellationSignal?,
+                    callback: WriteResultCallback,
+                ) {
+                    val pdf = PdfDocument()
+                    val page = pdf.startPage(PdfDocument.PageInfo.Builder(595, 842, 1).create())
+                    val canvas = page.canvas
+                    val bmpW = 400f
+                    val bmpH = bitmap.height * bmpW / bitmap.width
+                    val left = (595 - bmpW) / 2f
+                    val top = (842 - bmpH) / 2f - 30f
+                    canvas.drawBitmap(bitmap, null, RectF(left, top, left + bmpW, top + bmpH), null)
+                    val paint = Paint().apply {
+                        textSize = 16f
+                        textAlign = Paint.Align.CENTER
+                        color = Color.BLACK
+                    }
+                    canvas.drawText(value, 595 / 2f, top + bmpH + 24f, paint)
+                    pdf.finishPage(page)
+                    try {
+                        pdf.writeTo(FileOutputStream(dest!!.fileDescriptor))
+                        callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES))
+                    } catch (e: Exception) {
+                        callback.onWriteFailed(e.message)
+                    } finally {
+                        pdf.close()
+                    }
+                }
+            },
+            PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4).build(),
+        )
     }
 
     /** Tap "Scan label" → open the OCR camera fragment; result is delivered via SavedStateHandle. */
@@ -571,7 +685,13 @@ class AddEditProductFragment : BaseFragment() {
                         getString(R.string.product_saved),
                         Snackbar.LENGTH_SHORT,
                     ).show()
-                    findNavController().navigateUp()
+                    val barcode = event.barcodeToPrint
+                    if (barcode != null) {
+                        binding.editBarcode.setText(barcode)
+                        showBarcodeDialog(barcode) { findNavController().navigateUp() }
+                    } else {
+                        findNavController().navigateUp()
+                    }
                 }
 
                 is AddEditProductViewModel.Event.ValidationError -> {

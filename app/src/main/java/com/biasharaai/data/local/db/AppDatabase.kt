@@ -30,8 +30,14 @@ import androidx.room.RoomDatabase
         LessonCompletion::class,
         FeatureMastery::class,
         CashMovementEvidence::class,
+        ServiceItem::class,
+        ServiceVoucher::class,
+        ServiceDelivery::class,
+        StaffMember::class,
+        Appointment::class,
+        BusinessProfile::class,
     ],
-    version = 27,
+    version = 33,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -79,6 +85,18 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun featureMasteryDao(): FeatureMasteryDao
 
     abstract fun cashMovementEvidenceDao(): CashMovementEvidenceDao
+
+    abstract fun serviceItemDao(): ServiceItemDao
+
+    abstract fun serviceVoucherDao(): ServiceVoucherDao
+
+    abstract fun serviceDeliveryDao(): ServiceDeliveryDao
+
+    abstract fun staffMemberDao(): StaffMemberDao
+
+    abstract fun appointmentDao(): AppointmentDao
+
+    abstract fun businessProfileDao(): BusinessProfileDao
 
     companion object {
         const val NAME = "biashara.db"

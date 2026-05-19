@@ -22,6 +22,10 @@
     <color name="biashara_success_green">#10B981</color>
     <color name="biashara_success_light">#D1FAE5</color>
     <color name="biashara_success_on_light">#065F46</color>
+    <color name="biashara_pro_purple">#7C3AED</color>
+
+    <color name="agent_bubble_background">#DBEAFE</color>
+    <color name="user_bubble_background">#E2E8F0</color>
 
     <!-- Surfaces (cards on warm background) -->
     <color name="biashara_surface_bright">#FFFFFF</color>

@@ -25,6 +25,8 @@ import com.biasharaai.ai.ModelDownloadManager
 import com.biasharaai.databinding.FragmentSettingsBinding
 import com.biasharaai.ui.base.BaseFragment
 import com.biasharaai.ui.order.OrderParserActivity
+import com.biasharaai.productline.ProductLineManager
+import com.biasharaai.productline.showProRequiredSnackbar
 import com.biasharaai.ui.order.showOrderParserTierBlockedDialogIfNeeded
 import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.switchmaterial.SwitchMaterial
@@ -34,6 +36,7 @@ import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.util.Locale
+import javax.inject.Inject
 import kotlin.math.roundToInt
 
 /**
@@ -50,6 +53,8 @@ class SettingsFragment : BaseFragment() {
 
     private val viewModel: SettingsViewModel by viewModels()
 
+    @Inject lateinit var productLineManager: ProductLineManager
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -57,6 +62,11 @@ class SettingsFragment : BaseFragment() {
     ): View {
         _binding = FragmentSettingsBinding.inflate(inflater, container, false)
         return binding.root
+    }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.refreshLicenceState()
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -69,8 +79,11 @@ class SettingsFragment : BaseFragment() {
         setupOrderParserFromClipboard()
         setupVoiceSettingsNav()
         setupLedgerNav()
+        setupLicence()
         setupCurrency()
         setupAgentRunHistoryNav()
+        setupStaffSettingsNav()
+        setupBusinessProfileNav()
         observeDownloadState()
         observeDownloadProgress()
         observeEvents()
@@ -125,6 +138,50 @@ class SettingsFragment : BaseFragment() {
     private fun setupAgentRunHistoryNav() {
         binding.btnAgentActivity.setOnClickListener {
             findNavController().navigate(R.id.action_settingsFragment_to_agentSettingsFragment)
+        }
+    }
+
+    private fun setupBusinessProfileNav() {
+        binding.btnBusinessProfile.setOnClickListener {
+            findNavController().navigate(R.id.action_settingsFragment_to_businessProfileEditFragment)
+        }
+    }
+
+    private fun setupStaffSettingsNav() {
+        binding.btnStaffSettings.visibility = if (productLineManager.isProEnabled()) View.VISIBLE else View.GONE
+        binding.btnStaffSettings.setOnClickListener {
+            if (!productLineManager.isProEnabled()) {
+                binding.root.showProRequiredSnackbar(productLineManager)
+                return@setOnClickListener
+            }
+            findNavController().navigate(R.id.action_settingsFragment_to_staffSettingsFragment)
+        }
+    }
+
+    private fun setupLicence() {
+        binding.btnApplyLicence.setOnClickListener {
+            val key = binding.editLicenceKey.text?.toString().orEmpty()
+            if (key.isBlank()) {
+                Snackbar.make(binding.root, R.string.settings_licence_invalid, Snackbar.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            viewModel.applyLicenceKey(key)
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.licenceKey.collect { key ->
+                    if (key == null) {
+                        binding.textLicenceCurrent.text = getString(R.string.settings_licence_invalid)
+                        return@collect
+                    }
+                    binding.textLicenceCurrent.text = getString(
+                        R.string.settings_licence_current,
+                        getString(viewModel.productLineNameRes(key.productLine)),
+                        getString(viewModel.editionNameRes(key.edition)),
+                        key.maxDevices,
+                    )
+                }
+            }
         }
     }
 
@@ -323,6 +380,28 @@ class SettingsFragment : BaseFragment() {
                                 else -> getString(R.string.settings_cloud_upload_failed, event.message)
                             }
                             Snackbar.make(binding.root, msg, Snackbar.LENGTH_LONG).show()
+                        }
+
+                        is SettingsViewModel.Event.LicenceApplied -> {
+                            binding.editLicenceKey.text?.clear()
+                            val status = if (event.proEnabled) {
+                                R.string.settings_pro_features_on
+                            } else {
+                                R.string.settings_pro_features_off
+                            }
+                            Snackbar.make(
+                                binding.root,
+                                getString(R.string.settings_licence_applied, getString(status)),
+                                Snackbar.LENGTH_LONG,
+                            ).show()
+                        }
+
+                        is SettingsViewModel.Event.LicenceInvalid -> {
+                            Snackbar.make(
+                                binding.root,
+                                event.message.ifBlank { getString(R.string.settings_licence_invalid) },
+                                Snackbar.LENGTH_LONG,
+                            ).show()
                         }
                     }
                 }

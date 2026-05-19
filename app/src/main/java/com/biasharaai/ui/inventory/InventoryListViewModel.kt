@@ -5,6 +5,8 @@ import com.biasharaai.ai.DemandForecaster
 import com.biasharaai.media.ProductPhotoStore
 import com.biasharaai.data.local.db.Product
 import com.biasharaai.data.local.db.ProductDao
+import com.biasharaai.data.local.db.ServiceItem
+import com.biasharaai.service.ServiceRepository
 import com.biasharaai.ui.base.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
@@ -20,12 +22,20 @@ import javax.inject.Inject
 @HiltViewModel
 class InventoryListViewModel @Inject constructor(
     private val productDao: ProductDao,
+    private val serviceRepository: ServiceRepository,
     private val demandForecaster: DemandForecaster,
     private val productPhotoStore: ProductPhotoStore,
 ) : BaseViewModel() {
 
     /** Reactive product list backed by Room's Flow, exposed as StateFlow. */
     val products: StateFlow<List<Product>> = productDao.getAllProducts()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000L),
+            initialValue = emptyList(),
+        )
+
+    val services: StateFlow<List<ServiceItem>> = serviceRepository.observeServices()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000L),
@@ -112,6 +122,12 @@ class InventoryListViewModel @Inject constructor(
     /**
      * Removes units from on-hand stock (damage, shrink, own use). Does not create a transaction row.
      */
+    suspend fun deleteService(serviceId: Long) {
+        withContext(Dispatchers.IO) {
+            serviceRepository.deleteService(serviceId)
+        }
+    }
+
     suspend fun removeStockUnits(productId: Long, quantity: Int) {
         require(quantity > 0) { "Quantity must be positive" }
         withContext(Dispatchers.IO) {

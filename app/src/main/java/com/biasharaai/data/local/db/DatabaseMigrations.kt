@@ -788,6 +788,222 @@ object DatabaseMigrations {
     }
 
     /** Phase C — Prompt C0: cash movement evidence table (capture proof, no images). */
+    /** SV0 — staff, appointments, Pro onboarding + BSRC signing prefs on app_settings. */
+    val MIGRATION_28_29 = object : Migration(28, 29) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS staff_members (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    name TEXT NOT NULL,
+                    phone TEXT,
+                    role TEXT NOT NULL DEFAULT 'STAFF',
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at INTEGER NOT NULL
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS appointments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    customer_id INTEGER,
+                    customer_name TEXT NOT NULL,
+                    service_item_id INTEGER NOT NULL,
+                    staff_member_id INTEGER,
+                    scheduled_at INTEGER NOT NULL,
+                    duration_minutes INTEGER NOT NULL DEFAULT 60,
+                    status TEXT NOT NULL DEFAULT 'BOOKED',
+                    deposit_paid REAL NOT NULL DEFAULT 0.0,
+                    balance_due REAL NOT NULL DEFAULT 0.0,
+                    notes TEXT,
+                    transaction_id INTEGER,
+                    created_at INTEGER NOT NULL
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_appointments_scheduled_at` ON appointments(scheduled_at)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_appointments_status` ON appointments(status)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_appointments_customer_id` ON appointments(customer_id)",
+            )
+            addColumnIfMissing(db, "app_settings", "pro_onboarding_shown", "INTEGER NOT NULL DEFAULT 0")
+            addColumnIfMissing(db, "app_settings", "pro_activated_at", "INTEGER")
+            addColumnIfMissing(db, "app_settings", "voucher_signing_key", "TEXT")
+        }
+    }
+
+    /** SV6 — Pro agent settings columns on agent_settings. */
+    /** Mixed sales — transaction payment split + service delivery amounts for P&L. */
+    val MIGRATION_30_31 = object : Migration(30, 31) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            addColumnIfMissing(db, "transactions", "product_subtotal", "REAL NOT NULL DEFAULT 0.0")
+            addColumnIfMissing(db, "transactions", "service_subtotal", "REAL NOT NULL DEFAULT 0.0")
+            addColumnIfMissing(db, "transactions", "amount_paid", "REAL NOT NULL DEFAULT 0.0")
+            addColumnIfMissing(db, "transactions", "balance_due", "REAL NOT NULL DEFAULT 0.0")
+            addColumnIfMissing(db, "transactions", "settled_at", "INTEGER")
+            addColumnIfMissing(db, "transactions", "parent_transaction_id", "INTEGER")
+            addColumnIfMissing(db, "service_deliveries", "charged_amount", "REAL NOT NULL DEFAULT 0.0")
+            addColumnIfMissing(db, "debts", "source_transaction_id", "INTEGER")
+            db.execSQL(
+                "UPDATE transactions SET amount_paid = amount WHERE amount_paid = 0.0 AND balance_due = 0.0",
+            )
+        }
+    }
+
+    /** Phase 10 — structured business profile for agent context and onboarding. */
+    val MIGRATION_31_32 = object : Migration(31, 32) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS business_profile (
+                    id INTEGER PRIMARY KEY NOT NULL,
+                    business_name TEXT NOT NULL DEFAULT '',
+                    owner_name TEXT NOT NULL DEFAULT '',
+                    business_type TEXT NOT NULL DEFAULT 'mixed',
+                    description TEXT,
+                    primary_products TEXT,
+                    primary_services TEXT,
+                    specialisation TEXT,
+                    target_customer TEXT,
+                    location TEXT,
+                    open_days TEXT,
+                    open_hours TEXT,
+                    staff_count INTEGER,
+                    main_suppliers TEXT,
+                    payment_methods TEXT,
+                    monthly_revenue_target REAL,
+                    business_goal TEXT,
+                    agent_tone TEXT,
+                    last_updated_at INTEGER NOT NULL DEFAULT 0,
+                    onboarding_complete INTEGER NOT NULL DEFAULT 0,
+                    onboarding_step INTEGER NOT NULL DEFAULT 0
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                """
+                INSERT OR IGNORE INTO business_profile (id, business_name, last_updated_at)
+                SELECT 1, COALESCE(
+                    (SELECT business_name FROM app_settings WHERE id = 1 LIMIT 1),
+                    'My Business'
+                ), ${System.currentTimeMillis()}
+                """.trimIndent(),
+            )
+        }
+    }
+
+    val MIGRATION_29_30 = object : Migration(29, 30) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            addColumnIfMissing(db, "agent_settings", "utilisation_agent_enabled", "INTEGER NOT NULL DEFAULT 1")
+            addColumnIfMissing(
+                db,
+                "agent_settings",
+                "utilisation_alert_threshold_pct",
+                "INTEGER NOT NULL DEFAULT 60",
+            )
+            addColumnIfMissing(db, "agent_settings", "working_hours_per_day", "INTEGER NOT NULL DEFAULT 8")
+            addColumnIfMissing(db, "agent_settings", "no_show_tracker_enabled", "INTEGER NOT NULL DEFAULT 1")
+            addColumnIfMissing(
+                db,
+                "agent_settings",
+                "service_pricing_agent_enabled",
+                "INTEGER NOT NULL DEFAULT 1",
+            )
+        }
+    }
+
+    /** Pro service layer — service catalogue, vouchers, deliveries (empty in Shop). */
+    val MIGRATION_27_28 = object : Migration(27, 28) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS service_items (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    base_price REAL NOT NULL,
+                    price_mode TEXT NOT NULL DEFAULT 'FIXED',
+                    duration_minutes INTEGER NOT NULL DEFAULT 0,
+                    category TEXT,
+                    catalogue_token TEXT NOT NULL,
+                    warranty_days INTEGER NOT NULL DEFAULT 0,
+                    visible_in_kiosk INTEGER NOT NULL DEFAULT 1,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS `index_service_items_catalogue_token` " +
+                    "ON service_items(catalogue_token)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_service_items_category` ON service_items(category)",
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS service_vouchers (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    voucher_id TEXT NOT NULL,
+                    service_item_id INTEGER NOT NULL,
+                    customer_id INTEGER,
+                    total_uses INTEGER NOT NULL,
+                    remaining_uses INTEGER NOT NULL,
+                    amount_paid REAL NOT NULL,
+                    purchased_at INTEGER NOT NULL,
+                    expires_at INTEGER,
+                    last_redeemed_at INTEGER,
+                    FOREIGN KEY(service_item_id) REFERENCES service_items(id) ON DELETE CASCADE
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS `index_service_vouchers_voucher_id` " +
+                    "ON service_vouchers(voucher_id)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_service_vouchers_service_item_id` " +
+                    "ON service_vouchers(service_item_id)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_service_vouchers_customer_id` " +
+                    "ON service_vouchers(customer_id)",
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS service_deliveries (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    service_item_id INTEGER NOT NULL,
+                    transaction_id INTEGER,
+                    customer_id INTEGER,
+                    staff_name TEXT,
+                    delivered_at INTEGER NOT NULL,
+                    warranty_expires_at INTEGER,
+                    receipt_token TEXT,
+                    FOREIGN KEY(service_item_id) REFERENCES service_items(id) ON DELETE CASCADE
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_service_deliveries_service_item_id` " +
+                    "ON service_deliveries(service_item_id)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_service_deliveries_transaction_id` " +
+                    "ON service_deliveries(transaction_id)",
+            )
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS `index_service_deliveries_receipt_token` " +
+                    "ON service_deliveries(receipt_token)",
+            )
+        }
+    }
+
     val MIGRATION_26_27 = object : Migration(26, 27) {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL(
@@ -823,6 +1039,22 @@ object DatabaseMigrations {
         }
     }
 
+    /** Link prepaid vouchers to the POS sale that issued them (unified receipt). */
+    val MIGRATION_32_33 = object : Migration(32, 33) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            addColumnIfMissing(
+                db,
+                "service_vouchers",
+                "source_transaction_id",
+                "INTEGER",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_service_vouchers_source_transaction_id` " +
+                    "ON service_vouchers(source_transaction_id)",
+            )
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_3_5,
         MIGRATION_5_6,
@@ -847,5 +1079,31 @@ object DatabaseMigrations {
         MIGRATION_24_25,
         MIGRATION_25_26,
         MIGRATION_26_27,
+        MIGRATION_27_28,
+        MIGRATION_28_29,
+        MIGRATION_29_30,
+        MIGRATION_30_31,
+        MIGRATION_31_32,
+        MIGRATION_32_33,
     )
+
+    private fun addColumnIfMissing(
+        db: SupportSQLiteDatabase,
+        table: String,
+        column: String,
+        definition: String,
+    ) {
+        val cursor = db.query("PRAGMA table_info(`$table`)")
+        var exists = false
+        while (cursor.moveToNext()) {
+            if (cursor.getString(1) == column) {
+                exists = true
+                break
+            }
+        }
+        cursor.close()
+        if (!exists) {
+            db.execSQL("ALTER TABLE `$table` ADD COLUMN `$column` $definition")
+        }
+    }
 }

@@ -179,6 +179,9 @@ class AgentActionCardAdapter(
 
         private fun stripeColor(ctx: android.content.Context, action: AgentAction): Int {
             val res = ctx.resources
+            if (action.agentType == AgentTypes.PRO_ONBOARDING) {
+                return res.getColor(R.color.biashara_pro_purple, ctx.theme)
+            }
             return when (action.status) {
                 "EXECUTED" -> res.getColor(R.color.biashara_success_green, ctx.theme)
                 else -> when (action.urgency) {
@@ -257,6 +260,11 @@ class AgentActionCardAdapter(
         AgentTypes.CUSTOMER_RELATION -> "👤"
         AgentTypes.WEEKLY_REVIEW -> "📋"
         AgentTypes.OPPORTUNITY_SPOTTER -> "✨"
+        AgentTypes.PRO_ONBOARDING -> "✂️"
+        AgentTypes.VOUCHER_EXPIRY -> "🎟️"
+        AgentTypes.UTILISATION_AGENT -> "📊"
+        AgentTypes.NO_SHOW_TRACKER -> "📅"
+        AgentTypes.SERVICE_PRICING_AGENT -> "💰"
         else -> "🤖"
     }
 

@@ -3,6 +3,7 @@ package com.biasharaai.ui.inventory
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.biasharaai.ai.PricingAdvisor
+import com.biasharaai.inventory.InventoryLabelGenerator
 import com.biasharaai.media.ProductPhotoStore
 import com.biasharaai.data.local.db.Product
 import com.biasharaai.data.local.db.ProductDao
@@ -120,6 +121,10 @@ class AddEditProductViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val previousImage = if (isEditing) _existingProduct.value?.imageUrl else null
+                val hadBarcode = barcodeValue.trim().isNotEmpty()
+                val resolvedBarcode = barcodeValue.trim().ifBlank {
+                    InventoryLabelGenerator.generateProductBarcodeNumber()
+                }
                 val product = Product(
                     id = if (isEditing) productId else 0L,
                     name = name.trim(),
@@ -128,7 +133,7 @@ class AddEditProductViewModel @Inject constructor(
                     cost = cost!!,
                     stockQuantity = stock!!,
                     category = category.trim().ifBlank { null },
-                    barcodeValue = barcodeValue.trim().ifBlank { null },
+                    barcodeValue = resolvedBarcode,
                     imageUrl = imageUrl,
                 )
 
@@ -141,7 +146,11 @@ class AddEditProductViewModel @Inject constructor(
                     productDao.insertProduct(product)
                 }
 
-                _events.emit(Event.Saved)
+                _events.emit(
+                    Event.Saved(
+                        barcodeToPrint = if (!hadBarcode) resolvedBarcode else null,
+                    ),
+                )
             } catch (e: Exception) {
                 _events.emit(Event.Error(e.message ?: "Save failed"))
             } finally {
@@ -156,7 +165,8 @@ class AddEditProductViewModel @Inject constructor(
 
     /** One-shot UI events. */
     sealed class Event {
-        data object Saved : Event()
+        /** Non-null when a barcode was auto-assigned and the UI should offer printing. */
+        data class Saved(val barcodeToPrint: String? = null) : Event()
         data class ValidationError(val errors: Map<String, String>) : Event()
         data class Error(val message: String) : Event()
     }

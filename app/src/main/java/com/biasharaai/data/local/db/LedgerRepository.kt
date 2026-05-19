@@ -70,10 +70,11 @@ class LedgerRepository @Inject constructor(
         transaction: Transaction,
         lineItems: List<SaleLineItem>,
         customerId: Long?,
+        cashAmount: Double = transaction.amountPaid.takeIf { it > 0 } ?: transaction.amount,
     ) = record(
         type = LedgerEntryType.SALE_PRODUCT,
         direction = LedgerDirection.MONEY_IN,
-        amount = transaction.amount,
+        amount = cashAmount,
         description = LedgerDescriptionBuilder.productSale(lineItems, transaction.receiptNumber),
         occurredAt = transaction.date,
         transactionId = transaction.id,
@@ -84,12 +85,13 @@ class LedgerRepository @Inject constructor(
         transaction: Transaction,
         serviceNames: List<String>,
         customerId: Long?,
+        cashAmount: Double = transaction.amountPaid.takeIf { it > 0 } ?: transaction.amount,
     ) {
         check(productLineManager.isProEnabled()) { "Service sales require Pro" }
         record(
             type = LedgerEntryType.SALE_SERVICE,
             direction = LedgerDirection.MONEY_IN,
-            amount = transaction.amount,
+            amount = cashAmount,
             description = LedgerDescriptionBuilder.serviceSale(serviceNames),
             occurredAt = transaction.date,
             transactionId = transaction.id,
@@ -102,13 +104,14 @@ class LedgerRepository @Inject constructor(
         lineItems: List<SaleLineItem>,
         serviceNames: List<String>,
         customerId: Long?,
+        cashAmount: Double = transaction.amountPaid.takeIf { it > 0 } ?: transaction.amount,
     ) {
         check(productLineManager.isProEnabled()) { "Mixed sales require Pro" }
         val productQty = lineItems.filter { it.quantity > 0 }.sumOf { it.quantity }
         record(
             type = LedgerEntryType.SALE_MIXED,
             direction = LedgerDirection.MONEY_IN,
-            amount = transaction.amount,
+            amount = cashAmount,
             description = LedgerDescriptionBuilder.mixedSale(
                 productQty,
                 serviceNames.size,

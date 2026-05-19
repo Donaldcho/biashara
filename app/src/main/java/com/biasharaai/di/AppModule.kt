@@ -36,6 +36,12 @@ import com.biasharaai.data.local.db.FeatureMasteryDao
 import com.biasharaai.data.local.db.KnowledgeChunkDao
 import com.biasharaai.data.local.db.LessonCompletionDao
 import com.biasharaai.data.local.db.ProductDao
+import com.biasharaai.data.local.db.AppointmentDao
+import com.biasharaai.data.local.db.BusinessProfileDao
+import com.biasharaai.data.local.db.ServiceDeliveryDao
+import com.biasharaai.data.local.db.ServiceItemDao
+import com.biasharaai.data.local.db.ServiceVoucherDao
+import com.biasharaai.data.local.db.StaffMemberDao
 import com.biasharaai.data.local.db.SaleLineItemDao
 import com.biasharaai.data.local.db.TeachingEventDao
 import com.biasharaai.data.local.db.TransactionDao
@@ -63,6 +69,15 @@ object AppModule {
                         // Fresh install: Room creates `app_settings` empty; seed the singleton row.
                         db.execSQL("INSERT OR IGNORE INTO app_settings (id) VALUES (1)")
                         db.execSQL("INSERT OR IGNORE INTO agent_settings (id) VALUES (1)")
+                        db.execSQL(
+                            """
+                            INSERT OR IGNORE INTO business_profile (id, business_name, last_updated_at)
+                            SELECT 1, COALESCE(
+                                (SELECT business_name FROM app_settings WHERE id = 1),
+                                'My Business'
+                            ), ${System.currentTimeMillis()}
+                            """.trimIndent(),
+                        )
                     }
                 },
             )
@@ -143,6 +158,24 @@ object AppModule {
 
     @Provides
     fun provideCashMovementEvidenceDao(database: AppDatabase): com.biasharaai.data.local.db.CashMovementEvidenceDao = database.cashMovementEvidenceDao()
+
+    @Provides
+    fun provideServiceItemDao(database: AppDatabase): ServiceItemDao = database.serviceItemDao()
+
+    @Provides
+    fun provideServiceVoucherDao(database: AppDatabase): ServiceVoucherDao = database.serviceVoucherDao()
+
+    @Provides
+    fun provideServiceDeliveryDao(database: AppDatabase): ServiceDeliveryDao = database.serviceDeliveryDao()
+
+    @Provides
+    fun provideStaffMemberDao(database: AppDatabase): StaffMemberDao = database.staffMemberDao()
+
+    @Provides
+    fun provideAppointmentDao(database: AppDatabase): AppointmentDao = database.appointmentDao()
+
+    @Provides
+    fun provideBusinessProfileDao(database: AppDatabase): BusinessProfileDao = database.businessProfileDao()
 
     @Provides
     @Singleton

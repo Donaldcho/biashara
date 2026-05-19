@@ -25,6 +25,7 @@ import com.biasharaai.R
 import com.biasharaai.databinding.FragmentPaymentDialogBinding
 import com.biasharaai.money.MoneyFormatter
 import com.biasharaai.pos.cart.CartRepository
+import com.biasharaai.pos.payment.MixedPaymentPlan
 import com.biasharaai.pos.payment.PrimaryPaymentTab
 import com.biasharaai.pos.payment.SplitLineMethod
 import com.google.android.material.color.MaterialColors
@@ -79,6 +80,7 @@ class PaymentDialogFragment : DialogFragment() {
                 R.id.tab_cash -> viewModel.selectTab(PrimaryPaymentTab.CASH)
                 R.id.tab_mobile -> viewModel.selectTab(PrimaryPaymentTab.MOBILE_MONEY)
                 R.id.tab_credit -> viewModel.selectTab(PrimaryPaymentTab.CREDIT)
+                R.id.tab_voucher -> viewModel.selectTab(PrimaryPaymentTab.VOUCHER)
             }
         }
 
@@ -122,6 +124,19 @@ class PaymentDialogFragment : DialogFragment() {
 
         binding.btnPasteSms.setOnClickListener { showPasteSmsDialog() }
 
+        binding.inputVoucherId.addTextWatcher { viewModel.lookupVoucher(it) }
+        binding.layoutVoucherId.setEndIconOnClickListener {
+            findNavController().navigate(
+                R.id.action_paymentDialogFragment_to_barcodeScannerFragment,
+                androidx.core.os.bundleOf(
+                    com.biasharaai.ui.scanner.BarcodeScannerFragment.ARG_SCAN_MODE to "SCAN_TO_ADD",
+                    com.biasharaai.ui.scanner.BarcodeScannerFragment.ARG_RETURN_BARCODE_TO_POS to true,
+                ),
+            )
+        }
+        observeVoucherScanResult()
+        setupMixedPaymentPlan()
+
         binding.btnSelectCustomerCredit.setOnClickListener { showCustomerPicker() }
 
         binding.btnCreditDueDate.setOnClickListener { openDueDatePicker() }
@@ -150,9 +165,13 @@ class PaymentDialogFragment : DialogFragment() {
     private fun handleCommitResult(result: SaleCommitResult) {
         when (result) {
             is SaleCommitResult.Success -> {
+                val bundle = bundleOf(
+                    ReceiptViewModel.ARG_TRANSACTION_ID to result.transactionId,
+                    ReceiptViewModel.ARG_ISSUED_VOUCHER_IDS to result.issuedVoucherIds.toTypedArray(),
+                )
                 findNavController().navigate(
                     R.id.action_paymentDialogFragment_to_receiptFragment,
-                    bundleOf(ReceiptViewModel.ARG_TRANSACTION_ID to result.transactionId),
+                    bundle,
                     NavOptions.Builder()
                         .setPopUpTo(R.id.posFragment, false)
                         .build(),
@@ -278,6 +297,21 @@ class PaymentDialogFragment : DialogFragment() {
             .show()
     }
 
+    private fun setupMixedPaymentPlan() {
+        binding.groupMixedPlan.setOnCheckedChangeListener { _, checkedId ->
+            val plan = when (checkedId) {
+                R.id.plan_credit_services -> MixedPaymentPlan.CREDIT_SERVICES
+                R.id.plan_credit_products -> MixedPaymentPlan.CREDIT_PRODUCTS
+                R.id.plan_deposit -> MixedPaymentPlan.DEPOSIT
+                else -> MixedPaymentPlan.PAY_ALL
+            }
+            viewModel.setMixedPaymentPlan(plan)
+            val showDeposit = plan == MixedPaymentPlan.DEPOSIT
+            binding.layoutDepositAmount.visibility = if (showDeposit) View.VISIBLE else View.GONE
+        }
+        binding.inputDepositAmount.addTextWatcher { viewModel.setDepositAmountText(it) }
+    }
+
     private fun openDueDatePicker() {
         val picker = MaterialDatePicker.Builder.datePicker()
             .setTitleText(R.string.payment_credit_set_due)
@@ -292,6 +326,47 @@ class PaymentDialogFragment : DialogFragment() {
                 launch {
                     viewModel.grandTotal.collect { g ->
                         binding.textGrandTotal.text = moneyFormatter.format(g)
+                    }
+                }
+                launch {
+                    combine(viewModel.isMixedCart, viewModel.cartBreakdown) { mixed, breakdown ->
+                        mixed to breakdown
+                    }.collect { (mixed, breakdown) ->
+                        binding.panelMixedPlan.visibility = if (mixed) View.VISIBLE else View.GONE
+                        if (mixed) {
+                            binding.textCartBreakdown.visibility = View.VISIBLE
+                            binding.textCartBreakdown.text = getString(
+                                R.string.payment_cart_breakdown,
+                                moneyFormatter.format(breakdown.productSubtotal),
+                                moneyFormatter.format(
+                                    breakdown.serviceSubtotal + breakdown.voucherSubtotal,
+                                ),
+                            )
+                        } else {
+                            binding.textCartBreakdown.visibility = View.GONE
+                        }
+                    }
+                }
+                launch {
+                    combine(viewModel.amountDueNow, viewModel.paymentSplit, viewModel.grandTotal) { due, split, grand ->
+                        Triple(due, split, grand)
+                    }.collect { (due, split, grand) ->
+                        val partial = due + 0.01 < grand
+                        binding.textDueNow.visibility = if (partial) View.VISIBLE else View.GONE
+                        if (partial) {
+                            binding.textDueNow.text = getString(
+                                R.string.payment_due_now,
+                                moneyFormatter.format(due),
+                            )
+                        }
+                        binding.textBalanceAfter.visibility =
+                            if (split.balanceDue > 0) View.VISIBLE else View.GONE
+                        if (split.balanceDue > 0) {
+                            binding.textBalanceAfter.text = getString(
+                                R.string.payment_balance_due,
+                                moneyFormatter.format(split.balanceDue),
+                            )
+                        }
                     }
                 }
                 launch {
@@ -310,10 +385,12 @@ class PaymentDialogFragment : DialogFragment() {
                                 binding.panelCash.visibility = tabVisibility(tab, PrimaryPaymentTab.CASH)
                                 binding.panelMobile.visibility = tabVisibility(tab, PrimaryPaymentTab.MOBILE_MONEY)
                                 binding.panelCredit.visibility = tabVisibility(tab, PrimaryPaymentTab.CREDIT)
+                                binding.panelVoucher.visibility = tabVisibility(tab, PrimaryPaymentTab.VOUCHER)
                             } else {
                                 binding.panelCash.visibility = View.GONE
                                 binding.panelMobile.visibility = View.GONE
                                 binding.panelCredit.visibility = View.GONE
+                                binding.panelVoucher.visibility = View.GONE
                             }
                         }
                 }
@@ -404,6 +481,35 @@ class PaymentDialogFragment : DialogFragment() {
                         }
                     }
                 }
+                launch {
+                    combine(viewModel.resolvedVoucher, viewModel.voucherError) { v, e -> v to e }
+                        .collect { (voucher, error) ->
+                            binding.textVoucherStatus.visibility =
+                                if (voucher != null || error != null) View.VISIBLE else View.GONE
+                            binding.textVoucherStatus.text = when {
+                                voucher != null -> getString(
+                                    R.string.payment_voucher_valid,
+                                    voucher.remainingUses,
+                                )
+                                error == "NOT_FOUND" -> getString(R.string.payment_voucher_not_found)
+                                error == "EXHAUSTED" -> getString(R.string.payment_voucher_exhausted)
+                                error == "EXPIRED" -> getString(R.string.payment_voucher_expired)
+                                else -> ""
+                            }
+                            val color = if (voucher != null) {
+                                androidx.core.content.ContextCompat.getColor(
+                                    requireContext(), R.color.pos_customer_selected,
+                                )
+                            } else {
+                                com.google.android.material.color.MaterialColors.getColor(
+                                    binding.textVoucherStatus,
+                                    com.google.android.material.R.attr.colorError,
+                                    android.graphics.Color.RED,
+                                )
+                            }
+                            binding.textVoucherStatus.setTextColor(color)
+                        }
+                }
             }
         }
     }
@@ -413,10 +519,22 @@ class PaymentDialogFragment : DialogFragment() {
             PrimaryPaymentTab.CASH -> R.id.tab_cash
             PrimaryPaymentTab.MOBILE_MONEY -> R.id.tab_mobile
             PrimaryPaymentTab.CREDIT -> R.id.tab_credit
+            PrimaryPaymentTab.VOUCHER -> R.id.tab_voucher
         }
         if (binding.togglePaymentTabs.checkedButtonId != id) {
             binding.togglePaymentTabs.check(id)
         }
+    }
+
+    private fun observeVoucherScanResult() {
+        val handle = findNavController().currentBackStackEntry?.savedStateHandle ?: return
+        handle.getLiveData<String>(com.biasharaai.ui.pos.PosFragment.RESULT_KEY_SCANNED_BARCODE)
+            .observe(viewLifecycleOwner) { scanned ->
+                if (!scanned.isNullOrBlank()) {
+                    binding.inputVoucherId.setText(scanned)
+                    handle.remove<String>(com.biasharaai.ui.pos.PosFragment.RESULT_KEY_SCANNED_BARCODE)
+                }
+            }
     }
 
     private fun tabVisibility(current: PrimaryPaymentTab, panel: PrimaryPaymentTab): Int =

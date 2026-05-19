@@ -1,11 +1,11 @@
 # Biashara AI Project Handoff Document
 
 ## Current Project State
-- **Last Completed Prompt:** Phase C **C12** — Cash Movement Capture System **COMPLETE** (C0–C12). All parsers, fragments, repository, anomaly detection, nav graph wiring, and tests implemented.
-- **Next Expected Prompt:** Phase C is fully closed. Likely: cash quick-action bar wiring into `AgentFeedFragment` layout, or start of next major phase.
-- **AppDatabase version:** **27** (latest **26→27** `cash_movement_evidence` table; **25→26** Phase 7 KB tables; **24→25** schema correction; **20→21** voice/TTS prefs).
-- **Phase:** Phase C **Cash Movement Capture System** (**C0–C12 COMPLETE**); Phase 7 **Knowledge Base K0–K11 COMPLETE**; voice layer **V9** on **`feat/voice-layer-stt-tts`**; Phase 6 **X12** complete.
-- **Active git line:** **`feat/voice-layer-stt-tts`** (Voice V0+); production line **`release/biashara-phase4`**; Phase 6 feature line **`feat/phase6-model-skills`**.
+- **Stable Pro release:** **`release/pro-stable-v1.3.0`** — app **v1.3.0** (versionCode **20**). See **`docs/RELEASE_PRO_v1.3.0.md`**.
+- **Last shipped (Pro):** Services POS, mixed payments, unified receipts (`PosReceiptAssembler`), business profile (Phase 10), net sales intelligence (`SalesIntelligenceRepository`), Pro agent workers.
+- **AppDatabase version:** **33** (latest **32→33** `service_vouchers.source_transaction_id`; **31→32** `business_profile`; **30→31** mixed-sale columns; **28→29** services tables).
+- **Phase:** Pro POS + intelligence hardening on top of Phase C cash capture, Phase 7 KB, Phase 6 skills/agents, voice V9.
+- **Active git lines:** **`release/pro-stable-v1.3.0`** (Pro stable); legacy **`release/biashara-phase4`**; feature **`feat/voice-layer-stt-tts`**.
 - **Key Notes (Phase 4 — A track):**
   - All agents are **additive** — no existing shipped code is deleted; extend schema and features in place.
   - **Phase 4a (A1–A4)** targets **zero Gemma dependency** so agent value applies on **all** device tiers (`RULES_BASED` / `PARTIAL_AI` / `FULL_AI`).
@@ -13,7 +13,20 @@
   - Every agent action requires **owner approval** unless **auto-approved** in settings (policy to be defined in A-track prompts).
 - **Phase 2 (U1–U10) — shipped (reference):** Intelligence upgrade complete through Prompt U10; conversational query layer, POS, debt/credit, loss alerts, order parser, tests — see sections **Phase 2 closure**, **Room Database**, and **Chat** below for file and schema detail.
 
-**Repository snapshot:** POS + Phase 2 + **Room 26** (KB tables K0) + Phase 4 agents + Phase 6 X0–X12 + **Voice V0–V9** + **Phase 7 K0–K11 (complete)**.
+**Repository snapshot:** POS + Phase 2 + **Room 33** + Phase 4 agents + Phase 6 X0–X12 + **Voice V0–V9** + **Phase 7 K0–K11** + **Pro services/vouchers** + **Business profile** + **SalesIntelligenceRepository**.
+
+### Pro stable — `release/pro-stable-v1.3.0` (v1.3.0)
+
+| Area | Key paths |
+|------|-----------|
+| Services POS | `service/`, `ui/pos/Service*`, `ui/inventory/AddEditService*` |
+| Unified cart | `pos/cart/PosCartLine.kt`, `CartManager.unifiedLines()`, `CartAdapter` |
+| Unified receipt | `pos/receipt/PosReceiptAssembler.kt`, `ReceiptViewModel`, `ReceiptFragment` |
+| Mixed payment | `pos/payment/MixedSaleAllocator.kt`, `SaleRepository.commitPosSale` |
+| Net analytics | `analytics/SalesIntelligenceRepository.kt`, `WeeklyReviewBuilder`, `QuerySalesSkill` |
+| Business profile | `profile/`, `data/local/db/BusinessProfile.kt`, `QueryBusinessProfileSkill` |
+| Licence / Pro gate | `licence/EditionManager.kt`, `productline/ProductLineManager` |
+| Release notes | `docs/RELEASE_PRO_v1.3.0.md`, `USER_MANUAL.md` |
 
 ### Phase C — Cash Movement Capture System (on `feat/voice-layer-stt-tts`)
 

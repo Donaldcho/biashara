@@ -196,4 +196,18 @@
         <item quantity="other">Imetengeneza hatua %d</item>
     </plurals>
 
+    <string name="business_onboarding_title">Eleza wakala kuhusu biashara yako</string>
+    <string name="business_onboarding_welcome">Karibu Biashara AI! Nitakuuliza maswali mafupi ili mawakala wajue hadithi ya biashara yako.</string>
+    <string name="business_onboarding_q_name">Jina la biashara yako ni nani?</string>
+    <string name="business_onboarding_q_offer">Unauza nini au unatoa huduma gani? Eleza kwa maneno yako.</string>
+    <string name="business_onboarding_q_customers">Wateja wako wengi ni akina nani?</string>
+    <string name="business_onboarding_q_hours">Unafunguliwa lini? (siku na saa)</string>
+    <string name="business_onboarding_q_location">Biashara yako iko wapi?</string>
+    <string name="business_onboarding_q_owner">Jina lako ni nani?</string>
+    <string name="business_onboarding_q_suppliers">Wasambazaji au washirika wako muhimu ni akina nani?</string>
+    <string name="business_onboarding_q_goal">Lengo lako kuu la biashara sasa ni nini? (weka lengo la mapato ya mwezi ikiwa unalo)</string>
+    <string name="business_onboarding_confirmed">Sawa: %1$s</string>
+    <string name="business_onboarding_complete">Wasifu wa biashara umehifadhiwa. Mawakala watatumia hivi kuanzia sasa.</string>
+    <string name="settings_btn_business_profile">Wasifu wa biashara</string>
+
 </resources>

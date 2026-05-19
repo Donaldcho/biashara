@@ -25,6 +25,18 @@
             android:textAppearance="?attr/textAppearanceTitleSmall"
             tools:text="Milo 400g" />
 
+        <TextView
+            android:id="@+id/text_cart_subtitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:visibility="gone"
+            tools:text="Staff: Jane"
+            tools:visibility="visible" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

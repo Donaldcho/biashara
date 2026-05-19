@@ -6,6 +6,7 @@ import com.biasharaai.data.local.db.LedgerDirection
 import com.biasharaai.data.local.db.LedgerEntryDao
 import com.biasharaai.data.local.db.LedgerEntryType
 import com.biasharaai.ledger.LedgerContextRepository
+import com.biasharaai.ledger.LedgerPnLCalculator
 import java.time.Instant
 import java.time.ZoneId
 import javax.inject.Inject
@@ -20,6 +21,7 @@ class LedgerIntelligenceRepository @Inject constructor(
     private val ledgerEntryDao: LedgerEntryDao,
     private val cashCountDao: CashCountDao,
     private val ledgerContextRepository: LedgerContextRepository,
+    private val ledgerPnLCalculator: LedgerPnLCalculator,
 ) {
 
     suspend fun queryV2(
@@ -141,10 +143,12 @@ class LedgerIntelligenceRepository @Inject constructor(
         fun sumTypes(vararg types: LedgerEntryType): Double =
             types.sumOf { totalsByType[it.name] ?: 0.0 }
 
+        val pnl = ledgerPnLCalculator.incomeBreakdown(from, to)
         return mapOf(
-            "productSales" to sumTypes(LedgerEntryType.SALE_PRODUCT),
-            "services" to sumTypes(LedgerEntryType.SALE_SERVICE),
-            "vouchers" to sumTypes(LedgerEntryType.VOUCHER_SALE),
+            "productSales" to pnl.productSales,
+            "services" to pnl.serviceSales,
+            "vouchers" to pnl.voucherSales,
+            "totalIncome" to pnl.totalIncome,
             "debtRepayments" to sumTypes(LedgerEntryType.DEBT_REPAID),
             "manualIncome" to sumTypes(LedgerEntryType.OTHER_INCOME, LedgerEntryType.ADJUSTMENT),
             "expenses" to sumTypes(

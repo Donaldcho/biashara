@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.biasharaai.R
 import com.biasharaai.agent.AgentTypes
+import com.biasharaai.productline.ProductLineManager
 import com.biasharaai.data.local.db.AgentRunLog
 import com.biasharaai.data.local.db.AgentRunLogDao
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -31,6 +32,7 @@ data class AgentSettingsRow(
 class AgentSettingsViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val agentRunLogDao: AgentRunLogDao,
+    private val productLineManager: ProductLineManager,
 ) : ViewModel() {
 
     private val expanded = MutableStateFlow<Set<String>>(emptySet())
@@ -42,7 +44,7 @@ class AgentSettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val ex = expanded.value
             val list = withContext(Dispatchers.IO) {
-                AgentDisplayOrder.map { type ->
+                displayOrderForUi().map { type ->
                     val last = agentRunLogDao.getLastRunForAgent(type)
                     val history =
                         if (ex.contains(type)) agentRunLogDao.getRunHistoryForAgent(type, 5) else emptyList()
@@ -74,8 +76,22 @@ class AgentSettingsViewModel @Inject constructor(
             AgentTypes.CUSTOMER_RELATION -> appContext.getString(R.string.agent_settings_name_customer_relation)
             AgentTypes.WEEKLY_REVIEW -> appContext.getString(R.string.agent_settings_name_weekly_review)
             AgentTypes.OPPORTUNITY_SPOTTER -> appContext.getString(R.string.agent_settings_name_opportunity_spotter)
+            AgentTypes.UTILISATION_AGENT -> appContext.getString(R.string.agent_settings_name_utilisation)
+            AgentTypes.NO_SHOW_TRACKER -> appContext.getString(R.string.agent_settings_name_no_show)
+            AgentTypes.SERVICE_PRICING_AGENT -> appContext.getString(R.string.agent_settings_name_service_pricing)
+            AgentTypes.VOUCHER_EXPIRY -> appContext.getString(R.string.agent_settings_name_voucher_expiry)
             else -> agentType
         }
+
+    private fun displayOrderForUi(): List<String> = buildList {
+        addAll(AgentDisplayOrder)
+        if (productLineManager.isProEnabled()) {
+            add(AgentTypes.UTILISATION_AGENT)
+            add(AgentTypes.NO_SHOW_TRACKER)
+            add(AgentTypes.SERVICE_PRICING_AGENT)
+            add(AgentTypes.VOUCHER_EXPIRY)
+        }
+    }
 
     private fun buildSummary(last: AgentRunLog?): String {
         val ago = if (last == null) {

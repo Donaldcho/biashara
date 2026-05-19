@@ -7,6 +7,7 @@ import com.biasharaai.R
 import com.biasharaai.agent.AgentActionBuilder
 import com.biasharaai.agent.AgentDecisionEngine
 import com.biasharaai.agent.AgentLoopRunner
+import com.biasharaai.agent.AgentPromptComposer
 import com.biasharaai.agent.AgentSystemPrompts
 import com.biasharaai.agent.AgentTypes
 import com.biasharaai.agent.WeeklyReviewBuilder
@@ -15,7 +16,10 @@ import com.biasharaai.ai.CapabilityTier
 import com.biasharaai.data.local.db.AgentActionDao
 import com.biasharaai.data.local.db.AgentSetting
 import com.biasharaai.data.local.db.AgentSettingDao
+import com.biasharaai.data.local.db.ServiceDeliveryDao
+import com.biasharaai.data.local.db.ServiceItemDao
 import com.biasharaai.locale.LanguagePreferences
+import com.biasharaai.productline.ProductLineManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.ZoneId
@@ -35,6 +39,10 @@ class WeeklyReviewWorker(
     private val agentActionDao: AgentActionDao,
     private val agentDecisionEngine: AgentDecisionEngine,
     private val agentSettingDao: AgentSettingDao,
+    private val productLineManager: ProductLineManager,
+    private val serviceDeliveryDao: ServiceDeliveryDao,
+    private val serviceItemDao: ServiceItemDao,
+    private val agentPromptComposer: AgentPromptComposer,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -63,13 +71,18 @@ class WeeklyReviewWorker(
         val topRevenue = money(stats.topRevenue)
         val totalCredit = money(stats.totalCredit)
 
+        val serviceSection = stats.servicePromptBlock.ifBlank { "" }
+
         val legacyPrompt = """
 You are the business advisor for ${stats.businessName}, a small shop.
 Respond in $language. Write a friendly weekly business review.
 Be specific, encouraging, and practical. Under 200 words.
+If this business offers services, mention service performance — not only products.
 
 This week's data:
 Total revenue: $currency$weekRevenue (vs last week: $currency$lastWeekRevenue)
+Product sales (POS): $currency${money(stats.productRevenue)}
+Service sales (POS): $currency${money(stats.serviceSalesRevenue)}
 Total transactions: ${stats.txCount}
 Top selling product: ${stats.topProduct} (${stats.topQty} units, $currency$topRevenue)
 Slowest product: ${stats.slowProduct} (${stats.slowQty} units)
@@ -78,6 +91,7 @@ Returning customers: ${stats.returningCustomers}
 Outstanding credit: $currency$totalCredit across ${stats.debtCustomerCount} customers
 Best trading day: ${stats.bestDay}
 Best trading hour: ${stats.bestHour}:00
+$serviceSection
 
 Structure your response as:
 1. One sentence celebrating a win from this week
@@ -85,14 +99,18 @@ Structure your response as:
 3. One specific, actionable recommendation for next week
         """.trimIndent()
         val userMessage = """
-Weekly review for ${stats.businessName}. Use query_sales, calculate_profit, or query_customers if needed.
-Revenue $currency$weekRevenue vs last week $currency$lastWeekRevenue; ${stats.txCount} transactions.
-Top: ${stats.topProduct} (${stats.topQty} units). Slow: ${stats.slowProduct}. Credit outstanding $currency$totalCredit.
+Weekly review for ${stats.businessName}. Use query_sales, query_services, calculate_profit, or query_customers if needed.
+Revenue $currency$weekRevenue vs last week $currency$lastWeekRevenue; products $currency${money(stats.productRevenue)}; services $currency${money(stats.serviceSalesRevenue)}; ${stats.txCount} transactions.
+Top product: ${stats.topProduct} (${stats.topQty} units). Slow: ${stats.slowProduct}. Credit outstanding $currency$totalCredit.
+${stats.serviceStats?.let { "Service visits: ${it.deliveryCount}, top: ${it.topServiceName}, utilisation ${it.utilisationPct}%." } ?: ""}
         """.trimIndent()
-        val system = AgentSystemPrompts.withLanguage(AgentSystemPrompts.WEEKLY_REVIEW, language)
+        val system = agentPromptComposer.enrichSystemPrompt(
+            AgentSystemPrompts.withLanguage(AgentSystemPrompts.WEEKLY_REVIEW, language),
+        )
+        val enrichedLegacy = agentPromptComposer.enrichLegacyPrompt(legacyPrompt)
 
         val narrative = try {
-            agentLoopRunner.runOrSendPrompt(userMessage, system, legacyPrompt)
+            agentLoopRunner.runOrSendPrompt(userMessage, system, enrichedLegacy)
         } catch (_: Exception) {
             agentDecisionEngine.buildRunLog(AgentTypes.WEEKLY_REVIEW, startWall, 0, "GEMMA_FAILED")
             return@withContext Result.success()

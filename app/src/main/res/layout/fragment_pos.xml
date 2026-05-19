@@ -69,6 +69,39 @@
         tools:text="They often pick up milk on Fridays."
         tools:visibility="visible" />
 
+    <com.google.android.material.chip.ChipGroup
+        android:id="@+id/chip_group_pos_mode"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="12dp"
+        android:layout_marginTop="6dp"
+        android:visibility="gone"
+        app:singleSelection="true"
+        tools:visibility="visible">
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chip_pos_products"
+            style="@style/Widget.Material3.Chip.Filter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="@string/pos_mode_products" />
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chip_pos_services"
+            style="@style/Widget.Material3.Chip.Filter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/pos_mode_services" />
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chip_pos_both"
+            style="@style/Widget.Material3.Chip.Filter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/pos_mode_both" />
+    </com.google.android.material.chip.ChipGroup>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -104,6 +137,18 @@
                 android:contentDescription="@string/pos_scan_to_add_desc"
                 android:padding="8dp"
                 app:srcCompat="@drawable/ic_barcode_scan" />
+
+            <ImageButton
+                android:id="@+id/btn_scan_service_token"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/pos_scan_service_token"
+                android:padding="8dp"
+                android:visibility="gone"
+                app:srcCompat="@drawable/ic_barcode_scan"
+                app:tint="?attr/colorControlNormal"
+                tools:visibility="visible" />
 
             <ImageButton
                 android:id="@+id/btn_transaction_history"
@@ -148,6 +193,18 @@
         android:clipToPadding="false"
         android:paddingBottom="8dp"
         tools:listitem="@layout/item_product_grid" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recycler_service_grid"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginHorizontal="4dp"
+        android:layout_marginTop="4dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingBottom="8dp"
+        android:visibility="gone"
+        tools:listitem="@layout/item_service_grid" />
 
     <TextView
         android:id="@+id/text_cart_panel_title"

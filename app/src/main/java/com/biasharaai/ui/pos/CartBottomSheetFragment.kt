@@ -56,13 +56,22 @@ class CartBottomSheetFragment : BottomSheetDialogFragment() {
             cartManager = cartManager,
             formatMoney = { moneyFormatter.format(it) },
             allowPriceOverride = cartRepository.activeSettings.value?.allowPriceOverride != false,
-            onRequestPriceOverride = { item ->
+            onRequestProductPriceOverride = { item ->
                 CartLinePriceOverrideDialog.show(
                     this,
                     item,
                     moneyFormatter::format,
                 ) { cartItem, newPrice ->
                     posViewModel.applyLinePriceOverride(cartItem, newPrice)
+                }
+            },
+            onRequestServicePriceOverride = { line ->
+                ServiceCartLinePriceOverrideDialog.show(
+                    this,
+                    line,
+                    moneyFormatter::format,
+                ) { serviceLine, newPrice ->
+                    posViewModel.applyServiceLinePriceOverride(serviceLine, newPrice)
                 }
             },
         )
@@ -84,7 +93,7 @@ class CartBottomSheetFragment : BottomSheetDialogFragment() {
                         }
                 }
                 launch {
-                    cartManager.items.collect { cartAdapter.submitList(it) }
+                    cartManager.unifiedLines().collect { cartAdapter.submitList(it) }
                 }
             }
         }

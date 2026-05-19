@@ -15,8 +15,8 @@ import com.google.mlkit.vision.common.InputImage
  *
  * All processing is on-device — no internet connection required.
  *
- * Configured for common retail barcode formats:
- * UPC-A, UPC-E, EAN-13, EAN-8, and QR codes.
+ * Configured for retail barcodes plus app-generated labels:
+ * UPC-A, UPC-E, EAN-13, EAN-8, CODE-128 (product/voucher labels), and QR codes.
  *
  * @param onBarcodeDetected callback fired **once** with the first valid [rawValue].
  *        After a successful detection, this analyzer stops processing to prevent
@@ -33,6 +33,7 @@ class BarcodeAnalyzer(
                 Barcode.FORMAT_UPC_E,
                 Barcode.FORMAT_EAN_13,
                 Barcode.FORMAT_EAN_8,
+                Barcode.FORMAT_CODE_128,
                 Barcode.FORMAT_QR_CODE,
             )
             .build(),

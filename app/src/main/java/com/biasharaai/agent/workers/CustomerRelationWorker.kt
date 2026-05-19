@@ -7,6 +7,7 @@ import com.biasharaai.R
 import com.biasharaai.agent.AgentActionBuilder
 import com.biasharaai.agent.AgentDecisionEngine
 import com.biasharaai.agent.AgentLoopRunner
+import com.biasharaai.agent.AgentPromptComposer
 import com.biasharaai.agent.AgentSystemPrompts
 import com.biasharaai.agent.AgentTypes
 import com.biasharaai.agent.CustomerPatternAnalyser
@@ -47,6 +48,7 @@ class CustomerRelationWorker(
     private val appSettingsDao: AppSettingsDao,
     private val agentLoopRunner: AgentLoopRunner,
     private val capabilityTier: CapabilityTier,
+    private val agentPromptComposer: AgentPromptComposer,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -204,8 +206,11 @@ Draft a debt reminder SMS to ${customer.name}.
 Total overdue ${money(totalAmount)} $currency; worst note ${maxDaysOverdue} days past due.
 You may call draft_message or query_customers with overdueOnly=true.
         """.trimIndent()
-        val system = AgentSystemPrompts.withLanguage(AgentSystemPrompts.CUSTOMER_RELATION, customerLanguage)
-        return agentLoopRunner.runOrSendPrompt(userMessage, system, legacyPrompt)
+        val system = agentPromptComposer.enrichSystemPrompt(
+            AgentSystemPrompts.withLanguage(AgentSystemPrompts.CUSTOMER_RELATION, customerLanguage),
+        )
+        val enrichedLegacy = agentPromptComposer.enrichLegacyPrompt(legacyPrompt)
+        return agentLoopRunner.runOrSendPrompt(userMessage, system, enrichedLegacy)
     }
 
     private suspend fun draftVisitSmsWithGemma(customer: Customer, visit: OverdueCustomer): String {
@@ -220,8 +225,11 @@ Draft a "we miss you" SMS to ${customer.name}.
 Last visit ${visit.daysSinceLastVisit} days ago; usual gap ${"%.0f".format(Locale.US, visit.avgGapDays)} days.
 You may call draft_message with purpose=visit reminder.
         """.trimIndent()
-        val system = AgentSystemPrompts.withLanguage(AgentSystemPrompts.CUSTOMER_RELATION, customerLanguage)
-        return agentLoopRunner.runOrSendPrompt(userMessage, system, legacyPrompt)
+        val system = agentPromptComposer.enrichSystemPrompt(
+            AgentSystemPrompts.withLanguage(AgentSystemPrompts.CUSTOMER_RELATION, customerLanguage),
+        )
+        val enrichedLegacy = agentPromptComposer.enrichLegacyPrompt(legacyPrompt)
+        return agentLoopRunner.runOrSendPrompt(userMessage, system, enrichedLegacy)
     }
 
     private fun languageNameForPrompt(): String {

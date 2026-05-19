@@ -114,6 +114,18 @@
       "displayName": "Teach user",
       "schemaJson": "{\"type\":\"object\",\"properties\":{\"featureId\":{\"type\":\"string\"},\"languageCode\":{\"type\":\"string\",\"default\":\"en\"}}}",
       "defaultEnabled": true
+    },
+    {
+      "skillId": "query_business_profile",
+      "displayName": "Query business profile",
+      "schemaJson": "{\"type\":\"object\",\"properties\":{\"includeContextBlock\":{\"type\":\"boolean\",\"default\":true}}}",
+      "defaultEnabled": true
+    },
+    {
+      "skillId": "query_services",
+      "displayName": "Query services",
+      "schemaJson": "{\"type\":\"object\",\"properties\":{\"days\":{\"type\":\"integer\",\"minimum\":1,\"maximum\":365}},\"required\":[\"days\"]}",
+      "defaultEnabled": true
     }
   ]
 }

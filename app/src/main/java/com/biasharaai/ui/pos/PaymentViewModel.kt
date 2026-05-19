@@ -8,10 +8,15 @@ import com.biasharaai.ai.CapabilityTier
 import com.biasharaai.ai.GemmaService
 import com.biasharaai.data.local.db.ProductDao
 import com.biasharaai.data.local.db.SaleRepository
+import com.biasharaai.data.local.db.ServiceVoucher
+import com.biasharaai.data.local.db.ServiceVoucherDao
+import com.biasharaai.service.ServiceTokenCodec
 import com.biasharaai.data.local.db.TransactionRepository
 import com.biasharaai.pos.cart.CartManager
 import com.biasharaai.pos.cart.CartRepository
 import com.biasharaai.data.local.db.DebtRepository
+import com.biasharaai.pos.payment.MixedPaymentPlan
+import com.biasharaai.pos.payment.MixedSaleAllocator
 import com.biasharaai.pos.payment.PaymentDraft
 import com.biasharaai.pos.payment.PrimaryPaymentTab
 import com.biasharaai.pos.payment.SplitLineMethod
@@ -36,7 +41,10 @@ import kotlin.math.max
 
 sealed interface SaleCommitResult {
     data object EmptyCart : SaleCommitResult
-    data class Success(val transactionId: Long) : SaleCommitResult
+    data class Success(
+        val transactionId: Long,
+        val issuedVoucherIds: List<String> = emptyList(),
+    ) : SaleCommitResult
     data class Failure(val message: String) : SaleCommitResult
 }
 
@@ -48,6 +56,7 @@ class PaymentViewModel @Inject constructor(
     @Suppress("unused") private val transactionRepository: TransactionRepository,
     private val debtRepository: DebtRepository,
     private val saleRepository: SaleRepository,
+    private val serviceVoucherDao: ServiceVoucherDao,
     private val capabilityTier: CapabilityTier,
     private val gemmaService: GemmaService,
     @ApplicationContext private val appContext: Context,
@@ -55,11 +64,69 @@ class PaymentViewModel @Inject constructor(
 
     val grandTotal: StateFlow<Double> = cartRepository.grandTotal
 
+    val cartBreakdown: StateFlow<MixedSaleAllocator.Breakdown> = combine(
+        cartRepository.items,
+        cartRepository.serviceItems,
+        cartRepository.voucherItems,
+        cartRepository.activeSettings,
+    ) { productLines, serviceLines, voucherLines, settings ->
+        MixedSaleAllocator.fromCart(
+            productLines = productLines,
+            serviceLines = serviceLines,
+            voucherLines = voucherLines,
+            taxRatePercent = settings?.taxRate ?: 0.0,
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MixedSaleAllocator.Breakdown(0.0, 0.0, 0.0, 0.0, 0.0))
+
+    val isMixedCart: StateFlow<Boolean> = combine(
+        cartRepository.items,
+        cartRepository.serviceItems,
+    ) { products, services ->
+        MixedSaleAllocator.isMixedCart(products, services)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    private val _mixedPaymentPlan = MutableStateFlow(MixedPaymentPlan.PAY_ALL)
+    val mixedPaymentPlan: StateFlow<MixedPaymentPlan> = _mixedPaymentPlan.asStateFlow()
+
+    private val _depositAmountText = MutableStateFlow("")
+    val depositAmountText: StateFlow<String> = _depositAmountText.asStateFlow()
+
     private val _primaryTab = MutableStateFlow(PrimaryPaymentTab.CASH)
     val primaryTab: StateFlow<PrimaryPaymentTab> = _primaryTab.asStateFlow()
 
     private val _splitMode = MutableStateFlow(false)
     val splitMode: StateFlow<Boolean> = _splitMode.asStateFlow()
+
+    val paymentSplit: StateFlow<MixedSaleAllocator.PaymentSplit> = combine(
+        cartBreakdown,
+        _mixedPaymentPlan,
+        _depositAmountText,
+        _primaryTab,
+        _splitMode,
+    ) { breakdown, plan, depositText, tab, split ->
+        when {
+            split -> MixedSaleAllocator.paymentSplit(breakdown, MixedPaymentPlan.PAY_ALL, null)
+            tab == PrimaryPaymentTab.CREDIT -> MixedSaleAllocator.PaymentSplit(
+                paidNow = 0.0,
+                balanceDue = breakdown.grandTotal,
+                taxOnPaidPortion = 0.0,
+                taxOnCreditPortion = breakdown.taxAmount,
+            )
+            else -> MixedSaleAllocator.paymentSplit(
+                breakdown,
+                plan,
+                depositText.toDoubleOrNull(),
+            )
+        }
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5_000),
+        MixedSaleAllocator.PaymentSplit(0.0, 0.0, 0.0, 0.0),
+    )
+
+    val amountDueNow: StateFlow<Double> = paymentSplit
+        .map { it.paidNow }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0.0)
 
     private val _amountTenderedText = MutableStateFlow("")
     val amountTenderedText: StateFlow<String> = _amountTenderedText.asStateFlow()
@@ -95,12 +162,12 @@ class PaymentViewModel @Inject constructor(
         .map { parseAmount(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0.0)
 
-    val changeDue: StateFlow<Double?> = combine(grandTotal, tenderedAmountParsed) { grand, tender ->
-        if (tender <= 0.0) null else tender - grand
+    val changeDue: StateFlow<Double?> = combine(amountDueNow, tenderedAmountParsed) { due, tender ->
+        if (tender <= 0.0) null else tender - due
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    val cashConfirmEnabled: StateFlow<Boolean> = combine(grandTotal, tenderedAmountParsed) { grand, tender ->
-        tender + EPSILON >= grand
+    val cashConfirmEnabled: StateFlow<Boolean> = combine(amountDueNow, tenderedAmountParsed) { due, tender ->
+        due <= EPSILON || tender + EPSILON >= due
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     val mobileConfirmEnabled: StateFlow<Boolean> = grandTotal.map { it > 0.0 }
@@ -127,21 +194,42 @@ class PaymentViewModel @Inject constructor(
         abs(a1 + a2 - grand) <= EPSILON * max(grand, 1.0)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
-    /** Cash / mobile / split only — credit sales use **On credit** (Prompt U6). */
+    private val _resolvedVoucher = MutableStateFlow<ServiceVoucher?>(null)
+    val resolvedVoucher: StateFlow<ServiceVoucher?> = _resolvedVoucher.asStateFlow()
+
+    private val _voucherError = MutableStateFlow<String?>(null)
+    val voucherError: StateFlow<String?> = _voucherError.asStateFlow()
+
+    /** Cash / mobile / split / voucher — credit sales use **On credit** (Prompt U6). */
     val paidSaleConfirmEnabled: StateFlow<Boolean> = combine(
         combine(_splitMode, _primaryTab) { split, tab -> split to tab },
-        cashConfirmEnabled,
-        mobileConfirmEnabled,
-        splitConfirmEnabled,
-    ) { splitTab, cashOk, mobileOk, splitOk ->
-        val (split, tab) = splitTab
+        combine(cashConfirmEnabled, mobileConfirmEnabled, splitConfirmEnabled) { cash, mobile, splitOk ->
+            Triple(cash, mobile, splitOk)
+        },
+        combine(paymentSplit, selectedCustomer, _mixedPaymentPlan, _resolvedVoucher) { split, customer, plan, voucher ->
+            Quadruple(split, customer, plan, voucher)
+        },
+    ) { splitTab, payments, balanceCtx ->
+        val (splitMode, tab) = splitTab
+        val (cashOk, mobileOk, splitOk) = payments
+        val (paySplit, customer, plan, voucher) = balanceCtx
+        if (paySplit.balanceDue > EPSILON && customer == null &&
+            (plan == MixedPaymentPlan.DEPOSIT ||
+                plan == MixedPaymentPlan.CREDIT_SERVICES ||
+                plan == MixedPaymentPlan.CREDIT_PRODUCTS)
+        ) {
+            return@combine false
+        }
         when {
-            split -> splitOk
+            splitMode -> splitOk
             tab == PrimaryPaymentTab.CREDIT -> false
             tab == PrimaryPaymentTab.CASH -> cashOk
+            tab == PrimaryPaymentTab.VOUCHER -> voucher != null
             else -> mobileOk
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    private data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
 
     /** Informal credit: requires customer and non-split cart (Prompt U6). */
     val onCreditEnabled: StateFlow<Boolean> = combine(_splitMode, selectedCustomer, grandTotal) { split, c, g ->
@@ -164,6 +252,14 @@ class PaymentViewModel @Inject constructor(
 
     fun setSplitMode(enabled: Boolean) {
         _splitMode.value = enabled
+    }
+
+    fun setMixedPaymentPlan(plan: MixedPaymentPlan) {
+        _mixedPaymentPlan.value = plan
+    }
+
+    fun setDepositAmountText(text: String) {
+        _depositAmountText.value = text
     }
 
     fun setAmountTenderedText(text: String) {
@@ -196,6 +292,41 @@ class PaymentViewModel @Inject constructor(
 
     fun clearSmsParseError() {
         _smsParseError.value = null
+    }
+
+    fun lookupVoucher(id: String) {
+        val voucherId = ServiceTokenCodec.resolveVoucherId(id) ?: run {
+            _resolvedVoucher.value = null
+            _voucherError.value = null
+            return
+        }
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val voucher = serviceVoucherDao.getByVoucherId(voucherId)
+            when {
+                voucher == null -> {
+                    _resolvedVoucher.value = null
+                    _voucherError.value = "NOT_FOUND"
+                }
+                voucher.remainingUses <= 0 -> {
+                    _resolvedVoucher.value = null
+                    _voucherError.value = "EXHAUSTED"
+                }
+                voucher.expiresAt != null && voucher.expiresAt <= now -> {
+                    _resolvedVoucher.value = null
+                    _voucherError.value = "EXPIRED"
+                }
+                else -> {
+                    _resolvedVoucher.value = voucher
+                    _voucherError.value = null
+                }
+            }
+        }
+    }
+
+    fun clearVoucher() {
+        _resolvedVoucher.value = null
+        _voucherError.value = null
     }
 
     /**
@@ -244,15 +375,21 @@ class PaymentViewModel @Inject constructor(
             return SaleCommitResult.Failure(appContext.getString(R.string.payment_use_on_credit_button))
         }
         val lines = cartRepository.items.value
-        if (lines.isEmpty()) return SaleCommitResult.EmptyCart
+        val serviceLines = cartRepository.serviceItems.value
+        val voucherLines = cartRepository.voucherItems.value
+        if (lines.isEmpty() && serviceLines.isEmpty() && voucherLines.isEmpty()) {
+            return SaleCommitResult.EmptyCart
+        }
         val money = cartRepository.monetary.value
         if (money.grandTotal <= 0.0) return SaleCommitResult.Failure("Invalid total")
         val draft = buildPaymentDraft()
         val taxRate = cartRepository.activeSettings.value?.taxRate ?: 0.0
         val cartCustomerId = cartRepository.selectedCustomer.value?.id
         return try {
-            val txId = saleRepository.commitPosSale(
+            val result = saleRepository.commitPosSale(
                 lines = lines,
+                serviceLines = serviceLines,
+                voucherLines = voucherLines,
                 taxAmount = money.taxAmount,
                 grandTotal = money.grandTotal,
                 taxRatePercent = taxRate,
@@ -260,7 +397,7 @@ class PaymentViewModel @Inject constructor(
                 cartCustomerId = cartCustomerId,
             )
             cartManager.clear()
-            SaleCommitResult.Success(txId)
+            SaleCommitResult.Success(result.transactionId, result.issuedVoucherIds)
         } catch (e: Exception) {
             SaleCommitResult.Failure(e.message ?: "Sale failed")
         }
@@ -306,6 +443,13 @@ class PaymentViewModel @Inject constructor(
             splitLine1Amount = if (split) a1 else null,
             splitLine2Method = if (split) _splitLine2Method.value else null,
             splitLine2Amount = if (split) a2 else null,
+            voucherId = if (!split && tab == PrimaryPaymentTab.VOUCHER) {
+                _resolvedVoucher.value?.voucherId
+            } else {
+                null
+            },
+            mixedPaymentPlan = _mixedPaymentPlan.value,
+            depositAmount = _depositAmountText.value.toDoubleOrNull(),
         )
     }
 
@@ -320,7 +464,11 @@ class PaymentViewModel @Inject constructor(
         val customer = selectedCustomer.value
             ?: return SaleCommitResult.Failure(appContext.getString(R.string.payment_credit_customer_required))
         val lines = cartRepository.items.value
-        if (lines.isEmpty()) return SaleCommitResult.EmptyCart
+        val serviceLines = cartRepository.serviceItems.value
+        val voucherLines = cartRepository.voucherItems.value
+        if (lines.isEmpty() && serviceLines.isEmpty() && voucherLines.isEmpty()) {
+            return SaleCommitResult.EmptyCart
+        }
         val money = cartRepository.monetary.value
         if (money.grandTotal <= 0.0) return SaleCommitResult.Failure("Invalid total")
         val draft = PaymentDraft(
@@ -341,8 +489,10 @@ class PaymentViewModel @Inject constructor(
         )
         val taxRate = cartRepository.activeSettings.value?.taxRate ?: 0.0
         return try {
-            val txId = saleRepository.commitPosSale(
+            val result = saleRepository.commitPosSale(
                 lines = lines,
+                serviceLines = serviceLines,
+                voucherLines = voucherLines,
                 taxAmount = money.taxAmount,
                 grandTotal = money.grandTotal,
                 taxRatePercent = taxRate,
@@ -350,7 +500,7 @@ class PaymentViewModel @Inject constructor(
                 cartCustomerId = customer.id,
             )
             cartManager.clear()
-            SaleCommitResult.Success(txId)
+            SaleCommitResult.Success(result.transactionId, result.issuedVoucherIds)
         } catch (e: Exception) {
             SaleCommitResult.Failure(e.message ?: "Sale failed")
         }

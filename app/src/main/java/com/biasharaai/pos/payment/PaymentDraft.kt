@@ -17,12 +17,21 @@ data class PaymentDraft(
     val splitLine1Amount: Double?,
     val splitLine2Method: SplitLineMethod?,
     val splitLine2Amount: Double?,
+    /** Voucher ID when paying by service voucher. */
+    val voucherId: String? = null,
+
+    /** Mixed-cart payment plan (ignored when cart is not mixed and not deposit). */
+    val mixedPaymentPlan: MixedPaymentPlan = MixedPaymentPlan.PAY_ALL,
+
+    /** Used when [mixedPaymentPlan] is [MixedPaymentPlan.DEPOSIT]. */
+    val depositAmount: Double? = null,
 )
 
 enum class PrimaryPaymentTab {
     CASH,
     MOBILE_MONEY,
     CREDIT,
+    VOUCHER,
 }
 
 enum class SplitLineMethod {

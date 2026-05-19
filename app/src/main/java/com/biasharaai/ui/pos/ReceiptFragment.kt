@@ -16,6 +16,7 @@ import com.biasharaai.data.local.db.TransactionType
 import com.biasharaai.databinding.FragmentReceiptBinding
 import com.biasharaai.databinding.ItemReceiptLineBinding
 import com.biasharaai.money.MoneyFormatter
+import com.biasharaai.pos.receipt.PosReceiptLine
 import com.biasharaai.ui.base.BaseFragment
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -60,6 +61,14 @@ class ReceiptFragment : BaseFragment() {
             )
         }
 
+        binding.btnViewVoucherQr.setOnClickListener {
+            val voucherId = viewModel.uiState.value.voucherIds.firstOrNull() ?: return@setOnClickListener
+            findNavController().navigate(
+                R.id.action_receiptFragment_to_voucherReceiptFragment,
+                VoucherReceiptFragment.args(voucherId),
+            )
+        }
+
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collect { state ->
@@ -69,7 +78,7 @@ class ReceiptFragment : BaseFragment() {
         }
     }
 
-    private fun bindReceipt(state: com.biasharaai.ui.pos.ReceiptUiState) {
+    private fun bindReceipt(state: ReceiptUiState) {
         val tx = state.transaction
         if (tx == null) {
             binding.textBusinessName.text = ""
@@ -103,12 +112,19 @@ class ReceiptFragment : BaseFragment() {
             val qty = abs(line.quantity)
             val unit = abs(line.unitPrice)
             val lineTotal = abs(line.lineTotal)
-            subtotal += line.lineTotal
+            subtotal += if (isReturn) -lineTotal else lineTotal
+
+            val kindSuffix = when (line.kind) {
+                PosReceiptLine.Kind.PRODUCT -> ""
+                PosReceiptLine.Kind.SERVICE -> getString(R.string.receipt_line_kind_service)
+                PosReceiptLine.Kind.VOUCHER -> getString(R.string.receipt_line_kind_voucher)
+            }
+            val displayName = line.name + kindSuffix
 
             row.textLineTitle.text = getString(
                 R.string.receipt_line_format,
                 qty,
-                line.productName,
+                displayName,
                 formatMoney(isReturn, unit, symbol),
             )
             row.textLineTotal.text = formatMoney(isReturn, lineTotal, symbol)
@@ -133,6 +149,22 @@ class ReceiptFragment : BaseFragment() {
             formatMoney(isReturn, abs(subtotal), symbol),
         )
 
+        if (!isReturn && tx.amountPaid > 0 && tx.balanceDue > 0.01) {
+            binding.textAmountPaid.isVisible = true
+            binding.textBalanceDue.isVisible = true
+            binding.textAmountPaid.text = getString(
+                R.string.receipt_amount_paid,
+                formatMoney(false, tx.amountPaid, symbol),
+            )
+            binding.textBalanceDue.text = getString(
+                R.string.receipt_balance_due,
+                formatMoney(false, tx.balanceDue, symbol),
+            )
+        } else {
+            binding.textAmountPaid.isVisible = false
+            binding.textBalanceDue.isVisible = false
+        }
+
         val totalDisplay = abs(tx.amount)
         binding.textGrandTotal.text = getString(
             R.string.receipt_total,
@@ -142,8 +174,16 @@ class ReceiptFragment : BaseFragment() {
         binding.textFooter.text = state.settings?.receiptFooter.orEmpty()
 
         val showReturn = tx.type == TransactionType.INCOME &&
-            state.lines.any { it.quantity > 0 }
+            state.lines.any { it.kind == PosReceiptLine.Kind.PRODUCT && it.quantity > 0 }
         binding.btnReturnItems.isVisible = showReturn
+
+        val voucherCount = state.voucherIds.size
+        binding.btnViewVoucherQr.isVisible = !isReturn && voucherCount > 0
+        binding.btnViewVoucherQr.text = if (voucherCount == 1) {
+            getString(R.string.receipt_view_voucher_qr_one)
+        } else {
+            getString(R.string.receipt_view_voucher_qr_many, voucherCount)
+        }
     }
 
     private fun formatMoney(isReturn: Boolean, value: Double, symbol: String): String {

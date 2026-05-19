@@ -17,6 +17,8 @@ import com.biasharaai.skills.builtin.QueryLedgerV2Skill
 import com.biasharaai.skills.builtin.QuerySalesSkill
 import com.biasharaai.skills.builtin.SuggestPriceSkill
 import com.biasharaai.skills.builtin.QueryAppKnowledgeSkill
+import com.biasharaai.skills.builtin.QueryBusinessProfileSkill
+import com.biasharaai.skills.builtin.QueryServicesSkill
 import com.biasharaai.skills.builtin.TeachUserSkill
 import com.biasharaai.skills.builtin.TranscribeVoiceSkill
 import com.biasharaai.skills.builtin.UpdateDataSkill
@@ -49,4 +51,6 @@ object SkillModule {
     @Provides @IntoSet fun provideFindCopurchasePairsSkill(skill: FindCopurchasePairsSkill): BiasharaSkill = skill
     @Provides @IntoSet fun provideQueryAppKnowledgeSkill(skill: QueryAppKnowledgeSkill): BiasharaSkill = skill
     @Provides @IntoSet fun provideTeachUserSkill(skill: TeachUserSkill): BiasharaSkill = skill
+    @Provides @IntoSet fun provideQueryBusinessProfileSkill(skill: QueryBusinessProfileSkill): BiasharaSkill = skill
+    @Provides @IntoSet fun provideQueryServicesSkill(skill: QueryServicesSkill): BiasharaSkill = skill
 }

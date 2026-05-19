@@ -53,6 +53,8 @@ class AgentActionExecutor @Inject constructor(
                 "REVIEW_CASH_FLOW",
                 "REVIEW_LEDGER",
                 "REVIEW_OPPORTUNITIES",
+                "REVIEW_VOUCHERS",
+                "EXPLORE_SERVICES",
                 null,
                 "",
                 -> ExecutionResult.Success

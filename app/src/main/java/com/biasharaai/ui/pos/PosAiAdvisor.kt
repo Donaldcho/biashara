@@ -2,7 +2,7 @@ package com.biasharaai.ui.pos
 
 import com.biasharaai.ai.CapabilityTier
 import com.biasharaai.ai.GemmaService
-import com.biasharaai.data.local.db.SaleLineItemDao
+import com.biasharaai.analytics.SalesIntelligenceRepository
 import com.biasharaai.data.local.db.TransactionRepository
 import com.biasharaai.data.local.db.TransactionType
 import kotlinx.coroutines.Dispatchers
@@ -25,7 +25,7 @@ data class EndOfDayStats(
 @Singleton
 class PosAiAdvisor @Inject constructor(
     private val transactionRepository: TransactionRepository,
-    private val saleLineItemDao: SaleLineItemDao,
+    private val salesIntelligence: SalesIntelligenceRepository,
     private val gemmaService: GemmaService,
 ) {
 
@@ -37,20 +37,18 @@ class PosAiAdvisor @Inject constructor(
         cal.set(Calendar.MILLISECOND, 0)
         val start = cal.timeInMillis
         cal.add(Calendar.DAY_OF_MONTH, 1)
-        val end = cal.timeInMillis - 1
+        val endExclusive = cal.timeInMillis
 
-        val txs = transactionRepository.getTransactionsBetween(start, end)
-        val lines = saleLineItemDao.saleLinesInPeriod(start, end)
-        val totalSales = lines.sumOf { it.lineTotal }
-        val txIds = lines.map { it.transactionId }.toSet()
-        val txCount = txIds.size
+        val summary = salesIntelligence.periodSummary(start, endExclusive)
+        val totalSales = summary.netRevenue
+        val top = salesIntelligence.topProductInPeriod(start, endExclusive)
+        val topQty = top?.netQty ?: 0
+        val topName = top?.name ?: "—"
 
-        val byProductId = lines.groupBy { it.productId }
-        val topEntry = byProductId.maxByOrNull { (_, rows) -> rows.sumOf { it.quantity } }
-        val topQty = topEntry?.value?.sumOf { it.quantity } ?: 0
-        val topName = topEntry?.value?.firstOrNull()?.productName ?: "—"
+        val txs = transactionRepository.getTransactionsBetween(start, endExclusive - 1)
+        val posSales = txs.filter { it.type == TransactionType.INCOME }
+        val txCount = posSales.size
 
-        val posSales = txs.filter { it.type == TransactionType.INCOME && it.id in txIds }
         var cash = 0
         var mobile = 0
         var credit = 0

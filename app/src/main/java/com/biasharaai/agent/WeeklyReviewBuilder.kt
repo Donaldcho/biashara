@@ -1,12 +1,18 @@
 package com.biasharaai.agent
 
+import com.biasharaai.data.local.db.AgentSetting
+import com.biasharaai.data.local.db.AgentSettingDao
 import com.biasharaai.data.local.db.AppSettingsDao
 import com.biasharaai.data.local.db.CustomerDao
 import com.biasharaai.data.local.db.DebtDao
-import com.biasharaai.data.local.db.SaleLineItemDao
+import com.biasharaai.analytics.SalesIntelligenceRepository
 import com.biasharaai.data.local.db.Transaction
+import com.biasharaai.data.local.db.ServiceDeliveryDao
+import com.biasharaai.data.local.db.ServiceItemDao
 import com.biasharaai.data.local.db.TransactionDao
 import com.biasharaai.data.local.db.TransactionType
+import com.biasharaai.productline.ProductLineManager
+import com.biasharaai.service.ServiceInsightsHelper
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.ZoneId
@@ -23,10 +29,14 @@ import javax.inject.Singleton
 @Singleton
 class WeeklyReviewBuilder @Inject constructor(
     private val transactionDao: TransactionDao,
-    private val saleLineItemDao: SaleLineItemDao,
+    private val salesIntelligence: SalesIntelligenceRepository,
     private val customerDao: CustomerDao,
     private val debtDao: DebtDao,
     private val appSettingsDao: AppSettingsDao,
+    private val serviceDeliveryDao: ServiceDeliveryDao,
+    private val serviceItemDao: ServiceItemDao,
+    private val productLineManager: ProductLineManager,
+    private val agentSettingDao: AgentSettingDao,
 ) {
 
     data class WeeklyReviewStats(
@@ -49,6 +59,10 @@ class WeeklyReviewBuilder @Inject constructor(
         /** Start of the reporting week (Monday 00:00 local) — dedupe + [AgentAction.relatedEntityId]. */
         val weekStartMillis: Long,
         val chipsForPayload: List<Pair<String, String>>,
+        val productRevenue: Double,
+        val serviceSalesRevenue: Double,
+        val serviceStats: ServiceInsightsHelper.PeriodServiceStats?,
+        val servicePromptBlock: String,
     )
 
     suspend fun buildLastCompletedIsoWeek(zone: ZoneId, locale: Locale = Locale.getDefault()): WeeklyReviewStats {
@@ -62,20 +76,17 @@ class WeeklyReviewBuilder @Inject constructor(
         val weekEndExMs = weekEndExclusiveDate.atStartOfDay(zone).toInstant().toEpochMilli()
         val prevWeekStartMs = prevWeekStartDate.atStartOfDay(zone).toInstant().toEpochMilli()
 
-        val weekRev = transactionDao.sumIncomeAmountBetween(weekStartMs, weekEndExMs)
-        val lastWeekRev = transactionDao.sumIncomeAmountBetween(prevWeekStartMs, weekStartMs)
+        val weekSummary = salesIntelligence.periodSummary(weekStartMs, weekEndExMs)
+        val lastWeekSummary = salesIntelligence.periodSummary(prevWeekStartMs, weekStartMs)
+        val weekRev = weekSummary.netRevenue
+        val lastWeekRev = lastWeekSummary.netRevenue
         val txCount = transactionDao.countIncomeTransactionsBetween(weekStartMs, weekEndExMs)
+        val serviceSalesRev = weekSummary.grossServiceSubtotal
 
         val lineEndInclusive = weekEndExMs - 1L
-        val lines = saleLineItemDao.saleLinesInPeriod(weekStartMs, lineEndInclusive)
-        val byProduct = lines.groupBy { it.productId }.mapValues { (_, rows) ->
-            val qty = rows.sumOf { it.quantity }
-            val rev = rows.sumOf { it.lineTotal }
-            Triple(rows.first().productName, qty, rev)
-        }
-        val positive = byProduct.values.filter { it.second > 0 }
-        val top = positive.maxByOrNull { it.second }
-        val slow = positive.minByOrNull { it.second }
+        val netRanks = salesIntelligence.netProductRanksInPeriod(weekStartMs, weekEndExMs)
+        val top = netRanks.maxByOrNull { it.netQty }
+        val slow = netRanks.filter { it.netQty > 0 }.minByOrNull { it.netQty }
 
         val newCustomers = customerDao.countCustomersCreatedBetween(weekStartMs, weekEndExMs)
         val returningCustomers = customerDao.countReturningBuyerCustomersInWeek(weekStartMs, weekEndExMs)
@@ -84,7 +95,7 @@ class WeeklyReviewBuilder @Inject constructor(
         val debtCustomerCount = debtDao.countCustomersWithOutstandingDebt()
 
         val weekIncomeTx = transactionDao.getTransactionsBetween(weekStartMs, lineEndInclusive)
-            .filter { it.type == TransactionType.INCOME }
+            .filter { it.type == TransactionType.INCOME || it.type == TransactionType.RETURN }
 
         val bestDay = bestTradingDayLabel(weekIncomeTx, zone, locale)
         val bestHour = bestTradingHour(weekIncomeTx, zone)
@@ -93,10 +104,42 @@ class WeeklyReviewBuilder @Inject constructor(
         val businessName = app?.businessName?.takeIf { it.isNotBlank() } ?: "My shop"
         val currencySymbol = app?.currencySymbol?.takeIf { it.isNotBlank() } ?: "KSh"
 
+        val agentSettings = agentSettingDao.getSettingsSync() ?: AgentSetting()
+        val serviceStats = if (productLineManager.isProEnabled()) {
+            ServiceInsightsHelper.buildForPeriod(
+                serviceDeliveryDao,
+                serviceItemDao,
+                agentSettings,
+                weekStartMs,
+                weekEndExMs,
+            )
+        } else {
+            null
+        }
+        val serviceBlock = when {
+            serviceStats != null && (serviceStats.hasActivity() || serviceStats.activeServiceCount > 0) ->
+                ServiceInsightsHelper.formatForAgentPrompt(serviceStats, currencySymbol)
+            productLineManager.isProEnabled() ->
+                "Services: Pro enabled but no service deliveries recorded this week. Record service sales on the Sales tab (Services or Both mode)."
+            else -> ""
+        }
+
         val money = { v: Double -> String.format(Locale.US, "%.2f", v) }
         val chips = buildList {
-            add("Revenue" to "$currencySymbol${money(weekRev)}")
-            add("Last week" to "$currencySymbol${money(lastWeekRev)}")
+            add("Revenue (net)" to "$currencySymbol${money(weekRev)}")
+            add("Last week (net)" to "$currencySymbol${money(lastWeekRev)}")
+            if (weekSummary.returnTransactionCount > 0) {
+                add("Returns" to "$currencySymbol${money(weekSummary.returnsTotal)} (${weekSummary.returnTransactionCount})")
+            }
+            add("Product sales" to "$currencySymbol${money(weekSummary.grossProductSubtotal)}")
+            if (productLineManager.isProEnabled()) {
+                add("Service sales" to "$currencySymbol${money(serviceSalesRev)}")
+                serviceStats?.let { s ->
+                    add("Service visits" to s.deliveryCount.toString())
+                    add("Top service" to s.topServiceName)
+                    add("Utilisation" to "${s.utilisationPct}%")
+                }
+            }
             add("Transactions" to txCount.toString())
             add("New customers" to newCustomers.toString())
             add("Returning" to returningCustomers.toString())
@@ -104,8 +147,8 @@ class WeeklyReviewBuilder @Inject constructor(
             add("Debtors" to debtCustomerCount.toString())
             add("Best day" to bestDay)
             add("Best hour" to "${bestHour}:00")
-            add("Top SKU" to (top?.first ?: "—"))
-            add("Slow SKU" to (slow?.first ?: "—"))
+            add("Top SKU" to (top?.name ?: "—"))
+            add("Slow SKU" to (slow?.name ?: "—"))
         }
 
         return WeeklyReviewStats(
@@ -114,11 +157,11 @@ class WeeklyReviewBuilder @Inject constructor(
             weekRevenue = weekRev,
             lastWeekRevenue = lastWeekRev,
             txCount = txCount,
-            topProduct = top?.first ?: "—",
-            topQty = top?.second ?: 0,
-            topRevenue = top?.third ?: 0.0,
-            slowProduct = slow?.first ?: "—",
-            slowQty = slow?.second ?: 0,
+            topProduct = top?.name ?: "—",
+            topQty = top?.netQty ?: 0,
+            topRevenue = top?.netRevenue ?: 0.0,
+            slowProduct = slow?.name ?: "—",
+            slowQty = slow?.netQty ?: 0,
             newCustomers = newCustomers,
             returningCustomers = returningCustomers,
             totalCredit = totalCredit,
@@ -127,6 +170,10 @@ class WeeklyReviewBuilder @Inject constructor(
             bestHour = bestHour,
             weekStartMillis = weekStartMs,
             chipsForPayload = chips,
+            productRevenue = weekSummary.grossProductSubtotal,
+            serviceSalesRevenue = serviceSalesRev,
+            serviceStats = serviceStats,
+            servicePromptBlock = serviceBlock,
         )
     }
 

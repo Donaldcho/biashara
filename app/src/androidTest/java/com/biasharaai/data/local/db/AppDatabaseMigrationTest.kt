@@ -485,6 +485,65 @@ class AppDatabaseMigrationTest {
         db.close()
     }
 
+    @Test
+    fun migrate28To30_addsProServiceTablesAndColumns() {
+        var db = helper.createDatabase(TEST_DB, 28)
+        db.execSQL(
+            "INSERT INTO service_items (name, base_price, catalogue_token, created_at, updated_at) " +
+                "VALUES ('Haircut', 500.0, 'BSVC:1', 1, 1)",
+        )
+        db.close()
+
+        db = helper.runMigrationsAndValidate(
+            TEST_DB,
+            28,
+            true,
+            DatabaseMigrations.MIGRATION_28_29,
+            DatabaseMigrations.MIGRATION_29_30,
+        )
+
+        db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='staff_members'")
+            .use { assertTrue(it.moveToFirst()) }
+        db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='appointments'")
+            .use { assertTrue(it.moveToFirst()) }
+
+        db.query("PRAGMA table_info(app_settings)").use { c ->
+            val cols = mutableSetOf<String>()
+            while (c.moveToNext()) cols.add(c.getString(1))
+            assertTrue(cols.contains("pro_onboarding_shown"))
+            assertTrue(cols.contains("pro_activated_at"))
+        }
+
+        db.query("PRAGMA table_info(agent_settings)").use { c ->
+            val cols = mutableSetOf<String>()
+            while (c.moveToNext()) cols.add(c.getString(1))
+            assertTrue(cols.contains("utilisation_agent_enabled"))
+            assertTrue(cols.contains("working_hours_per_day"))
+        }
+
+        db.query("SELECT COUNT(*) FROM service_items").use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals(1, c.getInt(0))
+        }
+
+        // appointments table must have Room-compatible index names (not idx_apt_*)
+        db.query(
+            "SELECT name FROM sqlite_master WHERE type='index' AND name='index_appointments_scheduled_at'",
+        ).use { c -> assertTrue("index_appointments_scheduled_at missing after 28→29", c.moveToFirst()) }
+        db.query(
+            "SELECT name FROM sqlite_master WHERE type='index' AND name='index_appointments_status'",
+        ).use { c -> assertTrue("index_appointments_status missing after 28→29", c.moveToFirst()) }
+        db.query(
+            "SELECT name FROM sqlite_master WHERE type='index' AND name='index_appointments_customer_id'",
+        ).use { c -> assertTrue("index_appointments_customer_id missing after 28→29", c.moveToFirst()) }
+        // Old shorthand names must NOT be present
+        db.query(
+            "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_apt_scheduled'",
+        ).use { c -> assertFalse("idx_apt_scheduled should not exist", c.moveToFirst()) }
+
+        db.close()
+    }
+
     companion object {
         private const val TEST_DB = "migration-test-biashara.db"
     }

@@ -51,6 +51,10 @@
             app:destination="@id/addEditProductFragment" />
 
         <action
+            android:id="@+id/action_inventoryListFragment_to_addEditServiceFragment"
+            app:destination="@id/addEditServiceFragment" />
+
+        <action
             android:id="@+id/action_inventoryListFragment_to_barcodeScannerFragment"
             app:destination="@id/barcodeScannerFragment" />
 
@@ -90,6 +94,18 @@
             android:name="fallback_mode"
             app:argType="boolean"
             android:defaultValue="false" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/addEditServiceFragment"
+        android:name="com.biasharaai.ui.inventory.AddEditServiceFragment"
+        android:label="@string/service_add_title"
+        tools:layout="@layout/fragment_add_edit_service">
+
+        <argument
+            android:name="service_id"
+            app:argType="long"
+            android:defaultValue="0L" />
     </fragment>
 
     <!-- AddEditProductFragment (Prompt 5) -->
@@ -249,9 +265,19 @@
             android:name="transaction_id"
             app:argType="long" />
 
+        <argument
+            android:name="issued_voucher_ids"
+            android:defaultValue="@null"
+            app:argType="string[]"
+            app:nullable="true" />
+
         <action
             android:id="@+id/action_receiptFragment_to_returnFragment"
             app:destination="@id/returnFragment" />
+
+        <action
+            android:id="@+id/action_receiptFragment_to_voucherReceiptFragment"
+            app:destination="@id/voucherReceiptFragment" />
     </fragment>
 
     <fragment
@@ -276,7 +302,39 @@
             app:destination="@id/receiptFragment"
             app:popUpTo="@id/posFragment"
             app:popUpToInclusive="false" />
+
+        <action
+            android:id="@+id/action_paymentDialogFragment_to_voucherReceiptFragment"
+            app:destination="@id/voucherReceiptFragment"
+            app:popUpTo="@id/posFragment"
+            app:popUpToInclusive="false" />
+
+        <action
+            android:id="@+id/action_paymentDialogFragment_to_barcodeScannerFragment"
+            app:destination="@id/barcodeScannerFragment" />
     </dialog>
+
+    <fragment
+        android:id="@+id/voucherReceiptFragment"
+        android:name="com.biasharaai.ui.pos.VoucherReceiptFragment"
+        android:label="@string/voucher_receipt_title"
+        tools:layout="@layout/fragment_voucher_receipt">
+
+        <argument
+            android:name="voucher_id"
+            app:argType="string" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/serviceReceiptScanFragment"
+        android:name="com.biasharaai.ui.pos.ServiceReceiptScanFragment"
+        android:label="@string/bsrc_scan_title"
+        tools:layout="@layout/fragment_service_receipt_scan">
+
+        <argument
+            android:name="raw_token"
+            app:argType="string" />
+    </fragment>
 
     <fragment
         android:id="@+id/supplierNegotiationFragment"
@@ -316,7 +374,38 @@
         <action
             android:id="@+id/action_settingsFragment_to_insightsFragment"
             app:destination="@id/insightsFragment" />
+
+        <action
+            android:id="@+id/action_settingsFragment_to_staffSettingsFragment"
+            app:destination="@id/staffSettingsFragment" />
+
+        <action
+            android:id="@+id/action_settingsFragment_to_businessProfileEditFragment"
+            app:destination="@id/businessProfileEditFragment" />
     </fragment>
+
+    <fragment
+        android:id="@+id/businessProfileEditFragment"
+        android:name="com.biasharaai.ui.profile.BusinessProfileEditFragment"
+        android:label="@string/business_profile_edit_title"
+        tools:layout="@layout/fragment_business_profile_edit">
+
+        <action
+            android:id="@+id/action_businessProfileEditFragment_to_businessProfileOnboardingFragment"
+            app:destination="@id/businessProfileOnboardingFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/businessProfileOnboardingFragment"
+        android:name="com.biasharaai.ui.profile.BusinessProfileOnboardingFragment"
+        android:label="@string/business_onboarding_title"
+        tools:layout="@layout/fragment_business_profile_onboarding" />
+
+    <fragment
+        android:id="@+id/staffSettingsFragment"
+        android:name="com.biasharaai.ui.settings.StaffSettingsFragment"
+        android:label="@string/staff_settings_title"
+        tools:layout="@layout/fragment_staff_settings" />
 
     <fragment
         android:id="@+id/voiceSettingsFragment"

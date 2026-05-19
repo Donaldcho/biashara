@@ -2,7 +2,14 @@ package com.biasharaai.data.local.db
 
 import androidx.room.withTransaction
 import com.biasharaai.pos.cart.CartItem
+import com.biasharaai.pos.payment.MixedPaymentPlan
+import com.biasharaai.pos.payment.MixedSaleAllocator
 import com.biasharaai.pos.payment.PaymentDraft
+import com.biasharaai.pos.cart.VoucherCartItem
+import com.biasharaai.service.ServiceCartLine
+import com.biasharaai.service.ServiceRepository
+import com.biasharaai.service.isVoucherable
+import com.biasharaai.service.voucherValidDays
 import com.biasharaai.pos.payment.PrimaryPaymentTab
 import java.util.UUID
 import javax.inject.Inject
@@ -28,7 +35,13 @@ class SaleRepository @Inject constructor(
     private val debtDao: DebtDao,
     private val customerDao: CustomerDao,
     private val ledgerRepository: LedgerRepository,
+    private val serviceRepository: ServiceRepository,
+    private val serviceVoucherDao: ServiceVoucherDao,
 ) {
+
+    companion object {
+        private const val EPSILON = 0.01
+    }
 
     /**
      * Atomic POS sale: one INCOME [Transaction], line items, stock decrement, optional credit [Debt].
@@ -38,6 +51,8 @@ class SaleRepository @Inject constructor(
      */
     suspend fun commitPosSale(
         lines: List<CartItem>,
+        serviceLines: List<ServiceCartLine> = emptyList(),
+        voucherLines: List<VoucherCartItem> = emptyList(),
         taxAmount: Double,
         grandTotal: Double,
         taxRatePercent: Double,
@@ -45,24 +60,56 @@ class SaleRepository @Inject constructor(
         cartCustomerId: Long?,
         transactionDescription: String = "POS sale",
         transactionNoteTypeOverride: String? = null,
-    ): Long {
-        require(lines.isNotEmpty()) { "Cart is empty" }
+    ): PosSaleCommitResult {
+        require(lines.isNotEmpty() || serviceLines.isNotEmpty() || voucherLines.isNotEmpty()) {
+            "Cart is empty"
+        }
+        require(serviceLines.isEmpty() || serviceLines.all { it.quantity > 0 }) { "Invalid service qty" }
         require(grandTotal > 0) { "Grand total must be positive" }
 
         val receiptNumber = "RCP-${System.currentTimeMillis()}"
         val saleGroupId = UUID.randomUUID().toString()
 
+        val breakdown = MixedSaleAllocator.fromCart(
+            productLines = lines,
+            serviceLines = serviceLines,
+            voucherLines = voucherLines,
+            taxRatePercent = taxRatePercent,
+        )
+        val paymentPlan = when {
+            !draft.splitMode && draft.primaryTab == PrimaryPaymentTab.CREDIT -> MixedPaymentPlan.PAY_ALL
+            else -> draft.mixedPaymentPlan
+        }
+        val paymentSplit = if (!draft.splitMode && draft.primaryTab == PrimaryPaymentTab.CREDIT) {
+            MixedSaleAllocator.PaymentSplit(
+                paidNow = 0.0,
+                balanceDue = grandTotal,
+                taxOnPaidPortion = 0.0,
+                taxOnCreditPortion = breakdown.taxAmount,
+            )
+        } else {
+            MixedSaleAllocator.paymentSplit(breakdown, paymentPlan, draft.depositAmount)
+        }
+        if (paymentSplit.balanceDue > EPSILON && paymentPlan != MixedPaymentPlan.PAY_ALL) {
+            require(cartCustomerId != null || draft.creditCustomerId != null) {
+                "Select a customer for balance due / deposit sales"
+            }
+        }
+
         val customerId: Long? = when {
             draft.splitMode -> cartCustomerId
             draft.primaryTab == PrimaryPaymentTab.CREDIT ->
                 draft.creditCustomerId ?: error("Credit sale requires a customer")
+            paymentSplit.balanceDue > EPSILON -> cartCustomerId ?: draft.creditCustomerId
             else -> cartCustomerId
         }
 
+        val amountDueNow = paymentSplit.paidNow
         val (paymentMethod, amountTendered, changeDue, mobileNetwork, mobileRef) =
-            paymentFieldsFromDraft(draft, grandTotal)
+            paymentFieldsFromDraft(draft, amountDueNow)
 
-        return database.withTransaction {
+        val issuedVoucherIds = mutableListOf<String>()
+        val txId = database.withTransaction {
             for (item in lines) {
                 val row = productDao.getProductByIdOnce(item.product.id)
                     ?: error("Product no longer exists: ${item.product.name}")
@@ -76,6 +123,11 @@ class SaleRepository @Inject constructor(
             val noteType = transactionNoteTypeOverride ?: when {
                 draft.splitMode -> TransactionNoteTypes.STANDARD
                 draft.primaryTab == PrimaryPaymentTab.CREDIT -> TransactionNoteTypes.CREDIT_EXTENDED
+                paymentPlan == MixedPaymentPlan.DEPOSIT && paymentSplit.balanceDue > EPSILON ->
+                    TransactionNoteTypes.DEPOSIT_TAKEN
+                paymentPlan == MixedPaymentPlan.CREDIT_SERVICES ||
+                    paymentPlan == MixedPaymentPlan.CREDIT_PRODUCTS ->
+                    TransactionNoteTypes.PARTIAL_CREDIT
                 else -> TransactionNoteTypes.STANDARD
             }
 
@@ -96,6 +148,10 @@ class SaleRepository @Inject constructor(
                 customerId = customerId,
                 relatedSaleTransactionId = null,
                 noteType = noteType,
+                productSubtotal = breakdown.productSubtotal,
+                serviceSubtotal = breakdown.serviceSubtotal + breakdown.voucherSubtotal,
+                amountPaid = paymentSplit.paidNow,
+                balanceDue = paymentSplit.balanceDue,
             )
             val txId = transactionDao.insertTransaction(tx)
 
@@ -116,12 +172,61 @@ class SaleRepository @Inject constructor(
 
             val committedTx = tx.copy(id = txId)
             val lineItems = saleLineItemDao.getLineItemsForTransactionOnce(txId)
+            val serviceNames = serviceLines.flatMap { line ->
+                List(line.quantity) { line.service.name }
+            }
+            val hasProducts = lines.isNotEmpty()
+            val hasServices = serviceLines.isNotEmpty()
 
-            if (!draft.splitMode && draft.primaryTab == PrimaryPaymentTab.CREDIT) {
+            if (paymentSplit.paidNow > EPSILON) {
+                val cashLedgerTx = committedTx.copy(
+                    amount = paymentSplit.paidNow,
+                    amountPaid = paymentSplit.paidNow,
+                )
+                when {
+                    hasProducts && hasServices ->
+                        ledgerRepository.recordMixedSale(
+                            cashLedgerTx,
+                            lineItems,
+                            serviceNames,
+                            customerId,
+                            cashAmount = paymentSplit.paidNow,
+                        )
+                    hasServices ->
+                        ledgerRepository.recordServiceSale(
+                            cashLedgerTx,
+                            serviceNames,
+                            customerId,
+                            cashAmount = paymentSplit.paidNow,
+                        )
+                    hasProducts ->
+                        ledgerRepository.recordProductSale(
+                            cashLedgerTx,
+                            lineItems,
+                            customerId,
+                            cashAmount = paymentSplit.paidNow,
+                        )
+                    voucherLines.isEmpty() ->
+                        ledgerRepository.recordProductSale(
+                            cashLedgerTx,
+                            lineItems,
+                            customerId,
+                            cashAmount = paymentSplit.paidNow,
+                        )
+                }
+            }
+
+            if (paymentSplit.balanceDue > EPSILON) {
                 val cid = checkNotNull(customerId)
                 val debtDescription = buildString {
-                    append("POS sale ")
+                    append("Balance: ")
                     append(receiptNumber)
+                    when (paymentPlan) {
+                        MixedPaymentPlan.DEPOSIT -> append(" (deposit sale)")
+                        MixedPaymentPlan.CREDIT_SERVICES -> append(" (service/labour)")
+                        MixedPaymentPlan.CREDIT_PRODUCTS -> append(" (parts/products)")
+                        else -> append(" (credit)")
+                    }
                     val n = draft.creditNote?.trim().orEmpty()
                     if (n.isNotEmpty()) {
                         append(" — ")
@@ -131,10 +236,11 @@ class SaleRepository @Inject constructor(
                 val debtId = debtDao.insertDebt(
                     Debt(
                         customerId = cid,
-                        amount = grandTotal,
+                        amount = paymentSplit.balanceDue,
                         description = debtDescription,
                         dueDate = draft.creditDueDateMillis,
                         createdAt = System.currentTimeMillis(),
+                        sourceTransactionId = txId,
                     ),
                 )
                 val customerName = customerDao.getCustomerById(cid)?.name ?: "Customer"
@@ -142,15 +248,52 @@ class SaleRepository @Inject constructor(
                     Debt(
                         id = debtId,
                         customerId = cid,
-                        amount = grandTotal,
+                        amount = paymentSplit.balanceDue,
                         description = debtDescription,
                         dueDate = draft.creditDueDateMillis,
                         createdAt = System.currentTimeMillis(),
+                        sourceTransactionId = txId,
                     ),
                     customerName,
                 )
-            } else {
-                ledgerRepository.recordProductSale(committedTx, lineItems, customerId)
+            }
+
+            if (serviceLines.isNotEmpty()) {
+                serviceRepository.recordDeliveriesForSale(
+                    services = serviceLines,
+                    transactionId = txId,
+                    customerId = customerId,
+                )
+            }
+
+            for (voucherItem in voucherLines) {
+                require(voucherItem.serviceItem.isVoucherable) {
+                    "Service is not voucherable: ${voucherItem.serviceItem.name}"
+                }
+                val expiresAt = System.currentTimeMillis() +
+                    voucherItem.serviceItem.voucherValidDays * 86_400_000L
+                val voucher = serviceRepository.sellVoucher(
+                    serviceItemId = voucherItem.serviceItem.id,
+                    totalUses = voucherItem.uses,
+                    amountPaid = voucherItem.totalAmount,
+                    customerId = voucherItem.customerId ?: customerId,
+                    expiresAt = expiresAt,
+                    sourceTransactionId = txId,
+                )
+                issuedVoucherIds += voucher.voucherId
+            }
+
+            if (!draft.splitMode && draft.primaryTab == PrimaryPaymentTab.VOUCHER) {
+                val vid = checkNotNull(draft.voucherId) { "Voucher payment missing voucher ID" }
+                val voucher = serviceVoucherDao.getByVoucherId(vid)
+                    ?: error("Voucher not found: $vid")
+                require(voucher.remainingUses > 0) { "Voucher has no remaining uses" }
+                serviceVoucherDao.update(
+                    voucher.copy(
+                        remainingUses = voucher.remainingUses - 1,
+                        lastRedeemedAt = System.currentTimeMillis(),
+                    ),
+                )
             }
 
             if (customerId != null) {
@@ -158,6 +301,81 @@ class SaleRepository @Inject constructor(
             }
 
             txId
+        }
+        return PosSaleCommitResult(transactionId = txId, issuedVoucherIds = issuedVoucherIds)
+    }
+
+    /**
+     * Scenario 3 — collect remaining balance on a sale with [Transaction.balanceDue].
+     */
+    suspend fun commitBalanceSettlement(
+        originalTransactionId: Long,
+        draft: PaymentDraft,
+    ): Long {
+        val original = transactionDao.getTransactionById(originalTransactionId)
+            ?: error("Sale not found")
+        require(original.balanceDue > EPSILON) { "No balance due on this sale" }
+        require(original.settledAt == null) { "Sale already settled" }
+        val balance = original.balanceDue
+        val customerId = original.customerId ?: error("Sale has no customer profile")
+        val (paymentMethod, amountTendered, changeDue, mobileNetwork, mobileRef) =
+            paymentFieldsFromDraft(draft, balance)
+
+        return database.withTransaction {
+            val now = System.currentTimeMillis()
+            val settlementTx = Transaction(
+                type = TransactionType.INCOME,
+                amount = balance,
+                description = "Balance: ${original.receiptNumber ?: original.id}",
+                date = now,
+                paymentMethod = paymentMethod,
+                mobileMoneyNetwork = mobileNetwork,
+                mobileMoneyRef = mobileRef,
+                amountTendered = amountTendered,
+                changeDue = changeDue,
+                receiptNumber = "RCP-${now}",
+                saleGroupId = original.saleGroupId,
+                taxRate = 0.0,
+                taxAmount = 0.0,
+                customerId = customerId,
+                relatedSaleTransactionId = originalTransactionId,
+                noteType = TransactionNoteTypes.BALANCE_SETTLED,
+                productSubtotal = 0.0,
+                serviceSubtotal = 0.0,
+                amountPaid = balance,
+                balanceDue = 0.0,
+                parentTransactionId = originalTransactionId,
+            )
+            val settlementId = transactionDao.insertTransaction(settlementTx)
+            transactionDao.updateBalanceSettlement(originalTransactionId, 0.0, now)
+
+            val lineItems = saleLineItemDao.getLineItemsForTransactionOnce(originalTransactionId)
+            val hasProducts = lineItems.any { it.quantity > 0 }
+            val hasServices = original.serviceSubtotal > EPSILON
+            val committed = settlementTx.copy(id = settlementId)
+            when {
+                hasProducts && hasServices ->
+                    ledgerRepository.recordMixedSale(
+                        committed,
+                        lineItems,
+                        emptyList(),
+                        customerId,
+                        cashAmount = balance,
+                    )
+                hasServices ->
+                    ledgerRepository.recordServiceSale(committed, emptyList(), customerId, cashAmount = balance)
+                else ->
+                    ledgerRepository.recordProductSale(committed, lineItems, customerId, cashAmount = balance)
+            }
+
+            debtDao.getOpenDebtForTransaction(originalTransactionId)?.let { debt ->
+                debtDao.markPaid(debt.id)
+                val customerName = customerDao.getCustomerById(customerId)?.name ?: "Customer"
+                ledgerRepository.recordDebtRepaid(debt, customerName, balance)
+            }
+
+            customerDao.updateLastVisit(customerId, now)
+            settlementId
         }
     }
 
@@ -195,6 +413,13 @@ class SaleRepository @Inject constructor(
                 changeDue = null,
                 mobileNetwork = null,
                 mobileRef = null,
+            )
+            PrimaryPaymentTab.VOUCHER -> PaymentFields(
+                paymentMethod = "VOUCHER",
+                amountTendered = null,
+                changeDue = null,
+                mobileNetwork = null,
+                mobileRef = draft.voucherId,
             )
         }
     }

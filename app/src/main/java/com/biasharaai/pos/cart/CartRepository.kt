@@ -49,6 +49,10 @@ class CartRepository @Inject constructor(
 
     val items: StateFlow<List<CartItem>> = cartManager.items
 
+    val serviceItems = cartManager.serviceItems
+
+    val voucherItems = cartManager.voucherItems
+
     /** Latest row from `app_settings` (singleton `id = 1`), or null before first emit. */
     private val settingsState: StateFlow<AppSettings?> = appSettingsDao.getSettings()
         .stateIn(scope, SharingStarted.Eagerly, null)
@@ -61,9 +65,13 @@ class CartRepository @Inject constructor(
      */
     val monetary: StateFlow<CartMonetary> = combine(
         cartManager.items,
+        cartManager.serviceItems,
+        cartManager.voucherItems,
         settingsState,
-    ) { cartItems, settings ->
-        val subtotal = cartItems.sumOf { it.lineTotal }
+    ) { cartItems, serviceLines, voucherLines, settings ->
+        val subtotal = cartItems.sumOf { it.lineTotal } +
+            serviceLines.sumOf { it.lineTotal } +
+            voucherLines.sumOf { it.totalAmount }
         val ratePercent = settings?.taxRate ?: 0.0
         val tax = subtotal * (ratePercent / 100.0)
         val grand = subtotal + tax

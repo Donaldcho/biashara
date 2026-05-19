@@ -4,6 +4,7 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.drawable.ColorDrawable
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DiffUtil
@@ -14,14 +15,17 @@ import com.biasharaai.R
 import com.biasharaai.databinding.ItemCartLineBinding
 import com.biasharaai.pos.cart.CartItem
 import com.biasharaai.pos.cart.CartManager
+import com.biasharaai.pos.cart.PosCartLine
+import com.biasharaai.service.ServiceCartLine
 import kotlin.math.abs
 
 class CartAdapter(
     private val cartManager: CartManager,
     private val formatMoney: (Double) -> String,
     private var allowPriceOverride: Boolean,
-    private val onRequestPriceOverride: (CartItem) -> Unit,
-) : ListAdapter<CartItem, CartAdapter.CartViewHolder>(DIFF) {
+    private val onRequestProductPriceOverride: (CartItem) -> Unit,
+    private val onRequestServicePriceOverride: (ServiceCartLine) -> Unit,
+) : ListAdapter<PosCartLine, CartAdapter.CartViewHolder>(DIFF) {
 
     fun setAllowPriceOverride(allow: Boolean) {
         allowPriceOverride = allow
@@ -40,18 +44,41 @@ class CartAdapter(
         private val binding: ItemCartLineBinding,
     ) : RecyclerView.ViewHolder(binding.root) {
 
-        fun bind(item: CartItem) {
-            val p = item.product
-            binding.textProductName.text = p.name
-            binding.textQuantity.text = item.quantity.toString()
-            binding.textLineTotal.text = formatMoney(item.lineTotal)
+        fun bind(line: PosCartLine) {
+            binding.textProductName.text = line.displayName
+            binding.textQuantity.text = line.quantity.toString()
+            binding.textLineTotal.text = formatMoney(line.lineTotal)
 
-            val override = item.overridePrice
-            val catalog = p.price
-            val effective = item.effectivePrice
+            if (line.subtitle.isNullOrBlank()) {
+                binding.textCartSubtitle.visibility = View.GONE
+            } else {
+                binding.textCartSubtitle.visibility = View.VISIBLE
+                binding.textCartSubtitle.text = line.subtitle
+            }
+
+            val catalog: Double
+            val effective: Double
+            val override: Double?
+            when (line) {
+                is PosCartLine.Product -> {
+                    catalog = line.item.product.price
+                    effective = line.item.effectivePrice
+                    override = line.item.overridePrice
+                }
+                is PosCartLine.Service -> {
+                    catalog = line.line.service.basePrice
+                    effective = line.line.effectivePrice
+                    override = line.line.overridePrice
+                }
+                is PosCartLine.Voucher -> {
+                    catalog = line.item.pricePerUse
+                    effective = line.item.pricePerUse
+                    override = null
+                }
+            }
 
             if (override != null) {
-                binding.textOriginalUnitPrice.visibility = android.view.View.VISIBLE
+                binding.textOriginalUnitPrice.visibility = View.VISIBLE
                 binding.textOriginalUnitPrice.text = formatMoney(catalog)
                 binding.textOriginalUnitPrice.paintFlags =
                     binding.textOriginalUnitPrice.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
@@ -59,7 +86,7 @@ class CartAdapter(
                     ContextCompat.getColor(binding.root.context, R.color.pos_price_override),
                 )
             } else {
-                binding.textOriginalUnitPrice.visibility = android.view.View.GONE
+                binding.textOriginalUnitPrice.visibility = View.GONE
                 binding.textOriginalUnitPrice.paintFlags =
                     binding.textOriginalUnitPrice.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
                 binding.textEffectiveUnitPrice.setTextColor(
@@ -72,31 +99,49 @@ class CartAdapter(
             }
             binding.textEffectiveUnitPrice.text = formatMoney(effective)
 
+            val canOverride = allowPriceOverride && line.allowsPriceOverride
             binding.textEffectiveUnitPrice.setOnClickListener(null)
-            if (allowPriceOverride) {
+            if (canOverride) {
                 binding.textEffectiveUnitPrice.isClickable = true
                 binding.textEffectiveUnitPrice.setOnClickListener {
-                    onRequestPriceOverride(item)
+                    when (line) {
+                        is PosCartLine.Product -> onRequestProductPriceOverride(line.item)
+                        is PosCartLine.Service -> onRequestServicePriceOverride(line.line)
+                        is PosCartLine.Voucher -> Unit
+                    }
                 }
             } else {
                 binding.textEffectiveUnitPrice.isClickable = false
             }
 
+            val qtyControlsVisible = line !is PosCartLine.Voucher
+            binding.btnQtyMinus.visibility = if (qtyControlsVisible) View.VISIBLE else View.INVISIBLE
+            binding.btnQtyPlus.visibility = if (qtyControlsVisible) View.VISIBLE else View.INVISIBLE
+            binding.textQuantity.visibility = if (qtyControlsVisible) View.VISIBLE else View.INVISIBLE
+
             binding.btnQtyMinus.setOnClickListener {
-                cartManager.updateQuantity(p.id, item.quantity - 1)
+                when (line) {
+                    is PosCartLine.Product -> cartManager.updateQuantity(line.item.product.id, line.quantity - 1)
+                    is PosCartLine.Service -> cartManager.updateServiceQuantity(line.line.service.id, line.quantity - 1)
+                    is PosCartLine.Voucher -> Unit
+                }
             }
             binding.btnQtyPlus.setOnClickListener {
-                cartManager.updateQuantity(p.id, item.quantity + 1)
+                when (line) {
+                    is PosCartLine.Product -> cartManager.updateQuantity(line.item.product.id, line.quantity + 1)
+                    is PosCartLine.Service -> cartManager.updateServiceQuantity(line.line.service.id, line.quantity + 1)
+                    is PosCartLine.Voucher -> Unit
+                }
             }
         }
     }
 
     companion object {
-        private val DIFF = object : DiffUtil.ItemCallback<CartItem>() {
-            override fun areItemsTheSame(oldItem: CartItem, newItem: CartItem): Boolean =
-                oldItem.product.id == newItem.product.id
+        private val DIFF = object : DiffUtil.ItemCallback<PosCartLine>() {
+            override fun areItemsTheSame(oldItem: PosCartLine, newItem: PosCartLine): Boolean =
+                oldItem.key == newItem.key
 
-            override fun areContentsTheSame(oldItem: CartItem, newItem: CartItem): Boolean =
+            override fun areContentsTheSame(oldItem: PosCartLine, newItem: PosCartLine): Boolean =
                 oldItem == newItem
         }
 
@@ -118,8 +163,8 @@ class CartAdapter(
                     override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
                         val pos = viewHolder.layoutPosition
                         if (pos != RecyclerView.NO_POSITION) {
-                            val item = adapter.currentList.getOrNull(pos) ?: return
-                            cartManager.removeItem(item.product.id)
+                            val line = adapter.currentList.getOrNull(pos) ?: return
+                            cartManager.removeLine(line)
                         }
                     }
 

@@ -19,16 +19,20 @@ import com.biasharaai.data.local.db.LedgerEntryType
 import com.biasharaai.data.local.db.ParserEngine
 import com.biasharaai.data.local.db.ProofType
 import com.biasharaai.databinding.FragmentManualEntryBinding
+import com.biasharaai.productline.ProductLineManager
 import com.biasharaai.ui.base.BaseFragment
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class ManualEntryFragment : BaseFragment() {
 
     private var _binding: FragmentManualEntryBinding? = null
     private val binding get() = _binding!!
+
+    @Inject lateinit var productLineManager: ProductLineManager
 
     private val viewModel: ConfirmationViewModel by viewModels()
 
@@ -142,15 +146,17 @@ class ManualEntryFragment : BaseFragment() {
         )
     }
 
-    private fun buildInItems() = listOf(
-        getString(R.string.cash_category_sale_product) to LedgerEntryType.SALE_PRODUCT,
-        getString(R.string.cash_category_sale_service) to LedgerEntryType.SALE_SERVICE,
-        getString(R.string.cash_category_debt_repaid) to LedgerEntryType.DEBT_REPAID,
-        getString(R.string.cash_category_other_income) to LedgerEntryType.OTHER_INCOME,
-        getString(R.string.cash_category_loan_received) to LedgerEntryType.OTHER_INCOME,
-        getString(R.string.cash_category_grant) to LedgerEntryType.OTHER_INCOME,
-        getString(R.string.cash_category_owner_injection) to LedgerEntryType.OTHER_INCOME,
-    )
+    private fun buildInItems() = buildList {
+        add(getString(R.string.cash_category_sale_product) to LedgerEntryType.SALE_PRODUCT)
+        if (productLineManager.isProEnabled()) {
+            add(getString(R.string.cash_category_sale_service) to LedgerEntryType.SALE_SERVICE)
+        }
+        add(getString(R.string.cash_category_debt_repaid) to LedgerEntryType.DEBT_REPAID)
+        add(getString(R.string.cash_category_other_income) to LedgerEntryType.OTHER_INCOME)
+        add(getString(R.string.cash_category_loan_received) to LedgerEntryType.OTHER_INCOME)
+        add(getString(R.string.cash_category_grant) to LedgerEntryType.OTHER_INCOME)
+        add(getString(R.string.cash_category_owner_injection) to LedgerEntryType.OTHER_INCOME)
+    }
 
     private fun buildOutItems() = listOf(
         getString(R.string.cash_category_expense) to LedgerEntryType.EXPENSE,

@@ -5,6 +5,7 @@ import com.biasharaai.ai.GemmaService
 import com.biasharaai.data.local.db.Product
 import com.biasharaai.data.local.db.ProductDao
 import com.biasharaai.media.ProductPhotoStore
+import com.biasharaai.service.ServiceRepository
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
@@ -36,6 +37,7 @@ class InventoryListViewModelTest {
     private lateinit var demandForecaster: DemandForecaster
     private lateinit var gemmaService: GemmaService
     private lateinit var productPhotoStore: ProductPhotoStore
+    private lateinit var serviceRepository: ServiceRepository
 
     @Before
     fun setup() {
@@ -49,6 +51,8 @@ class InventoryListViewModelTest {
         gemmaService = mockk(relaxed = true)
         demandForecaster = DemandForecaster(gemmaService)
         productPhotoStore = mockk(relaxed = true)
+        serviceRepository = mockk(relaxed = true)
+        every { serviceRepository.observeServices() } returns flowOf(emptyList())
     }
 
     @After
@@ -71,7 +75,12 @@ class InventoryListViewModelTest {
         every { productDao.getAllProducts() } returns flowOf(products)
         every { gemmaService.isAvailable } returns false
 
-        val viewModel = InventoryListViewModel(productDao, demandForecaster, productPhotoStore)
+        val viewModel = InventoryListViewModel(
+            productDao,
+            serviceRepository,
+            demandForecaster,
+            productPhotoStore,
+        )
         awaitIoCompletion()
 
         assertEquals(2, viewModel.products.value.size)
@@ -84,7 +93,12 @@ class InventoryListViewModelTest {
         every { productDao.getAllProducts() } returns flowOf(emptyList())
         every { gemmaService.isAvailable } returns false
 
-        val viewModel = InventoryListViewModel(productDao, demandForecaster, productPhotoStore)
+        val viewModel = InventoryListViewModel(
+            productDao,
+            serviceRepository,
+            demandForecaster,
+            productPhotoStore,
+        )
         awaitIoCompletion()
 
         assertTrue(viewModel.products.value.isEmpty())
@@ -98,7 +112,12 @@ class InventoryListViewModelTest {
         every { productDao.getAllProducts() } returns flowOf(products)
         every { gemmaService.isAvailable } returns false
 
-        val viewModel = InventoryListViewModel(productDao, demandForecaster, productPhotoStore)
+        val viewModel = InventoryListViewModel(
+            productDao,
+            serviceRepository,
+            demandForecaster,
+            productPhotoStore,
+        )
         awaitIoCompletion()
 
         val forecasts = viewModel.forecasts.value
@@ -113,7 +132,12 @@ class InventoryListViewModelTest {
         every { productDao.getAllProducts() } returns flowOf(products)
         every { gemmaService.isAvailable } returns false
 
-        val viewModel = InventoryListViewModel(productDao, demandForecaster, productPhotoStore)
+        val viewModel = InventoryListViewModel(
+            productDao,
+            serviceRepository,
+            demandForecaster,
+            productPhotoStore,
+        )
         awaitIoCompletion()
 
         val forecasts = viewModel.forecasts.value

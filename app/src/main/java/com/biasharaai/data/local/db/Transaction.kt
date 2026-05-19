@@ -90,6 +90,30 @@ data class Transaction(
     /** Prompt U1 / Phase 2A — credit notes, adjustments (`STANDARD` default). */
     @ColumnInfo(name = "note_type", defaultValue = "STANDARD")
     val noteType: String = "STANDARD",
+
+    /** Pre-tax product line total (P&L / mixed sales). */
+    @ColumnInfo(name = "product_subtotal", defaultValue = "0.0")
+    val productSubtotal: Double = 0.0,
+
+    /** Pre-tax service + prepaid voucher line total. */
+    @ColumnInfo(name = "service_subtotal", defaultValue = "0.0")
+    val serviceSubtotal: Double = 0.0,
+
+    /** Cash collected on this transaction row (may be &lt; [amount] when deposit / partial). */
+    @ColumnInfo(name = "amount_paid", defaultValue = "0.0")
+    val amountPaid: Double = 0.0,
+
+    /** Remaining balance for deposit or partial-credit sales. */
+    @ColumnInfo(name = "balance_due", defaultValue = "0.0")
+    val balanceDue: Double = 0.0,
+
+    /** When [balanceDue] was cleared (epoch ms). */
+    @ColumnInfo(name = "settled_at")
+    val settledAt: Long? = null,
+
+    /** Settlement row points at the original sale; original may reference settlement id. */
+    @ColumnInfo(name = "parent_transaction_id")
+    val parentTransactionId: Long? = null,
 )
 
 /** Transaction direction. */

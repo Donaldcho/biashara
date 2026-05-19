@@ -44,6 +44,100 @@
                 android:text="@string/payment_grand_label"
                 android:textAppearance="?attr/textAppearanceBodyMedium" />
 
+            <TextView
+                android:id="@+id/text_cart_breakdown"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textAppearance="?attr/textAppearanceBodySmall"
+                android:visibility="gone"
+                tools:text="Parts: KSh 500 · Labour: KSh 300"
+                tools:visibility="visible" />
+
+            <TextView
+                android:id="@+id/text_due_now"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textAppearance="?attr/textAppearanceTitleSmall"
+                android:visibility="gone"
+                tools:text="Collect now: KSh 500"
+                tools:visibility="visible" />
+
+            <LinearLayout
+                android:id="@+id/panel_mixed_plan"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="vertical"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/payment_mixed_plan_title"
+                    android:textAppearance="?attr/textAppearanceTitleSmall" />
+
+                <RadioGroup
+                    android:id="@+id/group_mixed_plan"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <com.google.android.material.radiobutton.MaterialRadioButton
+                        android:id="@+id/plan_pay_all"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:checked="true"
+                        android:text="@string/payment_plan_pay_all" />
+
+                    <com.google.android.material.radiobutton.MaterialRadioButton
+                        android:id="@+id/plan_credit_services"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/payment_plan_credit_services" />
+
+                    <com.google.android.material.radiobutton.MaterialRadioButton
+                        android:id="@+id/plan_credit_products"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/payment_plan_credit_products" />
+
+                    <com.google.android.material.radiobutton.MaterialRadioButton
+                        android:id="@+id/plan_deposit"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/payment_plan_deposit" />
+                </RadioGroup>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/layout_deposit_amount"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="@string/payment_deposit_hint"
+                    android:visibility="gone">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/input_deposit_amount"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="numberDecimal" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:id="@+id/text_balance_after"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:visibility="gone"
+                    tools:text="Balance due: KSh 300"
+                    tools:visibility="visible" />
+            </LinearLayout>
+
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_split_toggle"
                 style="@style/Widget.Material3.Button.TextButton"
@@ -84,6 +178,14 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/payment_tab_credit" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/tab_voucher"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/payment_tab_voucher" />
             </com.google.android.material.button.MaterialButtonToggleGroup>
 
             <LinearLayout
@@ -374,6 +476,50 @@
                     </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
+            <LinearLayout
+                android:id="@+id/panel_voucher"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingTop="16dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/payment_voucher_label"
+                    android:textAppearance="?attr/textAppearanceTitleSmall" />
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/layout_voucher_id"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="@string/payment_voucher_id_hint"
+                    app:endIconMode="custom"
+                    app:endIconDrawable="@drawable/ic_barcode_scan"
+                    app:endIconContentDescription="@string/payment_voucher_scan_desc">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/input_voucher_id"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:inputType="textCapCharacters" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:id="@+id/text_voucher_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                    android:visibility="gone"
+                    tools:text="✓ 3 sessions remaining — Hair Braiding"
+                    tools:visibility="visible" />
+            </LinearLayout>
+
         </LinearLayout>
     </ScrollView>
 

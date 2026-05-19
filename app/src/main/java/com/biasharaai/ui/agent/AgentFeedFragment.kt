@@ -24,6 +24,7 @@ import com.biasharaai.ui.base.BaseFragment
 import com.biasharaai.ui.negotiation.NegotiationViewModel
 import com.biasharaai.ui.negotiation.showNegotiationTierBlockedDialogIfNeeded
 import com.biasharaai.ui.insights.CashFlowInsightsFragment
+import com.biasharaai.ui.inventory.InventoryListFragment
 import com.biasharaai.ui.pos.ReceiptViewModel
 import com.biasharaai.voice.BiasharaTtsEngine
 import com.google.android.material.card.MaterialCardView
@@ -192,6 +193,13 @@ class AgentFeedFragment : BaseFragment() {
     /** @return true when a navigation was started (so the caller may mark the action executed). */
     private fun navigateReviewIfPossible(action: AgentAction): Boolean {
         val nav = findNavController()
+        if (action.actionVerb == "EXPLORE_SERVICES") {
+            nav.navigate(
+                R.id.inventoryListFragment,
+                bundleOf(InventoryListFragment.ARG_INITIAL_TAB to InventoryListFragment.TAB_SERVICES),
+            )
+            return true
+        }
         when (action.relatedEntityType?.uppercase()) {
             "DAY", "WEEK" -> {
                 nav.navigate(R.id.action_agentFeedFragment_to_insightsFragment)

@@ -21,8 +21,12 @@ import com.biasharaai.ai.CapabilityTier
 import com.biasharaai.data.local.db.Product
 import com.biasharaai.databinding.FragmentInventoryListBinding
 import com.biasharaai.money.MoneyFormatter
+import com.biasharaai.data.local.db.ServiceItem
 import com.biasharaai.pos.cart.CartRepository
+import com.biasharaai.productline.ProductLineManager
+import com.biasharaai.productline.showProRequiredSnackbar
 import com.biasharaai.ui.base.BaseFragment
+import com.google.android.material.tabs.TabLayout
 import com.biasharaai.ui.negotiation.NegotiationViewModel
 import com.biasharaai.ui.negotiation.showNegotiationTierBlockedDialogIfNeeded
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -51,7 +55,12 @@ class InventoryListFragment : BaseFragment() {
     @Inject
     lateinit var cartRepository: CartRepository
 
+    @Inject
+    lateinit var productLineManager: ProductLineManager
+
     private lateinit var productAdapter: ProductAdapter
+    private lateinit var serviceAdapter: ServiceListAdapter
+    private var showingServices = false
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -67,7 +76,57 @@ class InventoryListFragment : BaseFragment() {
         setupRecyclerView()
         setupToolbar()
         setupFab()
+        setupProTabs()
+        applyInitialTabArgument()
         observeProducts()
+        observeServices()
+    }
+
+    private fun applyInitialTabArgument() {
+        if (arguments?.getString(ARG_INITIAL_TAB) == TAB_SERVICES && productLineManager.isProEnabled()) {
+            binding.tabInventory.getTabAt(1)?.select()
+            showServicesTab()
+        }
+    }
+
+    private fun setupProTabs() {
+        val pro = productLineManager.isProEnabled()
+        binding.tabInventory.visibility = if (pro) View.VISIBLE else View.GONE
+        if (!pro) {
+            showProductsTab()
+            return
+        }
+        binding.tabInventory.addTab(
+            binding.tabInventory.newTab().setText(R.string.inventory_tab_products),
+        )
+        binding.tabInventory.addTab(
+            binding.tabInventory.newTab().setText(R.string.inventory_tab_services),
+        )
+        binding.tabInventory.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab) {
+                showingServices = tab.position == 1
+                if (showingServices) showServicesTab() else showProductsTab()
+            }
+            override fun onTabUnselected(tab: TabLayout.Tab?) = Unit
+            override fun onTabReselected(tab: TabLayout.Tab?) = Unit
+        })
+        showProductsTab()
+    }
+
+    private fun showProductsTab() {
+        binding.recyclerProducts.visibility = View.VISIBLE
+        binding.recyclerServices.visibility = View.GONE
+        binding.textEmpty.visibility =
+            if (productAdapter.itemCount == 0) View.VISIBLE else View.GONE
+        binding.textEmptyServices.visibility = View.GONE
+    }
+
+    private fun showServicesTab() {
+        binding.recyclerProducts.visibility = View.GONE
+        binding.recyclerServices.visibility = View.VISIBLE
+        binding.textEmpty.visibility = View.GONE
+        binding.textEmptyServices.visibility =
+            if (serviceAdapter.itemCount == 0) View.VISIBLE else View.GONE
     }
 
     private fun setupRecyclerView() {
@@ -116,6 +175,18 @@ class InventoryListFragment : BaseFragment() {
                 gapStrategy =
                     StaggeredGridLayoutManager.GAP_HANDLING_MOVE_ITEMS_BETWEEN_SPANS
             }
+        serviceAdapter = ServiceListAdapter(
+            formatMoney = { moneyFormatter.format(it) },
+            onItemClick = { service ->
+                findNavController().navigate(
+                    R.id.action_inventoryListFragment_to_addEditServiceFragment,
+                    bundleOf(AddEditServiceFragment.ARG_SERVICE_ID to service.id),
+                )
+            },
+        )
+        binding.recyclerServices.adapter = serviceAdapter
+        binding.recyclerServices.layoutManager =
+            StaggeredGridLayoutManager(span, StaggeredGridLayoutManager.VERTICAL)
     }
 
     private fun showRemoveStockDialog(product: Product) {
@@ -211,10 +282,21 @@ class InventoryListFragment : BaseFragment() {
         }
         binding.fabAddManual.setOnClickListener {
             closeSpeedDial()
-            findNavController().navigate(
-                R.id.action_inventoryListFragment_to_addEditProductFragment,
-                bundleOf(ARG_PRODUCT_ID to 0L),
-            )
+            if (showingServices) {
+                if (!productLineManager.isProEnabled()) {
+                    binding.root.showProRequiredSnackbar(productLineManager)
+                    return@setOnClickListener
+                }
+                findNavController().navigate(
+                    R.id.action_inventoryListFragment_to_addEditServiceFragment,
+                    bundleOf(AddEditServiceFragment.ARG_SERVICE_ID to 0L),
+                )
+            } else {
+                findNavController().navigate(
+                    R.id.action_inventoryListFragment_to_addEditProductFragment,
+                    bundleOf(ARG_PRODUCT_ID to 0L),
+                )
+            }
         }
         binding.fabScanBarcode.setOnClickListener {
             closeSpeedDial()
@@ -248,6 +330,21 @@ class InventoryListFragment : BaseFragment() {
         binding.fabMain.setIconResource(R.drawable.ic_add)
         binding.fabMain.contentDescription = getString(R.string.inventory_fab_expand_desc)
         binding.fabMain.shrink()
+    }
+
+    private fun observeServices() {
+        if (!::serviceAdapter.isInitialized) return
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.services.collect { services ->
+                    serviceAdapter.submitList(services)
+                    if (showingServices) {
+                        binding.textEmptyServices.visibility =
+                            if (services.isEmpty()) View.VISIBLE else View.GONE
+                    }
+                }
+            }
+        }
     }
 
     private fun observeProducts() {
@@ -285,11 +382,14 @@ class InventoryListFragment : BaseFragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         binding.recyclerProducts.adapter = null
+        binding.recyclerServices.adapter = null
         _binding = null
     }
 
     companion object {
         /** Bundle key for the product ID passed to AddEditProductFragment. */
         const val ARG_PRODUCT_ID = "product_id"
+        const val ARG_INITIAL_TAB = "initial_tab"
+        const val TAB_SERVICES = "services"
     }
 }

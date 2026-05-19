@@ -32,4 +32,7 @@ data class Debt(
     val dueDate: Long? = null,
     @ColumnInfo(name = "created_at")
     val createdAt: Long = 0L,
+
+    @ColumnInfo(name = "source_transaction_id")
+    val sourceTransactionId: Long? = null,
 )

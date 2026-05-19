@@ -8,10 +8,18 @@ import com.biasharaai.data.local.db.Customer
 import com.biasharaai.data.local.db.CustomerDao
 import com.biasharaai.data.local.db.Product
 import com.biasharaai.data.local.db.ProductDao
+import com.biasharaai.data.local.db.StaffMemberDao
+import com.biasharaai.pos.cart.VoucherCartItem
 import com.biasharaai.pos.CustomerSuggestionEngine
 import com.biasharaai.pos.cart.CartItem
+import com.biasharaai.service.ServiceCartLine
 import com.biasharaai.pos.cart.CartManager
+import com.biasharaai.data.local.db.ServiceItem
 import com.biasharaai.pos.cart.CartRepository
+import com.biasharaai.productline.ProductLineManager
+import com.biasharaai.service.ServiceRepository
+import com.biasharaai.service.ServiceTokenCodec
+import com.biasharaai.ui.scanner.BarcodeScanRouter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -21,6 +29,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
@@ -54,9 +63,27 @@ class PosViewModel @Inject constructor(
     private val customerSuggestionEngine: CustomerSuggestionEngine,
     private val capabilityTier: CapabilityTier,
     private val gemmaService: GemmaService,
+    private val serviceRepository: ServiceRepository,
+    private val productLineManager: ProductLineManager,
+    private val staffMemberDao: StaffMemberDao,
 ) : ViewModel() {
 
+    private val _pendingStaffPick = MutableSharedFlow<ServiceItem>(extraBufferCapacity = 1)
+    val pendingStaffPick: SharedFlow<ServiceItem> = _pendingStaffPick.asSharedFlow()
+
+    private val _activeStaffCount = MutableStateFlow(0)
+    val activeStaffCount: StateFlow<Int> = _activeStaffCount.asStateFlow()
+
+    init {
+        viewModelScope.launch(Dispatchers.IO) {
+            _activeStaffCount.value = staffMemberDao.getActiveCount()
+        }
+    }
+
     private val searchQuery = MutableStateFlow("")
+
+    private val _catalogMode = MutableStateFlow(PosCatalogMode.PRODUCTS)
+    val catalogMode: StateFlow<PosCatalogMode> = _catalogMode.asStateFlow()
 
     val searchResults: StateFlow<List<Product>> = searchQuery
         .flatMapLatest { q ->
@@ -71,6 +98,11 @@ class PosViewModel @Inject constructor(
 
     val allProducts: StateFlow<List<Product>> = productDao.getProductsOrderedForPos()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val allServices: StateFlow<List<ServiceItem>> = serviceRepository.observeServices()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val isProEnabled: Boolean get() = productLineManager.isProEnabled()
 
     val selectedCustomer: StateFlow<Customer?> = cartRepository.selectedCustomer
 
@@ -99,6 +131,9 @@ class PosViewModel @Inject constructor(
     private val _unknownBarcode = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val unknownBarcode: SharedFlow<String> = _unknownBarcode.asSharedFlow()
 
+    private val _serviceScanMessage = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val serviceScanMessage: SharedFlow<String> = _serviceScanMessage.asSharedFlow()
+
     private val _priceWarning = MutableSharedFlow<PriceWarningEvent>(extraBufferCapacity = 1)
     val priceWarning: SharedFlow<PriceWarningEvent> = _priceWarning.asSharedFlow()
 
@@ -110,8 +145,36 @@ class PosViewModel @Inject constructor(
         searchQuery.value = ""
     }
 
+    fun setCatalogMode(mode: PosCatalogMode) {
+        _catalogMode.value = mode
+    }
+
     fun addProductToCart(product: Product, qty: Int = 1) {
         cartManager.addProduct(product, qty)
+    }
+
+    fun onServiceTapped(service: ServiceItem) {
+        viewModelScope.launch {
+            _activeStaffCount.value = staffMemberDao.getActiveCount()
+            _pendingStaffPick.emit(service)
+        }
+    }
+
+    fun addServiceToCart(service: ServiceItem, qty: Int = 1, staffName: String? = null) {
+        cartManager.addService(service, qty, staffName)
+    }
+
+    fun addVoucherToCart(params: VoucherIssueBottomSheet.VoucherIssueParams) {
+        val customer = cartRepository.selectedCustomer.value
+        cartManager.addVoucherItem(
+            VoucherCartItem(
+                serviceItem = params.serviceItem,
+                uses = params.uses,
+                pricePerUse = params.pricePerUse,
+                customerId = params.customerId ?: customer?.id,
+                customerName = params.customerName ?: customer?.name,
+            ),
+        )
     }
 
     fun selectWalkInCustomer() {
@@ -133,12 +196,57 @@ class PosViewModel @Inject constructor(
         val value = raw.trim()
         if (value.isEmpty()) return
         viewModelScope.launch {
+            if (BarcodeScanRouter.isServiceToken(value)) {
+                if (!productLineManager.isProEnabled()) {
+                    _unknownBarcode.emit(value)
+                    return@launch
+                }
+                handleServiceToken(value)
+                return@launch
+            }
             val product = productDao.getProductByBarcode(value).firstOrNull()
             if (product == null) {
                 _unknownBarcode.emit(value)
                 return@launch
             }
             cartManager.addProduct(product, 1)
+        }
+    }
+
+    private suspend fun handleServiceToken(value: String) {
+        when (val parsed = ServiceTokenCodec.parse(value)) {
+            is ServiceTokenCodec.Parsed.Catalogue -> {
+                val service = serviceRepository.getService(parsed.serviceItemId)
+                    ?: serviceRepository.getServiceByCatalogueToken(value)
+                if (service == null) {
+                    _unknownBarcode.emit(value)
+                } else {
+                    cartManager.addService(service, 1)
+                    _serviceScanMessage.emit(service.name)
+                }
+            }
+            is ServiceTokenCodec.Parsed.Voucher -> {
+                runCatching {
+                    val service = serviceRepository.redeemVoucher(
+                        parsed.voucherId,
+                        cartRepository.selectedCustomer.value?.id,
+                    )
+                    cartManager.addService(service, 1)
+                    _serviceScanMessage.emit(service.name)
+                }.onFailure {
+                    _unknownBarcode.emit(value)
+                }
+            }
+            is ServiceTokenCodec.Parsed.Receipt -> {
+                val delivery = serviceRepository.verifyReceiptToken(value)
+                if (delivery == null) {
+                    _unknownBarcode.emit(value)
+                } else {
+                    val service = serviceRepository.getService(delivery.serviceItemId)
+                    _serviceScanMessage.emit(service?.name ?: "Service")
+                }
+            }
+            null -> _unknownBarcode.emit(value)
         }
     }
 
@@ -167,6 +275,10 @@ class PosViewModel @Inject constructor(
                 _priceWarning.emit(PriceWarningEvent(warning, product.id, previousOverride))
             }
         }
+    }
+
+    fun applyServiceLinePriceOverride(line: ServiceCartLine, newUnitPrice: Double) {
+        cartManager.setServiceOverridePrice(line.service.id, newUnitPrice)
     }
 
     fun undoPriceOverride(productId: Long, previousOverride: Double?) {

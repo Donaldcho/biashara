@@ -7,11 +7,13 @@ import androidx.work.WorkerParameters
 import com.biasharaai.agent.AgentAnomalySkillMapper
 import com.biasharaai.agent.AgentDecisionEngine
 import com.biasharaai.agent.AgentLoopRunner
+import com.biasharaai.agent.AgentPromptComposer
 import com.biasharaai.agent.CoPurchaseAnalyser
 import com.biasharaai.agent.CustomerPatternAnalyser
 import com.biasharaai.agent.PricingRuleEngine
 import com.biasharaai.agent.StockGuardianRepository
 import com.biasharaai.agent.WeeklyReviewBuilder
+import com.biasharaai.analytics.SalesIntelligenceRepository
 import com.biasharaai.agent.workers.CashFlowSentinelWorker
 import com.biasharaai.agent.workers.CustomerRelationWorker
 import com.biasharaai.agent.workers.FraudSentinelWorker
@@ -19,7 +21,16 @@ import com.biasharaai.agent.workers.OpportunitySpotterWorker
 import com.biasharaai.agent.workers.PricingAgentWorker
 import com.biasharaai.agent.workers.StockGuardianWorker
 import com.biasharaai.agent.workers.LedgerAnomalyAgentWorker
+import com.biasharaai.agent.workers.NoShowTrackerWorker
+import com.biasharaai.agent.workers.ServicePricingAgentWorker
+import com.biasharaai.agent.workers.UtilisationAgentWorker
+import com.biasharaai.agent.workers.VoucherExpiryAgentWorker
 import com.biasharaai.agent.workers.WeeklyReviewWorker
+import com.biasharaai.data.local.db.AppointmentDao
+import com.biasharaai.data.local.db.ServiceDeliveryDao
+import com.biasharaai.data.local.db.ServiceItemDao
+import com.biasharaai.data.local.db.ServiceVoucherDao
+import com.biasharaai.productline.ProductLineManager
 import com.biasharaai.cash.workers.StorageWatchdogWorker
 import com.biasharaai.data.local.db.CashMovementEvidenceDao
 import com.biasharaai.data.local.db.LedgerEntryDao
@@ -48,8 +59,10 @@ class LossAlertWorkerFactory @Inject constructor(
     private val lossAlertEngine: LossAlertEngine,
     private val alertDao: AlertDao,
     private val agentLoopRunner: AgentLoopRunner,
+    private val agentPromptComposer: AgentPromptComposer,
     private val capabilityTier: CapabilityTier,
     private val transactionDao: TransactionDao,
+    private val salesIntelligence: SalesIntelligenceRepository,
     private val stockGuardianRepository: StockGuardianRepository,
     private val pricingRuleEngine: PricingRuleEngine,
     private val skillExecutor: SkillExecutor,
@@ -70,6 +83,11 @@ class LossAlertWorkerFactory @Inject constructor(
     private val ledgerIntelligenceRepository: LedgerIntelligenceRepository,
     private val cashMovementEvidenceDao: CashMovementEvidenceDao,
     private val cashEvidenceAnomalyDetector: CashEvidenceAnomalyDetector,
+    private val productLineManager: ProductLineManager,
+    private val serviceVoucherDao: ServiceVoucherDao,
+    private val serviceItemDao: ServiceItemDao,
+    private val serviceDeliveryDao: ServiceDeliveryDao,
+    private val appointmentDao: AppointmentDao,
 ) : WorkerFactory() {
 
     override fun createWorker(
@@ -86,6 +104,7 @@ class LossAlertWorkerFactory @Inject constructor(
                     alertDao,
                     agentLoopRunner,
                     capabilityTier,
+                    agentPromptComposer,
                 )
             StockGuardianWorker::class.java.name ->
                 StockGuardianWorker(
@@ -107,12 +126,14 @@ class LossAlertWorkerFactory @Inject constructor(
                     agentSettingDao,
                     agentLoopRunner,
                     capabilityTier,
+                    agentPromptComposer,
                 )
             CashFlowSentinelWorker::class.java.name ->
                 CashFlowSentinelWorker(
                     appContext,
                     workerParameters,
                     transactionDao,
+                    salesIntelligence,
                     agentActionDao,
                     agentDecisionEngine,
                     agentSettingDao,
@@ -120,6 +141,8 @@ class LossAlertWorkerFactory @Inject constructor(
                     agentLoopRunner,
                     capabilityTier,
                     ledgerIntelligenceRepository,
+                    agentPromptComposer,
+                    productLineManager,
                 )
             CustomerRelationWorker::class.java.name ->
                 CustomerRelationWorker(
@@ -134,6 +157,7 @@ class LossAlertWorkerFactory @Inject constructor(
                     appSettingsDao,
                     agentLoopRunner,
                     capabilityTier,
+                    agentPromptComposer,
                 )
             FraudSentinelWorker::class.java.name ->
                 FraudSentinelWorker(
@@ -157,6 +181,10 @@ class LossAlertWorkerFactory @Inject constructor(
                     agentActionDao,
                     agentDecisionEngine,
                     agentSettingDao,
+                    productLineManager,
+                    serviceDeliveryDao,
+                    serviceItemDao,
+                    agentPromptComposer,
                 )
             OpportunitySpotterWorker::class.java.name ->
                 OpportunitySpotterWorker(
@@ -170,6 +198,7 @@ class LossAlertWorkerFactory @Inject constructor(
                     agentActionDao,
                     agentDecisionEngine,
                     agentSettingDao,
+                    agentPromptComposer,
                 )
             LedgerBackfillWorker::class.java.name ->
                 LedgerBackfillWorker(
@@ -198,6 +227,46 @@ class LossAlertWorkerFactory @Inject constructor(
                     appContext,
                     workerParameters,
                     cashMovementEvidenceDao,
+                )
+            VoucherExpiryAgentWorker::class.java.name ->
+                VoucherExpiryAgentWorker(
+                    appContext,
+                    workerParameters,
+                    productLineManager,
+                    serviceVoucherDao,
+                    serviceItemDao,
+                    customerDao,
+                    agentActionDao,
+                    agentDecisionEngine,
+                    agentSettingDao,
+                )
+            UtilisationAgentWorker::class.java.name ->
+                UtilisationAgentWorker(
+                    appContext,
+                    workerParameters,
+                    productLineManager,
+                    serviceDeliveryDao,
+                    serviceItemDao,
+                    agentSettingDao,
+                    agentActionDao,
+                )
+            NoShowTrackerWorker::class.java.name ->
+                NoShowTrackerWorker(
+                    appContext,
+                    workerParameters,
+                    productLineManager,
+                    appointmentDao,
+                    agentActionDao,
+                )
+            ServicePricingAgentWorker::class.java.name ->
+                ServicePricingAgentWorker(
+                    appContext,
+                    workerParameters,
+                    productLineManager,
+                    serviceItemDao,
+                    ledgerEntryDao,
+                    agentActionDao,
+                    agentSettingDao,
                 )
             else -> null
         }

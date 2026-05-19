@@ -49,4 +49,11 @@ data class AppSettings(
     val ttsAutoReadAgentAlerts: Boolean = false,
     @ColumnInfo(name = "tts_auto_read_query_answers", defaultValue = "1")
     val ttsAutoReadQueryAnswers: Boolean = true,
+    @ColumnInfo(name = "pro_onboarding_shown", defaultValue = "0")
+    val proOnboardingShown: Boolean = false,
+    @ColumnInfo(name = "pro_activated_at")
+    val proActivatedAt: Long? = null,
+    /** HMAC secret for BSRC receipt QR verification (Pro). */
+    @ColumnInfo(name = "voucher_signing_key")
+    val voucherSigningKey: String? = null,
 )

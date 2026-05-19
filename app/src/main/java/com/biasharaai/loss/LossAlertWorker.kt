@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.biasharaai.agent.AgentLoopRunner
+import com.biasharaai.agent.AgentPromptComposer
 import com.biasharaai.agent.AgentSystemPrompts
 import com.biasharaai.ai.CapabilityTier
 import com.biasharaai.data.local.db.AlertDao
@@ -22,6 +23,7 @@ class LossAlertWorker(
     private val alertDao: AlertDao,
     private val agentLoopRunner: AgentLoopRunner,
     private val capabilityTier: CapabilityTier,
+    private val agentPromptComposer: AgentPromptComposer,
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -47,12 +49,15 @@ class LossAlertWorker(
                             "no quotes or preamble.\n\n" +
                             candidate.title + "\n" + candidate.message
                     val userMessage = "Translate this loss alert:\n${candidate.title}\n${candidate.message}"
-                    val system = AgentSystemPrompts.withLanguage(
-                        AgentSystemPrompts.LOSS_ALERT_TRANSLATE,
-                        languageName,
+                    val system = agentPromptComposer.enrichSystemPrompt(
+                        AgentSystemPrompts.withLanguage(
+                            AgentSystemPrompts.LOSS_ALERT_TRANSLATE,
+                            languageName,
+                        ),
                     )
+                    val enrichedLegacy = agentPromptComposer.enrichLegacyPrompt(legacyPrompt)
                     try {
-                        agentLoopRunner.runOrSendPrompt(userMessage, system, legacyPrompt)
+                        agentLoopRunner.runOrSendPrompt(userMessage, system, enrichedLegacy)
                             .take(800)
                             .ifBlank { null }
                     } catch (_: Exception) {

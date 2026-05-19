@@ -120,15 +120,14 @@ interface ProductDao {
     fun getCategoryAverages(category: String, excludeId: Long): Flow<CategoryAverages>
 
     /**
-     * Total units sold (positive sale lines only) for [productId] in [startMillis, endMillisExclusive).
+     * Net units sold (sales minus returns) for [productId] in [startMillis, endMillisExclusive).
      */
     @Query(
         """
         SELECT IFNULL(SUM(sl.quantity), 0) FROM sale_line_items sl
         INNER JOIN transactions t ON t.id = sl.transaction_id
         WHERE sl.product_id = :productId
-          AND t.type = 'INCOME'
-          AND sl.quantity > 0
+          AND t.type IN ('INCOME', 'RETURN')
           AND t.date >= :startMillis AND t.date < :endMillisExclusive
         """,
     )
