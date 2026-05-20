@@ -501,10 +501,11 @@ class SettingsFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.events.collect { event ->
+                    val root = _binding?.root ?: return@collect
                     when (event) {
                         is SettingsViewModel.Event.DownloadComplete -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 R.string.settings_download_complete,
                                 Snackbar.LENGTH_SHORT,
                             ).show()
@@ -512,7 +513,7 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.DownloadFailed -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 getString(R.string.settings_download_failed, event.message),
                                 Snackbar.LENGTH_LONG,
                             ).setAction(R.string.settings_btn_retry) {
@@ -526,7 +527,7 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.BenchmarkFailed -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 getString(R.string.settings_benchmark_failed, event.message),
                                 Snackbar.LENGTH_LONG,
                             ).show()
@@ -534,7 +535,7 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.CloudSettingsSaved -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 R.string.settings_cloud_saved,
                                 Snackbar.LENGTH_SHORT,
                             ).show()
@@ -542,7 +543,7 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.CloudUploadSucceeded -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 R.string.settings_cloud_upload_success,
                                 Snackbar.LENGTH_SHORT,
                             ).show()
@@ -558,12 +559,12 @@ class SettingsFragment : BaseFragment() {
                                     getString(R.string.settings_cloud_missing_key)
                                 else -> getString(R.string.settings_cloud_upload_failed, event.message)
                             }
-                            Snackbar.make(binding.root, msg, Snackbar.LENGTH_LONG).show()
+                            Snackbar.make(root, msg, Snackbar.LENGTH_LONG).show()
                         }
 
                         is SettingsViewModel.Event.EnterpriseSyncComplete -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 getString(
                                     R.string.settings_enterprise_sync_done,
                                     event.sent,
@@ -583,14 +584,14 @@ class SettingsFragment : BaseFragment() {
                                     getString(R.string.settings_cloud_missing_key)
                                 else -> getString(R.string.settings_enterprise_sync_failed, event.message)
                             }
-                            Snackbar.make(binding.root, msg, Snackbar.LENGTH_LONG).show()
+                            Snackbar.make(root, msg, Snackbar.LENGTH_LONG).show()
                         }
 
                         is SettingsViewModel.Event.EnterpriseServiceDiscovered -> {
                             binding.inputCloudEndpoint.setText(event.endpointUrl)
                             binding.toggleEnterpriseDeploymentMode.check(R.id.btn_deployment_on_premise)
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 getString(R.string.settings_enterprise_discovered, event.endpointUrl),
                                 Snackbar.LENGTH_LONG,
                             ).show()
@@ -598,7 +599,7 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.EnterpriseDiscoveryFailed -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 R.string.settings_enterprise_discovery_failed,
                                 Snackbar.LENGTH_LONG,
                             ).show()
@@ -606,7 +607,7 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.EnterpriseBranchSaved -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 R.string.settings_enterprise_branch_saved,
                                 Snackbar.LENGTH_SHORT,
                             ).show()
@@ -614,7 +615,7 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.EnterpriseBranchInvalid -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 R.string.settings_enterprise_branch_invalid,
                                 Snackbar.LENGTH_SHORT,
                             ).show()
@@ -626,7 +627,7 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.EnterprisePermissionDenied -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 getString(
                                     R.string.settings_enterprise_permission_denied,
                                     event.operatorName,
@@ -638,7 +639,7 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.EnterpriseOperatorChanged -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 R.string.settings_enterprise_operator_changed,
                                 Snackbar.LENGTH_SHORT,
                             ).show()
@@ -646,7 +647,7 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.EnterpriseOperatorPinRequired -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 R.string.staff_pin_required,
                                 Snackbar.LENGTH_LONG,
                             ).show()
@@ -654,7 +655,7 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.EnterpriseOperatorPinInvalid -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 R.string.staff_pin_invalid,
                                 Snackbar.LENGTH_SHORT,
                             ).show()
@@ -668,7 +669,7 @@ class SettingsFragment : BaseFragment() {
                                 R.string.settings_pro_features_off
                             }
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 getString(R.string.settings_licence_applied, getString(status)),
                                 Snackbar.LENGTH_LONG,
                             ).show()
@@ -676,7 +677,7 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.LicenceInvalid -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 event.message.ifBlank { getString(R.string.settings_licence_invalid) },
                                 Snackbar.LENGTH_LONG,
                             ).show()
@@ -1109,7 +1110,7 @@ class SettingsFragment : BaseFragment() {
                 store.save(cfg)
                 viewModel.onInferenceSettingsSaved()
                 Snackbar.make(
-                    binding.root,
+                    dialogView,
                     R.string.inference_configs_saved,
                     Snackbar.LENGTH_SHORT,
                 ).show()

@@ -27,7 +27,7 @@ class EnterpriseSyncWorker(
             },
             onFailure = { e ->
                 Log.w(TAG, "Enterprise sync worker failed", e)
-                Result.retry()
+                Result.success()
             },
         )
     }

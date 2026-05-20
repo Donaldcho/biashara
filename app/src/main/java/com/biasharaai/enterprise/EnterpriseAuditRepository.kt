@@ -1,5 +1,6 @@
 package com.biasharaai.enterprise
 
+import android.util.Log
 import android.os.Build
 import com.biasharaai.BuildConfig
 import com.biasharaai.cloud.CloudAnalysisHttpClient
@@ -55,10 +56,10 @@ class EnterpriseAuditRepository @Inject constructor(
         payloadType: String,
         payloadEntityId: String,
         payload: Any,
-    ) {
-        if (!productLineManager.isEnterprisePro()) return
+    ) = runCatching {
+        if (!productLineManager.isEnterprisePro()) return@runCatching
         registerCurrentDevice()
-        val licence = licenceValidator.getStoredKey() ?: return
+        val licence = licenceValidator.getStoredKey() ?: return@runCatching
         val branch = ensureDefaultBranch(licence.businessId)
         enqueue(
             businessId = licence.businessId,
@@ -68,7 +69,7 @@ class EnterpriseAuditRepository @Inject constructor(
             payloadEntityId = payloadEntityId,
             payload = payload,
         )
-    }
+    }.onFailure { Log.w(TAG, "enqueueSyncPayload failed type=$payloadType", it) }
 
     suspend fun saveDefaultBranch(name: String, location: String?) {
         if (!productLineManager.isEnterprisePro()) return
@@ -101,21 +102,21 @@ class EnterpriseAuditRepository @Inject constructor(
         )
     }
 
-    suspend fun flushPendingSync(limit: Int = 50): EnterpriseSyncResult {
+    suspend fun flushPendingSync(limit: Int = 50): EnterpriseSyncResult = runCatching {
         if (!productLineManager.isEnterprisePro()) {
-            return EnterpriseSyncResult(skippedReason = SyncSkipReason.NOT_ENTERPRISE)
+            return@runCatching EnterpriseSyncResult(skippedReason = SyncSkipReason.NOT_ENTERPRISE)
         }
         val settings = cloudAnalysisSettingsStore.load()
         val endpoint = settings.endpointUrl.trim()
         val key = cloudAnalysisSettingsStore.apiKeyOrNull()
         when {
-            !settings.enabled -> return EnterpriseSyncResult(skippedReason = SyncSkipReason.NOT_ENABLED)
+            !settings.enabled -> return@runCatching EnterpriseSyncResult(skippedReason = SyncSkipReason.NOT_ENABLED)
             endpoint.isBlank() || !EnterpriseEndpointPolicy.isAllowed(endpoint, settings.deploymentMode.name) ->
-                return EnterpriseSyncResult(skippedReason = SyncSkipReason.MISSING_URL)
-            key.isNullOrBlank() -> return EnterpriseSyncResult(skippedReason = SyncSkipReason.MISSING_KEY)
+                return@runCatching EnterpriseSyncResult(skippedReason = SyncSkipReason.MISSING_URL)
+            key.isNullOrBlank() -> return@runCatching EnterpriseSyncResult(skippedReason = SyncSkipReason.MISSING_KEY)
         }
         val ready = syncOutboxDao.listReady(limit = limit)
-        if (ready.isEmpty()) return EnterpriseSyncResult()
+        if (ready.isEmpty()) return@runCatching EnterpriseSyncResult()
         var sent = 0
         var failed = 0
         for (item in ready) {
@@ -163,12 +164,15 @@ class EnterpriseAuditRepository @Inject constructor(
                 },
             )
         }
-        return EnterpriseSyncResult(sent = sent, failed = failed)
+        EnterpriseSyncResult(sent = sent, failed = failed)
+    }.getOrElse {
+        Log.w(TAG, "flushPendingSync failed", it)
+        EnterpriseSyncResult(failed = 1)
     }
 
-    suspend fun registerCurrentDevice() {
-        if (!productLineManager.isEnterprisePro()) return
-        val licence = licenceValidator.getStoredKey() ?: return
+    suspend fun registerCurrentDevice() = runCatching {
+        if (!productLineManager.isEnterprisePro()) return@runCatching Unit
+        val licence = licenceValidator.getStoredKey() ?: return@runCatching Unit
         val deviceId = deviceIdProvider.get()
         val now = System.currentTimeMillis()
         val branch = ensureDefaultBranch(licence.businessId)
@@ -202,7 +206,7 @@ class EnterpriseAuditRepository @Inject constructor(
                 payload = device,
             )
         }
-    }
+    }.onFailure { Log.w(TAG, "registerCurrentDevice failed", it) }
 
     suspend fun record(
         action: String,
@@ -212,10 +216,10 @@ class EnterpriseAuditRepository @Inject constructor(
         metadata: String? = null,
         actorStaffId: Long? = null,
         actorRole: String? = null,
-    ) {
-        if (!productLineManager.isEnterprisePro()) return
+    ) = runCatching {
+        if (!productLineManager.isEnterprisePro()) return@runCatching Unit
         registerCurrentDevice()
-        val licence = licenceValidator.getStoredKey() ?: return
+        val licence = licenceValidator.getStoredKey() ?: return@runCatching Unit
         val branch = ensureDefaultBranch(licence.businessId)
         val event = EnterpriseAuditEvent(
             businessId = licence.businessId,
@@ -238,7 +242,7 @@ class EnterpriseAuditRepository @Inject constructor(
             payloadEntityId = eventId.toString(),
             payload = event.copy(id = eventId),
         )
-    }
+    }.onFailure { Log.w(TAG, "audit record failed action=$action", it) }
 
     private suspend fun ensureDefaultBranch(businessId: String): EnterpriseBranch {
         branchDao.getDefault(businessId)?.let { return it }
@@ -316,6 +320,7 @@ class EnterpriseAuditRepository @Inject constructor(
     }
 
     private companion object {
+        const val TAG = "EnterpriseAudit"
         const val DEFAULT_BRANCH_CODE = "MAIN"
         const val MAX_SYNC_ATTEMPTS = 5
         const val MAX_SYNC_ERROR_CHARS = 500

@@ -81,7 +81,7 @@ class CashFlowInsightsViewModel @Inject constructor(
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
 
     init {
-        observeInsights()
+        launchSafe { observeInsights() }
     }
 
     fun selectPeriod(period: Period) {
@@ -92,24 +92,29 @@ class CashFlowInsightsViewModel @Inject constructor(
         refreshTick.value = refreshTick.value + 1
     }
 
-    private fun observeInsights() {
-        viewModelScope.launch(Dispatchers.IO) {
-            combine(selectedPeriod, refreshTick) { period, _ -> period }
-                .flatMapLatest { period ->
-                    val range = resolveRange(period)
-                    _uiState.value = _uiState.value.copy(
-                        selectedPeriod = period,
-                        periodLabel = range.label,
-                        isLoading = true,
-                    )
-                    transactionRepository
-                        .getByPeriod(range.startMillis, range.endExclusiveMillis - 1L)
-                        .map { transactions -> PeriodTransactions(range, transactions) }
-                }
-                .collectLatest { snapshot ->
-                    publishSnapshot(snapshot)
-                }
-        }
+    private suspend fun observeInsights() {
+        combine(selectedPeriod, refreshTick) { period, _ -> period }
+            .flatMapLatest { period ->
+                val range = resolveRange(period)
+                _uiState.value = _uiState.value.copy(
+                    selectedPeriod = period,
+                    periodLabel = range.label,
+                    isLoading = true,
+                )
+                transactionRepository
+                    .getByPeriod(range.startMillis, range.endExclusiveMillis - 1L)
+                    .map { transactions -> PeriodTransactions(range, transactions) }
+            }
+            .collectLatest { snapshot ->
+                runCatching { publishSnapshot(snapshot) }
+                    .onFailure {
+                        android.util.Log.e("CashFlowInsightsVM", "publishSnapshot failed", it)
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            insightsText = "",
+                        )
+                    }
+            }
     }
 
     private suspend fun publishSnapshot(snapshot: PeriodTransactions) {
