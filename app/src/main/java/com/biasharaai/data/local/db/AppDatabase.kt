@@ -40,8 +40,13 @@ import androidx.room.RoomDatabase
         ForecastCalibration::class,
         BusinessMemoryEntry::class,
         AgentAdviceFeedback::class,
+        EnterpriseRegisteredDevice::class,
+        EnterpriseAuditEvent::class,
+        EnterpriseBranch::class,
+        EnterpriseSyncOutboxItem::class,
+        EnterpriseStockMovement::class,
     ],
-    version = 36,
+    version = 40,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -109,6 +114,16 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun businessMemoryEntryDao(): BusinessMemoryEntryDao
 
     abstract fun agentAdviceFeedbackDao(): AgentAdviceFeedbackDao
+
+    abstract fun enterpriseRegisteredDeviceDao(): EnterpriseRegisteredDeviceDao
+
+    abstract fun enterpriseAuditEventDao(): EnterpriseAuditEventDao
+
+    abstract fun enterpriseBranchDao(): EnterpriseBranchDao
+
+    abstract fun enterpriseSyncOutboxDao(): EnterpriseSyncOutboxDao
+
+    abstract fun enterpriseStockMovementDao(): EnterpriseStockMovementDao
 
     companion object {
         const val NAME = "biashara.db"

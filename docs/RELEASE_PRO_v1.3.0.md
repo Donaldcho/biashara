@@ -85,6 +85,8 @@ Configure a **release keystore** in `keystore.properties` before Play Store subm
 |-----|---------|
 | `HANDOFF.md` | Engineering handoff, schema, branch map |
 | `USER_MANUAL.md` | End-user guide (source for PDF) |
+| `docs/PRO_TECHNICAL_DOCUMENTATION.md` | Deep Pro architecture, stack, data model, agents, AI, ledger, and QA reference |
+| `docs/PRO_USER_MANUAL.md` | Full Pro end-user manual for product/service sales, vouchers, ledger, chat, and daily workflows |
 | `docs/generate_user_manual_pdf.py` | Regenerate `USER_MANUAL.pdf` |
 
 ---

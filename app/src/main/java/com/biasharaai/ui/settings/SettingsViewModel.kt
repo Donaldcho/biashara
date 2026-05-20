@@ -13,8 +13,17 @@ import com.biasharaai.cloud.CloudAnalysisHttpClient
 import com.biasharaai.cloud.CloudAnalysisSettings
 import com.biasharaai.cloud.CloudAnalysisSettingsStore
 import com.biasharaai.cloud.EnterpriseDeploymentMode
+import com.biasharaai.cloud.EnterpriseEndpointPolicy
 import com.biasharaai.data.local.db.AppSettings
 import com.biasharaai.data.local.db.AppSettingsDao
+import com.biasharaai.data.local.db.StaffMember
+import com.biasharaai.data.local.db.StaffMemberDao
+import com.biasharaai.enterprise.EnterpriseAuditRepository
+import com.biasharaai.enterprise.EnterpriseLanDiscoveryClient
+import com.biasharaai.enterprise.EnterpriseOperatorStore
+import com.biasharaai.enterprise.EnterprisePinHasher
+import com.biasharaai.enterprise.EnterpriseRolePermissions
+import com.biasharaai.enterprise.SyncSkipReason
 import com.biasharaai.licence.Edition
 import com.biasharaai.licence.LicenceKey
 import com.biasharaai.licence.LicenceValidator
@@ -54,6 +63,10 @@ class SettingsViewModel @Inject constructor(
     private val cloudAnalysisHttpClient: CloudAnalysisHttpClient,
     private val licenceValidator: LicenceValidator,
     private val productLineManager: ProductLineManager,
+    private val enterpriseAuditRepository: EnterpriseAuditRepository,
+    private val enterpriseLanDiscoveryClient: EnterpriseLanDiscoveryClient,
+    private val staffMemberDao: StaffMemberDao,
+    private val enterpriseOperatorStore: EnterpriseOperatorStore,
 ) : BaseViewModel() {
 
     private val _licenceKey = MutableStateFlow(licenceValidator.getStoredKey())
@@ -62,6 +75,12 @@ class SettingsViewModel @Inject constructor(
     val isProEnabled: Boolean get() = productLineManager.isProEnabled()
 
     val isEnterprisePro: Boolean get() = productLineManager.isEnterprisePro()
+
+    private val _currentEnterpriseOperator = MutableStateFlow<StaffMember?>(null)
+    val currentEnterpriseOperator: StateFlow<StaffMember?> = _currentEnterpriseOperator.asStateFlow()
+
+    val enterpriseStaff: StateFlow<List<StaffMember>> = staffMemberDao.getActive()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /** Singleton POS / shop settings row (currency, tax, …). */
     val shopSettings: StateFlow<AppSettings?> = appSettingsDao.getSettings()
@@ -74,6 +93,10 @@ class SettingsViewModel @Inject constructor(
 
     val isAiCapable: Boolean
         get() = capabilityResult.tier != CapabilityTier.RULES_BASED
+
+    init {
+        refreshEnterpriseOperator()
+    }
 
     fun downloadModel() {
         viewModelScope.launch {
@@ -119,6 +142,7 @@ class SettingsViewModel @Inject constructor(
 
     fun refreshLicenceState() {
         _licenceKey.value = licenceValidator.getStoredKey()
+        refreshEnterpriseOperator()
     }
 
     fun applyLicenceKey(keyString: String) {
@@ -127,6 +151,12 @@ class SettingsViewModel @Inject constructor(
             result.fold(
                 onSuccess = {
                     _licenceKey.value = it
+                    enterpriseAuditRepository.record(
+                        action = "LICENCE_APPLIED",
+                        entityType = "LICENCE",
+                        entityId = it.businessId,
+                        summary = "${it.productLine.name} ${it.edition.name} licence applied for up to ${it.maxDevices} devices",
+                    )
                     _events.emit(Event.LicenceApplied(productLineManager.isProEnabled()))
                 },
                 onFailure = {
@@ -161,8 +191,26 @@ class SettingsViewModel @Inject constructor(
     private val _cloudSettings = MutableStateFlow(cloudAnalysisSettingsStore.load())
     val cloudSettings: StateFlow<CloudAnalysisSettings> = _cloudSettings.asStateFlow()
 
+    val enterpriseDevices = enterpriseAuditRepository.observeRegisteredDevices()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val enterpriseAuditEvents = enterpriseAuditRepository.observeRecentAudit(limit = 5)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val enterpriseBranches = enterpriseAuditRepository.observeBranches()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val pendingEnterpriseSyncCount = enterpriseAuditRepository.observePendingSyncCount()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
     private val _isCloudUploading = MutableStateFlow(false)
     val isCloudUploading: StateFlow<Boolean> = _isCloudUploading.asStateFlow()
+
+    private val _isEnterpriseSyncing = MutableStateFlow(false)
+    val isEnterpriseSyncing: StateFlow<Boolean> = _isEnterpriseSyncing.asStateFlow()
+
+    private val _isEnterpriseDiscovering = MutableStateFlow(false)
+    val isEnterpriseDiscovering: StateFlow<Boolean> = _isEnterpriseDiscovering.asStateFlow()
 
     fun saveCloudAnalysis(enabled: Boolean, endpointUrl: String, newApiKeyIfNonBlank: String?) {
         saveCloudAnalysis(
@@ -192,6 +240,13 @@ class SettingsViewModel @Inject constructor(
                 newApiKeyIfNonBlank = newApiKeyIfNonBlank,
             )
             _cloudSettings.value = cloudAnalysisSettingsStore.load()
+            enterpriseAuditRepository.record(
+                action = "DEPLOYMENT_SAVED",
+                entityType = "ENTERPRISE_DEPLOYMENT",
+                entityId = effectiveMode.name,
+                summary = "Enterprise deployment saved as ${effectiveMode.name}",
+                metadata = "uploadsEnabled=$enabled; endpointConfigured=${endpointUrl.trim().isNotBlank()}",
+            )
             _events.emit(Event.CloudSettingsSaved)
         }
     }
@@ -207,7 +262,7 @@ class SettingsViewModel @Inject constructor(
                     _events.emit(Event.CloudUploadFailed(CLOUD_ERR_NOT_ENABLED))
                     return@launch
                 }
-                url.isBlank() || !url.startsWith("https://", ignoreCase = true) -> {
+                url.isBlank() || !EnterpriseEndpointPolicy.isAllowed(url, cfg.deploymentMode.name) -> {
                     _events.emit(Event.CloudUploadFailed(CLOUD_ERR_MISSING_URL))
                     return@launch
                 }
@@ -220,18 +275,219 @@ class SettingsViewModel @Inject constructor(
             try {
                 val json = withContext(Dispatchers.IO) { businessAnalyticsJsonExporter.buildJson() }
                 val result = withContext(Dispatchers.IO) {
-                    cloudAnalysisHttpClient.postJson(url, json, key)
+                    cloudAnalysisHttpClient.postJson(
+                        url = url,
+                        jsonBody = json,
+                        bearerToken = key,
+                        destinationMode = cfg.deploymentMode.name,
+                    )
                 }
                 result.fold(
-                    onSuccess = { _events.emit(Event.CloudUploadSucceeded) },
+                    onSuccess = {
+                        enterpriseAuditRepository.record(
+                            action = "ANALYTICS_JSON_UPLOADED",
+                            entityType = "ENTERPRISE_EXPORT",
+                            entityId = cfg.deploymentMode.name,
+                            summary = "Business analytics JSON uploaded to ${cfg.deploymentMode.name}",
+                        )
+                        _events.emit(Event.CloudUploadSucceeded)
+                    },
                     onFailure = { e ->
                         Log.w("SettingsViewModel", "cloud json upload failed", e)
+                        enterpriseAuditRepository.record(
+                            action = "ANALYTICS_JSON_UPLOAD_FAILED",
+                            entityType = "ENTERPRISE_EXPORT",
+                            entityId = cfg.deploymentMode.name,
+                            summary = "Business analytics JSON upload failed",
+                            metadata = e.message,
+                        )
                         _events.emit(Event.CloudUploadFailed(e.message ?: "Unknown error"))
                     },
                 )
             } finally {
                 _isCloudUploading.value = false
             }
+        }
+    }
+
+    fun syncEnterpriseQueue() {
+        if (_isEnterpriseSyncing.value) return
+        viewModelScope.launch {
+            _isEnterpriseSyncing.value = true
+            try {
+                val result = withContext(Dispatchers.IO) { enterpriseAuditRepository.flushPendingSync() }
+                val skipped = result.skippedReason
+                if (skipped != null) {
+                    _events.emit(
+                        Event.EnterpriseSyncFailed(
+                            when (skipped) {
+                                SyncSkipReason.NOT_ENABLED -> CLOUD_ERR_NOT_ENABLED
+                                SyncSkipReason.MISSING_URL -> CLOUD_ERR_MISSING_URL
+                                SyncSkipReason.MISSING_KEY -> CLOUD_ERR_MISSING_KEY
+                                SyncSkipReason.NOT_ENTERPRISE ->
+                                    "Enterprise sync is not available for this licence."
+                            },
+                        ),
+                    )
+                } else {
+                    _events.emit(Event.EnterpriseSyncComplete(result.sent, result.failed))
+                }
+            } catch (e: Exception) {
+                Log.w("SettingsViewModel", "enterprise sync failed", e)
+                _events.emit(Event.EnterpriseSyncFailed(e.message ?: "Unknown error"))
+            } finally {
+                _isEnterpriseSyncing.value = false
+            }
+        }
+    }
+
+    fun discoverEnterpriseService() {
+        if (_isEnterpriseDiscovering.value) return
+        viewModelScope.launch {
+            _isEnterpriseDiscovering.value = true
+            try {
+                val result = enterpriseLanDiscoveryClient.discover()
+                result.fold(
+                    onSuccess = { service ->
+                        _cloudSettings.value = _cloudSettings.value.copy(
+                            deploymentMode = EnterpriseDeploymentMode.ON_PREMISE,
+                            endpointUrl = service.endpointUrl,
+                        )
+                        _events.emit(Event.EnterpriseServiceDiscovered(service.endpointUrl))
+                    },
+                    onFailure = { e ->
+                        Log.w("SettingsViewModel", "enterprise discovery failed", e)
+                        _events.emit(
+                            Event.EnterpriseDiscoveryFailed(
+                                e.message ?: "No Enterprise sync service found.",
+                            ),
+                        )
+                    },
+                )
+            } finally {
+                _isEnterpriseDiscovering.value = false
+            }
+        }
+    }
+
+    fun requestEnterpriseAction(action: RestrictedAction) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val permission = permissionFor(action)
+            val operator = loadCurrentEnterpriseOperator()
+            if (
+                productLineManager.isEnterprisePro() &&
+                operator != null &&
+                !EnterpriseRolePermissions.can(operator.role, permission)
+            ) {
+                enterpriseAuditRepository.record(
+                    action = "PERMISSION_DENIED",
+                    entityType = "ENTERPRISE_PERMISSION",
+                    entityId = permission,
+                    summary = "${operator.name} was blocked from ${action.name}",
+                    metadata = "role=${operator.role}; permission=$permission",
+                    actorStaffId = operator.id,
+                    actorRole = operator.role,
+                )
+                _events.emit(
+                    Event.EnterprisePermissionDenied(
+                        operatorName = operator.name,
+                        operatorRole = operator.role,
+                    ),
+                )
+                return@launch
+            }
+            _events.emit(Event.EnterpriseActionAllowed(action))
+        }
+    }
+
+    fun selectEnterpriseOperator(member: StaffMember?, pin: String? = null) {
+        viewModelScope.launch(Dispatchers.IO) {
+            if (member == null) {
+                val previous = _currentEnterpriseOperator.value
+                enterpriseOperatorStore.clear()
+                _currentEnterpriseOperator.value = null
+                enterpriseAuditRepository.record(
+                    action = "DEVICE_OPERATOR_CLEARED",
+                    entityType = "STAFF_MEMBER",
+                    entityId = previous?.id?.toString(),
+                    summary = "Device operator cleared from Settings",
+                    metadata = previous?.let { "previous=${it.name}; role=${it.role}" },
+                    actorStaffId = previous?.id,
+                    actorRole = previous?.role,
+                )
+            } else {
+                val fresh = staffMemberDao.getById(member.id)?.takeIf { it.isActive } ?: return@launch
+                if (fresh.pinHash.isNullOrBlank() || fresh.pinSalt.isNullOrBlank()) {
+                    _events.emit(Event.EnterpriseOperatorPinRequired)
+                    return@launch
+                }
+                val verified = withContext(Dispatchers.Default) {
+                    EnterprisePinHasher.verify(pin.orEmpty(), fresh.pinSalt, fresh.pinHash)
+                }
+                if (!verified) {
+                    enterpriseAuditRepository.record(
+                        action = "OPERATOR_PIN_FAILED",
+                        entityType = "STAFF_MEMBER",
+                        entityId = fresh.id.toString(),
+                        summary = "Invalid operator PIN from Settings for ${fresh.name}",
+                        metadata = "role=${fresh.role}",
+                        actorStaffId = fresh.id,
+                        actorRole = fresh.role,
+                    )
+                    _events.emit(Event.EnterpriseOperatorPinInvalid)
+                    return@launch
+                }
+                enterpriseOperatorStore.selectStaff(fresh.id)
+                _currentEnterpriseOperator.value = fresh
+                enterpriseAuditRepository.record(
+                    action = "DEVICE_OPERATOR_SELECTED",
+                    entityType = "STAFF_MEMBER",
+                    entityId = fresh.id.toString(),
+                    summary = "Device operator selected from Settings: ${fresh.name}",
+                    metadata = "role=${fresh.role}; pinVerified=true",
+                    actorStaffId = fresh.id,
+                    actorRole = fresh.role,
+                )
+            }
+            _events.emit(Event.EnterpriseOperatorChanged)
+        }
+    }
+
+    private fun refreshEnterpriseOperator() {
+        viewModelScope.launch(Dispatchers.IO) {
+            loadCurrentEnterpriseOperator()
+        }
+    }
+
+    private suspend fun loadCurrentEnterpriseOperator(): StaffMember? {
+        val selectedId = enterpriseOperatorStore.selectedStaffId()
+        val member = selectedId?.let { staffMemberDao.getById(it) }?.takeIf { it.isActive }
+        if (selectedId != null && member == null) {
+            enterpriseOperatorStore.clear()
+        }
+        _currentEnterpriseOperator.value = member
+        return member
+    }
+
+    private fun permissionFor(action: RestrictedAction): String = when (action) {
+        RestrictedAction.OPEN_LEDGER -> EnterpriseRolePermissions.PERMISSION_EDIT_LEDGER
+        RestrictedAction.OPEN_STAFF_SETTINGS -> EnterpriseRolePermissions.PERMISSION_MANAGE_STAFF
+        RestrictedAction.SAVE_CLOUD_SETTINGS,
+        RestrictedAction.UPLOAD_ANALYTICS_JSON,
+        RestrictedAction.UPLOAD_SQLITE_DATABASE,
+        RestrictedAction.SYNC_ENTERPRISE_QUEUE,
+        -> EnterpriseRolePermissions.PERMISSION_EXPORT_DATA
+    }
+
+    fun saveDefaultEnterpriseBranch(name: String, location: String?) {
+        val trimmed = name.trim()
+        if (trimmed.length < 2) {
+            viewModelScope.launch { _events.emit(Event.EnterpriseBranchInvalid) }
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            enterpriseAuditRepository.saveDefaultBranch(trimmed, location)
+            _events.emit(Event.EnterpriseBranchSaved)
         }
     }
 
@@ -246,7 +502,7 @@ class SettingsViewModel @Inject constructor(
                     _events.emit(Event.CloudUploadFailed(CLOUD_ERR_NOT_ENABLED))
                     return@launch
                 }
-                url.isBlank() || !url.startsWith("https://", ignoreCase = true) -> {
+                url.isBlank() || !EnterpriseEndpointPolicy.isAllowed(url, cfg.deploymentMode.name) -> {
                     _events.emit(Event.CloudUploadFailed(CLOUD_ERR_MISSING_URL))
                     return@launch
                 }
@@ -261,12 +517,32 @@ class SettingsViewModel @Inject constructor(
                 temp = withContext(Dispatchers.IO) { businessAnalyticsJsonExporter.copyCheckpointedDatabaseToCache() }
                 val file = temp!!
                 val result = withContext(Dispatchers.IO) {
-                    cloudAnalysisHttpClient.postSqliteFile(url, file, key)
+                    cloudAnalysisHttpClient.postSqliteFile(
+                        url = url,
+                        dbFile = file,
+                        bearerToken = key,
+                        destinationMode = cfg.deploymentMode.name,
+                    )
                 }
                 result.fold(
-                    onSuccess = { _events.emit(Event.CloudUploadSucceeded) },
+                    onSuccess = {
+                        enterpriseAuditRepository.record(
+                            action = "SQLITE_DATABASE_UPLOADED",
+                            entityType = "ENTERPRISE_EXPORT",
+                            entityId = cfg.deploymentMode.name,
+                            summary = "Full SQLite database uploaded to ${cfg.deploymentMode.name}",
+                        )
+                        _events.emit(Event.CloudUploadSucceeded)
+                    },
                     onFailure = { e ->
                         Log.w("SettingsViewModel", "cloud sqlite upload failed", e)
+                        enterpriseAuditRepository.record(
+                            action = "SQLITE_DATABASE_UPLOAD_FAILED",
+                            entityType = "ENTERPRISE_EXPORT",
+                            entityId = cfg.deploymentMode.name,
+                            summary = "Full SQLite database upload failed",
+                            metadata = e.message,
+                        )
                         _events.emit(Event.CloudUploadFailed(e.message ?: "Unknown error"))
                     },
                 )
@@ -336,8 +612,31 @@ class SettingsViewModel @Inject constructor(
         data object CloudSettingsSaved : Event()
         data object CloudUploadSucceeded : Event()
         data class CloudUploadFailed(val message: String) : Event()
+        data class EnterpriseSyncComplete(val sent: Int, val failed: Int) : Event()
+        data class EnterpriseSyncFailed(val message: String) : Event()
+        data class EnterpriseServiceDiscovered(val endpointUrl: String) : Event()
+        data class EnterpriseDiscoveryFailed(val message: String) : Event()
+        data object EnterpriseBranchSaved : Event()
+        data object EnterpriseBranchInvalid : Event()
+        data class EnterpriseActionAllowed(val action: RestrictedAction) : Event()
+        data class EnterprisePermissionDenied(
+            val operatorName: String,
+            val operatorRole: String,
+        ) : Event()
+        data object EnterpriseOperatorChanged : Event()
+        data object EnterpriseOperatorPinRequired : Event()
+        data object EnterpriseOperatorPinInvalid : Event()
         data class LicenceApplied(val proEnabled: Boolean) : Event()
         data class LicenceInvalid(val message: String) : Event()
+    }
+
+    enum class RestrictedAction {
+        OPEN_LEDGER,
+        OPEN_STAFF_SETTINGS,
+        SAVE_CLOUD_SETTINGS,
+        UPLOAD_ANALYTICS_JSON,
+        UPLOAD_SQLITE_DATABASE,
+        SYNC_ENTERPRISE_QUEUE,
     }
 
     fun productLineNameRes(productLine: ProductLine): Int = when (productLine) {

@@ -17,6 +17,7 @@ Keep it updated when you add long-lived integration lines or change the default 
 | Work on **POS feature line** (historical) | `git fetch origin && git checkout feat/pos-module` |
 | Work on **Pro stable** (services POS, v1.3.0) | `git fetch origin && git checkout release/pro-stable-v1.3.0` |
 | Work on **Enterprise deployment** (on-prem / cloud analytics) | `git fetch origin && git checkout feat/enterprise-deployment` |
+| Ship **Pro beta** (pre-stable integration) | `git fetch origin && git checkout release/pro-beta` |
 | Start a **new** task from latest integration | `git fetch origin && git checkout release/biashara-phase4 && git pull && git checkout -b feat/<short-topic>` |
 | Start a **new** task from Pro stable | `git fetch origin && git checkout release/pro-stable-v1.3.0 && git pull && git checkout -b feat/<short-topic>` |
 
@@ -30,7 +31,8 @@ main
        └── release/biashara-phase4   (stable line: U-track + POS + Phase 6 models/skills, …)
              └── feat/voice-layer-stt-tts   (Voice layer v1 handbook — Whisper + TTS)
        └── release/pro-stable-v1.3.0   (Pro stable: services POS, unified receipts, v1.3.0)
-             └── feat/enterprise-deployment   (Enterprise on-prem / cloud deployment & uploads)
+             ├── release/pro-beta   (Pro beta — enterprise + ahead-of-stable integrations)
+             └── feat/enterprise-deployment   (Enterprise on-prem / cloud — may merge → pro-beta)
 ```
 
 - **`main`** — release-aligned default; treat as **protected** (PR + review + CI before merge).

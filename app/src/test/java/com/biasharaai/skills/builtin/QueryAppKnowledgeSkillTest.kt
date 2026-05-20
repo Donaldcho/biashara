@@ -64,7 +64,7 @@ class QueryAppKnowledgeSkillTest {
         assertTrue(result is SkillResult.Success)
         val map = (result as SkillResult.Success).outputMap()
         assertEquals(false, map["found"])
-        assertEquals(0, map["chunkCount"])
+        assertEquals(0, (map["chunkCount"] as Number).toInt())
     }
 
     @Test
@@ -79,7 +79,7 @@ class QueryAppKnowledgeSkillTest {
         assertTrue(result is SkillResult.Success)
         val map = (result as SkillResult.Success).outputMap()
         assertEquals(true, map["found"])
-        assertEquals(2, map["chunkCount"])
+        assertEquals(2, (map["chunkCount"] as Number).toInt())
     }
 
     @Test

@@ -47,7 +47,7 @@ class TeachUserSkillTest {
         assertTrue(result is SkillResult.Success)
         val map = (result as SkillResult.Success).outputMap()
         assertEquals("add_product", map["featureId"])
-        assertTrue((map["stepCount"] as Int) > 0)
+        assertTrue((map["stepCount"] as Number).toInt() > 0)
     }
 
     @Test

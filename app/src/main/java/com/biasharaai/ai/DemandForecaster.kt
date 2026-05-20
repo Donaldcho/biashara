@@ -66,7 +66,7 @@ class DemandForecaster @Inject constructor(
 
         if (rawForecast.isBlank()) return rawForecast
 
-        val (d1, d2, d3) = parseToDayTriple(rawForecast)
+        val (d1, d2, d3) = parseToDayTriple(rawForecast) ?: return rawForecast.trim()
         val biasRatio = loadBiasRatio(productId)
         val (cd1, cd2, cd3) = applyBias(d1, d2, d3, biasRatio)
 
@@ -92,7 +92,8 @@ class DemandForecaster @Inject constructor(
     // ── private ───────────────────────────────────────────────────────────────
 
     private suspend fun loadBiasRatio(productId: Long): Float? =
-        calibrationDao.avgBiasRatio(productId)?.takeIf { !it.isNaN() }
+        calibrationDao.avgBiasRatio(productId)
+            ?.takeIf { it.isFinite() && it > 0f }
             ?.coerceIn(BIAS_MIN, BIAS_MAX)
 
     private fun applyBias(
@@ -107,14 +108,14 @@ class DemandForecaster @Inject constructor(
         )
     }
 
-    private fun parseToDayTriple(forecast: String): Triple<Int, Int, Int> {
+    private fun parseToDayTriple(forecast: String): Triple<Int, Int, Int>? {
         val regex = Regex("""Day\s*1\s*:\s*(\d+).*?Day\s*2\s*:\s*(\d+).*?Day\s*3\s*:\s*(\d+)""", RegexOption.IGNORE_CASE)
         val m = regex.find(forecast)
         return if (m != null) {
             val (a, b, c) = m.destructured
             Triple(a.toIntOrNull() ?: 0, b.toIntOrNull() ?: 0, c.toIntOrNull() ?: 0)
         } else {
-            Triple(0, 0, 0)
+            null
         }
     }
 

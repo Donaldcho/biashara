@@ -24,17 +24,22 @@ class CloudAnalysisHttpClient @Inject constructor() {
         .writeTimeout(120, TimeUnit.SECONDS)
         .build()
 
-    private fun requireHttps(url: String) {
-        require(url.startsWith("https://", ignoreCase = true)) {
-            "Only https:// endpoints are allowed."
+    private fun requireAllowedEndpoint(url: String, destinationMode: String? = null) {
+        require(EnterpriseEndpointPolicy.isAllowed(url, destinationMode)) {
+            EnterpriseEndpointPolicy.errorMessage(destinationMode)
         }
     }
 
     /**
      * POST JSON body to the user-configured analytics URL. Returns response body string on success.
      */
-    fun postJson(url: String, jsonBody: String, bearerToken: String?): Result<String> = runCatching {
-        requireHttps(url)
+    fun postJson(
+        url: String,
+        jsonBody: String,
+        bearerToken: String?,
+        destinationMode: String? = null,
+    ): Result<String> = runCatching {
+        requireAllowedEndpoint(url, destinationMode)
         val body = jsonBody.toRequestBody(JSON)
         val req = Request.Builder()
             .url(url)
@@ -57,10 +62,49 @@ class CloudAnalysisHttpClient @Inject constructor() {
     }
 
     /**
+     * POST one queued Enterprise sync envelope to the configured deployment endpoint.
+     */
+    fun postEnterpriseSyncItem(
+        url: String,
+        jsonBody: String,
+        bearerToken: String?,
+        destinationMode: String,
+        payloadType: String,
+    ): Result<String> = runCatching {
+        requireAllowedEndpoint(url, destinationMode)
+        val body = jsonBody.toRequestBody(JSON)
+        val req = Request.Builder()
+            .url(url)
+            .post(body)
+            .header("User-Agent", "BiasharaAI-Android/${BuildConfig.VERSION_NAME}")
+            .header("X-Biashara-Export-Type", "enterprise-sync-outbox")
+            .header("X-Biashara-Deployment-Mode", destinationMode)
+            .header("X-Biashara-Payload-Type", payloadType)
+            .apply {
+                if (!bearerToken.isNullOrBlank()) {
+                    header("Authorization", "Bearer ${bearerToken.trim()}")
+                }
+            }
+            .build()
+        client.newCall(req).execute().use { resp ->
+            val text = resp.body?.string().orEmpty()
+            if (!resp.isSuccessful) {
+                error("HTTP ${resp.code}: ${text.take(500)}")
+            }
+            text
+        }
+    }
+
+    /**
      * Multipart upload of a SQLite file (same logical DB as Room). Server must accept multipart.
      */
-    fun postSqliteFile(url: String, dbFile: File, bearerToken: String?): Result<String> = runCatching {
-        requireHttps(url)
+    fun postSqliteFile(
+        url: String,
+        dbFile: File,
+        bearerToken: String?,
+        destinationMode: String? = null,
+    ): Result<String> = runCatching {
+        requireAllowedEndpoint(url, destinationMode)
         require(dbFile.isFile && dbFile.canRead()) { "Database file is not readable." }
         val part = MultipartBody.Part.createFormData(
             "database",

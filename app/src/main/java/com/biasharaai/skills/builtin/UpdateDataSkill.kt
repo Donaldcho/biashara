@@ -1,6 +1,9 @@
 package com.biasharaai.skills.builtin
 
+import com.biasharaai.data.local.db.EnterpriseStockMovement
+import com.biasharaai.data.local.db.Product
 import com.biasharaai.data.local.db.ProductDao
+import com.biasharaai.enterprise.EnterpriseCatalogRepository
 import com.biasharaai.skills.BiasharaSkill
 import com.biasharaai.skills.SkillArgsParser
 import com.biasharaai.skills.SkillResult
@@ -16,6 +19,7 @@ import javax.inject.Singleton
 @Singleton
 class UpdateDataSkill @Inject constructor(
     private val productDao: ProductDao,
+    private val enterpriseCatalogRepository: EnterpriseCatalogRepository,
 ) : BiasharaSkill {
     override val id: String = ID
     override val displayName: String = "Update data"
@@ -59,12 +63,15 @@ class UpdateDataSkill @Inject constructor(
             return SkillResult.Failure("INVALID_ARGS", "stockQuantity must be non-negative")
         }
 
-        val updated = product.copy(
+        val draft = product.copy(
             price = newPrice ?: product.price,
             cost = newCost ?: product.cost,
             stockQuantity = newStock ?: product.stockQuantity,
         )
+        val updated = enterpriseCatalogRepository.prepareProductForLocalSave(product, draft)
         productDao.updateProduct(updated)
+        enterpriseCatalogRepository.onProductSaved(updated, "AI_TOOL_UPDATE")
+        recordStockChangeIfNeeded(product, updated)
 
         return SkillResult.successMap(
             mapOf(
@@ -77,6 +84,19 @@ class UpdateDataSkill @Inject constructor(
                 },
             ),
             summary = "Updated product ${product.name}",
+        )
+    }
+
+    private suspend fun recordStockChangeIfNeeded(previous: Product, updated: Product) {
+        val stockDelta = updated.stockQuantity - previous.stockQuantity
+        if (stockDelta == 0) return
+        enterpriseCatalogRepository.recordProductStockMovement(
+            product = updated,
+            quantityDelta = stockDelta,
+            movementType = EnterpriseStockMovement.TYPE_ADJUSTMENT,
+            sourceType = "AI_TOOL_UPDATE",
+            sourceId = updated.id.toString(),
+            note = "Owner-approved AI data update",
         )
     }
 

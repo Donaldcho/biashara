@@ -10,6 +10,9 @@ data class StaffMember(
     val name: String,
     val phone: String? = null,
     @ColumnInfo(defaultValue = "STAFF") val role: String = ROLE_STAFF,
+    @ColumnInfo(name = "pin_hash") val pinHash: String? = null,
+    @ColumnInfo(name = "pin_salt") val pinSalt: String? = null,
+    @ColumnInfo(name = "pin_updated_at") val pinUpdatedAt: Long? = null,
     @ColumnInfo(name = "is_active") val isActive: Boolean = true,
     @ColumnInfo(name = "created_at") val createdAt: Long = System.currentTimeMillis(),
 ) {

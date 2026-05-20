@@ -22,6 +22,7 @@ import com.biasharaai.data.local.db.ProductDao
 import com.biasharaai.analytics.SalesIntelligenceRepository
 import com.biasharaai.data.local.db.TransactionDao
 import com.biasharaai.data.local.db.TransactionType
+import com.biasharaai.enterprise.EnterpriseAuditRepository
 import com.biasharaai.knowledge.KnowledgeIngestor
 import com.biasharaai.knowledge.KnowledgeRetriever
 import com.biasharaai.locale.LanguagePreferences
@@ -73,6 +74,7 @@ class ChatViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val inferenceSettingsStore: InferenceSettingsStore,
     private val chatQueryHistoryStore: ChatQueryHistoryStore,
+    private val enterpriseAuditRepository: EnterpriseAuditRepository,
 ) : BaseViewModel() {
 
     /**
@@ -595,8 +597,16 @@ class ChatViewModel @Inject constructor(
         val text = newText.trim()
         if (messageId <= 0L || text.isBlank()) return
         if (_isGenerating.value) stopGeneration()
+        val before = _messages.value.firstOrNull { it.stableId == messageId }
         viewModelScope.launch(Dispatchers.IO) {
             chatSessionRepository.updateMessageText(messageId, text)
+            enterpriseAuditRepository.record(
+                action = "CHAT_MESSAGE_EDITED",
+                entityType = "CHAT_MESSAGE",
+                entityId = messageId.toString(),
+                summary = "Chat message edited",
+                metadata = "role=${if (before?.isUser == true) "user" else "assistant"}; oldLength=${before?.text?.length ?: 0}; newLength=${text.length}",
+            )
             reloadActiveMessages()
             gemmaService.resetSession()
             injectTranscriptIntoNextGemmaPrompt = true
@@ -607,8 +617,16 @@ class ChatViewModel @Inject constructor(
     fun deleteMessage(messageId: Long, onDone: () -> Unit = {}) {
         if (messageId <= 0L) return
         if (_isGenerating.value) stopGeneration()
+        val before = _messages.value.firstOrNull { it.stableId == messageId }
         viewModelScope.launch(Dispatchers.IO) {
             chatSessionRepository.deleteMessage(messageId)
+            enterpriseAuditRepository.record(
+                action = "CHAT_MESSAGE_DELETED",
+                entityType = "CHAT_MESSAGE",
+                entityId = messageId.toString(),
+                summary = "Chat message deleted",
+                metadata = "role=${if (before?.isUser == true) "user" else "assistant"}; length=${before?.text?.length ?: 0}",
+            )
             reloadActiveMessages()
             gemmaService.resetSession()
             injectTranscriptIntoNextGemmaPrompt = true

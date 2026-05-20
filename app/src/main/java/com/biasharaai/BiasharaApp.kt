@@ -13,6 +13,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.biasharaai.agent.workers.LedgerAnomalyAgentWorker
 import com.biasharaai.cash.workers.StorageWatchdogWorker
+import com.biasharaai.enterprise.EnterpriseSyncWorker
 import com.biasharaai.ledger.workers.LedgerBackfillWorker
 import com.biasharaai.ledger.workers.LedgerBalanceRecomputeWorker
 import java.util.concurrent.TimeUnit
@@ -26,6 +27,7 @@ import com.biasharaai.knowledge.KnowledgeIngestor
 import com.biasharaai.licence.LicenceValidator
 import com.biasharaai.service.pro.ProOnboardingCardManager
 import com.biasharaai.di.WorkManagerEntryPoint
+import com.biasharaai.enterprise.EnterpriseAuditRepository
 import com.biasharaai.loss.LossAlertScheduler
 import dagger.hilt.android.HiltAndroidApp
 import dagger.hilt.android.EntryPointAccessors
@@ -57,6 +59,8 @@ class BiasharaApp : Application(), Configuration.Provider {
 
     @Inject lateinit var proOnboardingCardManager: ProOnboardingCardManager
 
+    @Inject lateinit var enterpriseAuditRepository: EnterpriseAuditRepository
+
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onCreate() {
@@ -64,6 +68,8 @@ class BiasharaApp : Application(), Configuration.Provider {
         runCatching { licenceValidator.ensureDefaultLicence() }
             .onFailure { Log.e(TAG, "ensureDefaultLicence failed", it) }
         appScope.launch(Dispatchers.IO) {
+            runCatching { enterpriseAuditRepository.registerCurrentDevice() }
+                .onFailure { Log.e(TAG, "enterprise device registration failed", it) }
             runCatching { proOnboardingCardManager.checkAndShowIfNeeded() }
                 .onFailure { Log.e(TAG, "proOnboardingCardManager failed", it) }
         }
@@ -86,6 +92,8 @@ class BiasharaApp : Application(), Configuration.Provider {
         appScope.launch(Dispatchers.IO) {
             runCatching { scheduleLedgerWorkers() }
                 .onFailure { Log.e(TAG, "scheduleLedgerWorkers failed", it) }
+            runCatching { scheduleEnterpriseSyncWorkers() }
+                .onFailure { Log.e(TAG, "scheduleEnterpriseSyncWorkers failed", it) }
         }
         runCatching { registerFraudSentinelInvalidationObserver() }
             .onFailure { Log.e(TAG, "Fraud invalidation observer failed", it) }
@@ -118,6 +126,34 @@ class BiasharaApp : Application(), Configuration.Provider {
             LedgerAnomalyAgentWorker.UNIQUE_WORK,
             ExistingPeriodicWorkPolicy.KEEP,
             anomaly,
+        )
+    }
+
+    private fun scheduleEnterpriseSyncWorkers() {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+        val wm = WorkManager.getInstance(this)
+        val periodic = PeriodicWorkRequestBuilder<EnterpriseSyncWorker>(
+            1,
+            TimeUnit.HOURS,
+            15,
+            TimeUnit.MINUTES,
+        )
+            .setConstraints(constraints)
+            .build()
+        wm.enqueueUniquePeriodicWork(
+            EnterpriseSyncWorker.UNIQUE_PERIODIC_WORK,
+            ExistingPeriodicWorkPolicy.KEEP,
+            periodic,
+        )
+        val immediate = OneTimeWorkRequestBuilder<EnterpriseSyncWorker>()
+            .setConstraints(constraints)
+            .build()
+        wm.enqueueUniqueWork(
+            EnterpriseSyncWorker.UNIQUE_IMMEDIATE_WORK,
+            ExistingWorkPolicy.KEEP,
+            immediate,
         )
     }
 

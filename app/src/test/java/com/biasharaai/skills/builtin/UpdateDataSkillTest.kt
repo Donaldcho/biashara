@@ -2,6 +2,7 @@ package com.biasharaai.skills.builtin
 
 import com.biasharaai.data.local.db.Product
 import com.biasharaai.data.local.db.ProductDao
+import com.biasharaai.enterprise.EnterpriseCatalogRepository
 import com.biasharaai.skills.SkillResult
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -15,12 +16,24 @@ import org.junit.Test
 class UpdateDataSkillTest {
 
     private lateinit var productDao: ProductDao
+    private lateinit var enterpriseCatalogRepository: EnterpriseCatalogRepository
     private lateinit var skill: UpdateDataSkill
 
     @Before
     fun setUp() {
         productDao = mockk(relaxed = true)
-        skill = UpdateDataSkill(productDao)
+        enterpriseCatalogRepository = mockk(relaxed = true)
+        everyPrepareProductReturnsDraft()
+        coEvery { enterpriseCatalogRepository.onProductSaved(any(), any()) } answers { firstArg() }
+        skill = UpdateDataSkill(productDao, enterpriseCatalogRepository)
+    }
+
+    private fun everyPrepareProductReturnsDraft() {
+        io.mockk.every {
+            enterpriseCatalogRepository.prepareProductForLocalSave(any(), any())
+        } answers {
+            secondArg()
+        }
     }
 
     @Test

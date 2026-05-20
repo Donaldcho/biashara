@@ -702,6 +702,18 @@ class AddEditProductFragment : BaseFragment() {
                     event.errors["stock"]?.let { binding.layoutStock.error = it }
                 }
 
+                is AddEditProductViewModel.Event.PermissionDenied -> {
+                    Snackbar.make(
+                        binding.root,
+                        getString(
+                            R.string.settings_enterprise_permission_denied,
+                            event.operatorName,
+                            event.operatorRole,
+                        ),
+                        Snackbar.LENGTH_LONG,
+                    ).show()
+                }
+
                 is AddEditProductViewModel.Event.Error -> {
                     Snackbar.make(
                         binding.root,
