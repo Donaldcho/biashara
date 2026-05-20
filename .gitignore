@@ -38,3 +38,8 @@ Donald_Cho_Resume.pdf
 
 # Local reference clone (Google AI Edge Gallery source) — not part of app releases
 _gallery_ref/
+
+# Python (reference enterprise sync server)
+**/__pycache__/
+*.pyc
+server/**/.env

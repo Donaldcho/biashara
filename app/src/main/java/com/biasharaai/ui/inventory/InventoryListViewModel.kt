@@ -3,9 +3,11 @@ package com.biasharaai.ui.inventory
 import androidx.lifecycle.viewModelScope
 import com.biasharaai.ai.DemandForecaster
 import com.biasharaai.media.ProductPhotoStore
+import com.biasharaai.data.local.db.EnterpriseStockMovement
 import com.biasharaai.data.local.db.Product
 import com.biasharaai.data.local.db.ProductDao
 import com.biasharaai.data.local.db.ServiceItem
+import com.biasharaai.enterprise.EnterpriseCatalogRepository
 import com.biasharaai.service.ServiceRepository
 import com.biasharaai.ui.base.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,6 +27,7 @@ class InventoryListViewModel @Inject constructor(
     private val serviceRepository: ServiceRepository,
     private val demandForecaster: DemandForecaster,
     private val productPhotoStore: ProductPhotoStore,
+    private val enterpriseCatalogRepository: EnterpriseCatalogRepository,
 ) : BaseViewModel() {
 
     /** Reactive product list backed by Room's Flow, exposed as StateFlow. */
@@ -117,6 +120,7 @@ class InventoryListViewModel @Inject constructor(
         withContext(Dispatchers.IO) {
             productPhotoStore.deleteIfAppStored(product.imageUrl)
             productDao.deleteProduct(product)
+            enterpriseCatalogRepository.onProductDeleted(product)
         }
     }
 
@@ -138,6 +142,14 @@ class InventoryListViewModel @Inject constructor(
                 error("Only ${p.stockQuantity} in stock")
             }
             productDao.incrementStock(productId, -quantity)
+            enterpriseCatalogRepository.recordProductStockMovement(
+                product = p.copy(stockQuantity = p.stockQuantity - quantity),
+                quantityDelta = -quantity,
+                movementType = EnterpriseStockMovement.TYPE_ADJUSTMENT,
+                sourceType = EnterpriseStockMovement.SOURCE_INVENTORY_ADJUSTMENT,
+                sourceId = productId.toString(),
+                note = "Stock removed from inventory",
+            )
         }
     }
 }

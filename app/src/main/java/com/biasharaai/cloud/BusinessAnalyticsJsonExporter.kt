@@ -12,6 +12,15 @@ import com.biasharaai.data.local.db.Customer
 import com.biasharaai.data.local.db.CustomerDao
 import com.biasharaai.data.local.db.Debt
 import com.biasharaai.data.local.db.DebtDao
+import com.biasharaai.data.local.db.EnterpriseAuditEvent
+import com.biasharaai.data.local.db.EnterpriseAuditEventDao
+import com.biasharaai.data.local.db.EnterpriseBranch
+import com.biasharaai.data.local.db.EnterpriseBranchDao
+import com.biasharaai.data.local.db.EnterpriseRegisteredDevice
+import com.biasharaai.data.local.db.EnterpriseRegisteredDeviceDao
+import com.biasharaai.data.local.db.EnterpriseStockMovement
+import com.biasharaai.data.local.db.EnterpriseStockMovementDao
+import com.biasharaai.data.local.db.EnterpriseSyncOutboxDao
 import com.biasharaai.data.local.db.LossAlertDao
 import com.biasharaai.data.local.db.PosSaleLineFact
 import com.biasharaai.data.local.db.Product
@@ -49,6 +58,11 @@ class BusinessAnalyticsJsonExporter @Inject constructor(
     private val alertDao: AlertDao,
     private val chatMemoryDao: ChatMemoryDao,
     private val lossAlertDao: LossAlertDao,
+    private val enterpriseRegisteredDeviceDao: EnterpriseRegisteredDeviceDao,
+    private val enterpriseAuditEventDao: EnterpriseAuditEventDao,
+    private val enterpriseBranchDao: EnterpriseBranchDao,
+    private val enterpriseSyncOutboxDao: EnterpriseSyncOutboxDao,
+    private val enterpriseStockMovementDao: EnterpriseStockMovementDao,
 ) {
     private val gson = Gson()
 
@@ -65,6 +79,11 @@ class BusinessAnalyticsJsonExporter @Inject constructor(
             val memoriesDef = async { chatMemoryDao.getAllMemoriesForExport() }
             val posFactsDef = async { saleLineItemDao.posSaleLineFactsSince(0L) }
             val saleByDayDef = async { lossAlertDao.getProductSaleQuantitiesByDay(0L) }
+            val devicesDef = async { enterpriseRegisteredDeviceDao.listActive() }
+            val auditEventsDef = async { enterpriseAuditEventDao.listRecent(1000) }
+            val branchesDef = async { enterpriseBranchDao.listActive() }
+            val pendingSyncDef = async { enterpriseSyncOutboxDao.count() }
+            val stockMovementsDef = async { enterpriseStockMovementDao.listRecent(1000) }
             val export = BusinessDataExportV1(
                 exportedAtEpochMs = System.currentTimeMillis(),
                 appVersionName = BuildConfig.VERSION_NAME,
@@ -79,6 +98,11 @@ class BusinessAnalyticsJsonExporter @Inject constructor(
                 aiBusinessMemories = memoriesDef.await(),
                 posSaleLineFacts = posFactsDef.await(),
                 productSaleQuantitiesByDayUtc = saleByDayDef.await(),
+                enterpriseRegisteredDevices = devicesDef.await(),
+                enterpriseAuditEvents = auditEventsDef.await(),
+                enterpriseBranches = branchesDef.await(),
+                pendingEnterpriseSyncItems = pendingSyncDef.await(),
+                enterpriseStockMovements = stockMovementsDef.await(),
             )
             gson.toJson(export)
         }
@@ -101,7 +125,7 @@ class BusinessAnalyticsJsonExporter @Inject constructor(
 }
 
 data class BusinessDataExportV1(
-    val schemaVersion: Int = 1,
+    val schemaVersion: Int = 4,
     val exportKind: String = "biashara_business_snapshot",
     val exportedAtEpochMs: Long,
     val appVersionName: String,
@@ -116,4 +140,9 @@ data class BusinessDataExportV1(
     val aiBusinessMemories: List<AiBusinessMemory>,
     val posSaleLineFacts: List<PosSaleLineFact>,
     val productSaleQuantitiesByDayUtc: List<ProductSaleDayRow>,
+    val enterpriseRegisteredDevices: List<EnterpriseRegisteredDevice>,
+    val enterpriseAuditEvents: List<EnterpriseAuditEvent>,
+    val enterpriseBranches: List<EnterpriseBranch>,
+    val pendingEnterpriseSyncItems: Int,
+    val enterpriseStockMovements: List<EnterpriseStockMovement>,
 )

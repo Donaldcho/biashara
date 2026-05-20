@@ -7,6 +7,10 @@ import com.biasharaai.inventory.InventoryLabelGenerator
 import com.biasharaai.media.ProductPhotoStore
 import com.biasharaai.data.local.db.Product
 import com.biasharaai.data.local.db.ProductDao
+import com.biasharaai.data.local.db.EnterpriseStockMovement
+import com.biasharaai.enterprise.EnterpriseCatalogRepository
+import com.biasharaai.enterprise.EnterprisePermissionRepository
+import com.biasharaai.enterprise.EnterpriseRolePermissions
 import com.biasharaai.ui.base.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -30,6 +34,8 @@ class AddEditProductViewModel @Inject constructor(
     private val productDao: ProductDao,
     private val pricingAdvisor: PricingAdvisor,
     private val productPhotoStore: ProductPhotoStore,
+    private val enterpriseCatalogRepository: EnterpriseCatalogRepository,
+    private val enterprisePermissionRepository: EnterprisePermissionRepository,
     savedStateHandle: SavedStateHandle,
 ) : BaseViewModel() {
 
@@ -120,22 +126,76 @@ class AddEditProductViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                val previousImage = if (isEditing) _existingProduct.value?.imageUrl else null
+                val existing = if (isEditing) _existingProduct.value else null
+                val cleanName = name.trim()
+                val cleanDescription = description.trim().ifBlank { null }
+                val cleanCategory = category.trim().ifBlank { null }
                 val hadBarcode = barcodeValue.trim().isNotEmpty()
                 val resolvedBarcode = barcodeValue.trim().ifBlank {
                     InventoryLabelGenerator.generateProductBarcodeNumber()
                 }
-                val product = Product(
+                val catalogPermissionCheck = if (
+                    requiresCatalogPermission(
+                        existing = existing,
+                        newName = cleanName,
+                        newDescription = cleanDescription,
+                        newStock = stock!!,
+                        newCategory = cleanCategory,
+                        newBarcodeValue = resolvedBarcode,
+                        newImageUrl = imageUrl,
+                    )
+                ) {
+                    enterprisePermissionRepository.requirePermission(
+                        permission = EnterpriseRolePermissions.PERMISSION_MANAGE_CATALOG,
+                        action = "PRODUCT_CATALOG_SAVE",
+                        entityType = "PRODUCT",
+                        entityId = productId.takeIf { it > 0L }?.toString(),
+                        summary = "Product catalog save blocked for $cleanName",
+                        metadata = "stock=$stock; category=${cleanCategory.orEmpty()}; barcode=${resolvedBarcode.takeLast(6)}",
+                    )
+                } else {
+                    null
+                }
+                if (catalogPermissionCheck?.allowed == false) {
+                    emitPermissionDenied(catalogPermissionCheck)
+                    return@launch
+                }
+
+                val pricePermissionCheck = if (requiresPricePermission(existing, price!!, cost!!)) {
+                    enterprisePermissionRepository.requirePermission(
+                        permission = EnterpriseRolePermissions.PERMISSION_CHANGE_PRICES,
+                        action = "PRODUCT_PRICE_SAVE",
+                        entityType = "PRODUCT",
+                        entityId = productId.takeIf { it > 0L }?.toString(),
+                        summary = "Product price save blocked for $cleanName",
+                        metadata = "newPrice=$price; newCost=$cost",
+                    )
+                } else {
+                    null
+                }
+                if (pricePermissionCheck?.allowed == false) {
+                    emitPermissionDenied(pricePermissionCheck)
+                    return@launch
+                }
+                val previousImage = existing?.imageUrl
+                val draft = Product(
                     id = if (isEditing) productId else 0L,
-                    name = name.trim(),
-                    description = description.trim().ifBlank { null },
+                    name = cleanName,
+                    description = cleanDescription,
                     price = price!!,
                     cost = cost!!,
                     stockQuantity = stock!!,
-                    category = category.trim().ifBlank { null },
+                    category = cleanCategory,
                     barcodeValue = resolvedBarcode,
                     imageUrl = imageUrl,
+                    lastStockCheckAt = existing?.lastStockCheckAt ?: 0L,
+                    enterpriseCatalogId = existing?.enterpriseCatalogId,
+                    enterpriseCatalogVersion = existing?.enterpriseCatalogVersion ?: 0L,
+                    enterpriseCatalogUpdatedAt = existing?.enterpriseCatalogUpdatedAt ?: 0L,
+                    enterpriseSyncStatus = existing?.enterpriseSyncStatus ?: Product.SYNC_LOCAL,
                 )
+                var product = enterpriseCatalogRepository.prepareProductForLocalSave(existing, draft)
+                val stockDelta = product.stockQuantity - (existing?.stockQuantity ?: 0)
 
                 if (isEditing) {
                     productDao.updateProduct(product)
@@ -143,8 +203,26 @@ class AddEditProductViewModel @Inject constructor(
                         productPhotoStore.deleteIfAppStored(previousImage)
                     }
                 } else {
-                    productDao.insertProduct(product)
+                    val id = productDao.insertProduct(product)
+                    product = product.copy(id = id)
                 }
+                enterpriseCatalogRepository.onProductSaved(
+                    product = product,
+                    changeType = if (isEditing) "UPDATE" else "CREATE",
+                )
+                val stockMovementType = if (existing == null) {
+                    EnterpriseStockMovement.TYPE_INITIAL_STOCK
+                } else {
+                    EnterpriseStockMovement.TYPE_ADJUSTMENT
+                }
+                enterpriseCatalogRepository.recordProductStockMovement(
+                    product = product,
+                    quantityDelta = stockDelta,
+                    movementType = stockMovementType,
+                    sourceType = EnterpriseStockMovement.SOURCE_CATALOG_SAVE,
+                    sourceId = product.id.toString(),
+                    note = if (existing == null) "Product created" else "Product stock edited",
+                )
 
                 _events.emit(
                     Event.Saved(
@@ -159,6 +237,39 @@ class AddEditProductViewModel @Inject constructor(
         }
     }
 
+    private suspend fun emitPermissionDenied(check: com.biasharaai.enterprise.EnterprisePermissionCheck) {
+        val operator = check.operator
+        _events.emit(
+            Event.PermissionDenied(
+                operatorName = operator?.name.orEmpty(),
+                operatorRole = operator?.role.orEmpty(),
+            ),
+        )
+    }
+
+    private fun requiresCatalogPermission(
+        existing: Product?,
+        newName: String,
+        newDescription: String?,
+        newStock: Int,
+        newCategory: String?,
+        newBarcodeValue: String,
+        newImageUrl: String?,
+    ): Boolean {
+        if (existing == null) return true
+        return existing.name != newName ||
+            existing.description != newDescription ||
+            existing.stockQuantity != newStock ||
+            existing.category != newCategory ||
+            existing.barcodeValue != newBarcodeValue ||
+            existing.imageUrl != newImageUrl
+    }
+
+    private fun requiresPricePermission(existing: Product?, newPrice: Double, newCost: Double): Boolean {
+        if (existing == null) return true
+        return existing.price != newPrice || existing.cost != newCost
+    }
+
     /** Smart pricing (Gemma on PARTIAL_AI+ when model available; else rules). Prompt U3. */
     suspend fun suggestSellingPrice(product: Product): String =
         pricingAdvisor.suggestPrice(product)
@@ -168,6 +279,7 @@ class AddEditProductViewModel @Inject constructor(
         /** Non-null when a barcode was auto-assigned and the UI should offer printing. */
         data class Saved(val barcodeToPrint: String? = null) : Event()
         data class ValidationError(val errors: Map<String, String>) : Event()
+        data class PermissionDenied(val operatorName: String, val operatorRole: String) : Event()
         data class Error(val message: String) : Event()
     }
 }

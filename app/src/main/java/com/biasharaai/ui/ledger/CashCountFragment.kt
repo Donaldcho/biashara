@@ -44,11 +44,30 @@ class CashCountFragment : BaseFragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.uiState.collect { state ->
-                    binding.textExpected.text = getString(
-                        R.string.ledger_expected_cash,
-                        moneyFormatter.format(state.runningBalance),
-                    )
+                launch {
+                    viewModel.uiState.collect { state ->
+                        binding.textExpected.text = getString(
+                            R.string.ledger_expected_cash,
+                            moneyFormatter.format(state.runningBalance),
+                        )
+                    }
+                }
+                launch {
+                    viewModel.events.collect { event ->
+                        when (event) {
+                            is LedgerViewModel.Event.PermissionDenied -> {
+                                Snackbar.make(
+                                    binding.root,
+                                    getString(
+                                        R.string.settings_enterprise_permission_denied,
+                                        event.operatorName,
+                                        event.operatorRole,
+                                    ),
+                                    Snackbar.LENGTH_LONG,
+                                ).show()
+                            }
+                        }
+                    }
                 }
             }
         }

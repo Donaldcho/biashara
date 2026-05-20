@@ -9,6 +9,8 @@ import com.biasharaai.data.local.db.CustomerDao
 import com.biasharaai.data.local.db.Product
 import com.biasharaai.data.local.db.ProductDao
 import com.biasharaai.data.local.db.StaffMemberDao
+import com.biasharaai.enterprise.EnterprisePermissionRepository
+import com.biasharaai.enterprise.EnterpriseRolePermissions
 import com.biasharaai.pos.cart.VoucherCartItem
 import com.biasharaai.pos.CustomerSuggestionEngine
 import com.biasharaai.pos.cart.CartItem
@@ -48,6 +50,11 @@ data class PriceWarningEvent(
     val previousOverride: Double?,
 )
 
+data class EnterprisePosPermissionDeniedEvent(
+    val operatorName: String,
+    val operatorRole: String,
+)
+
 data class CustomerSuggestionsUi(
     val products: List<Product> = emptyList(),
     val gemmaSubtitle: String? = null,
@@ -66,6 +73,7 @@ class PosViewModel @Inject constructor(
     private val serviceRepository: ServiceRepository,
     private val productLineManager: ProductLineManager,
     private val staffMemberDao: StaffMemberDao,
+    private val enterprisePermissionRepository: EnterprisePermissionRepository,
 ) : ViewModel() {
 
     private val _pendingStaffPick = MutableSharedFlow<ServiceItem>(extraBufferCapacity = 1)
@@ -137,6 +145,12 @@ class PosViewModel @Inject constructor(
     private val _priceWarning = MutableSharedFlow<PriceWarningEvent>(extraBufferCapacity = 1)
     val priceWarning: SharedFlow<PriceWarningEvent> = _priceWarning.asSharedFlow()
 
+    private val _priceChangeDenied = MutableSharedFlow<EnterprisePosPermissionDeniedEvent>(extraBufferCapacity = 1)
+    val priceChangeDenied: SharedFlow<EnterprisePosPermissionDeniedEvent> = _priceChangeDenied.asSharedFlow()
+
+    private val _voucherAdded = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val voucherAdded: SharedFlow<Unit> = _voucherAdded.asSharedFlow()
+
     fun setSearchQuery(query: String) {
         searchQuery.value = query
     }
@@ -165,16 +179,29 @@ class PosViewModel @Inject constructor(
     }
 
     fun addVoucherToCart(params: VoucherIssueBottomSheet.VoucherIssueParams) {
-        val customer = cartRepository.selectedCustomer.value
-        cartManager.addVoucherItem(
-            VoucherCartItem(
-                serviceItem = params.serviceItem,
-                uses = params.uses,
-                pricePerUse = params.pricePerUse,
-                customerId = params.customerId ?: customer?.id,
-                customerName = params.customerName ?: customer?.name,
-            ),
-        )
+        viewModelScope.launch {
+            if (params.pricePerUse != params.serviceItem.basePrice) {
+                val allowed = requirePricePermission(
+                    action = "POS_VOUCHER_PRICE_OVERRIDE",
+                    entityType = "SERVICE_ITEM",
+                    entityId = params.serviceItem.id.toString(),
+                    summary = "Voucher price override blocked for ${params.serviceItem.name}",
+                    metadata = "basePrice=${params.serviceItem.basePrice}; pricePerUse=${params.pricePerUse}",
+                )
+                if (!allowed) return@launch
+            }
+            val customer = cartRepository.selectedCustomer.value
+            cartManager.addVoucherItem(
+                VoucherCartItem(
+                    serviceItem = params.serviceItem,
+                    uses = params.uses,
+                    pricePerUse = params.pricePerUse,
+                    customerId = params.customerId ?: customer?.id,
+                    customerName = params.customerName ?: customer?.name,
+                ),
+            )
+            _voucherAdded.emit(Unit)
+        }
     }
 
     fun selectWalkInCustomer() {
@@ -256,7 +283,70 @@ class PosViewModel @Inject constructor(
     fun applyLinePriceOverride(item: CartItem, newUnitPrice: Double) {
         val product = item.product
         val previousOverride = item.overridePrice
-        cartManager.setOverridePrice(product.id, newUnitPrice)
+        viewModelScope.launch {
+            if (newUnitPrice != product.price) {
+                val allowed = requirePricePermission(
+                    action = "POS_PRODUCT_PRICE_OVERRIDE",
+                    entityType = "PRODUCT",
+                    entityId = product.id.toString(),
+                    summary = "POS product price override blocked for ${product.name}",
+                    metadata = "catalogPrice=${product.price}; overridePrice=$newUnitPrice",
+                )
+                if (!allowed) return@launch
+            }
+            cartManager.setOverridePrice(product.id, newUnitPrice)
+            maybeEmitProductPriceWarning(product, newUnitPrice, previousOverride)
+        }
+    }
+
+    fun applyServiceLinePriceOverride(line: ServiceCartLine, newUnitPrice: Double) {
+        viewModelScope.launch {
+            val service = line.service
+            if (newUnitPrice != service.basePrice) {
+                val allowed = requirePricePermission(
+                    action = "POS_SERVICE_PRICE_OVERRIDE",
+                    entityType = "SERVICE_ITEM",
+                    entityId = service.id.toString(),
+                    summary = "POS service price override blocked for ${service.name}",
+                    metadata = "basePrice=${service.basePrice}; overridePrice=$newUnitPrice",
+                )
+                if (!allowed) return@launch
+            }
+            cartManager.setServiceOverridePrice(service.id, newUnitPrice)
+        }
+    }
+
+    private suspend fun requirePricePermission(
+        action: String,
+        entityType: String,
+        entityId: String,
+        summary: String,
+        metadata: String,
+    ): Boolean {
+        val permissionCheck = enterprisePermissionRepository.requirePermission(
+            permission = EnterpriseRolePermissions.PERMISSION_CHANGE_PRICES,
+            action = action,
+            entityType = entityType,
+            entityId = entityId,
+            summary = summary,
+            metadata = metadata,
+        )
+        if (permissionCheck.allowed) return true
+        val operator = permissionCheck.operator
+        _priceChangeDenied.emit(
+            EnterprisePosPermissionDeniedEvent(
+                operatorName = operator?.name.orEmpty(),
+                operatorRole = operator?.role.orEmpty(),
+            ),
+        )
+        return false
+    }
+
+    private fun maybeEmitProductPriceWarning(
+        product: Product,
+        newUnitPrice: Double,
+        previousOverride: Double?,
+    ) {
         if (capabilityTier == CapabilityTier.RULES_BASED) return
         if (newUnitPrice >= product.price * 0.6) return
         if (!gemmaService.isAvailable) return
@@ -275,10 +365,6 @@ class PosViewModel @Inject constructor(
                 _priceWarning.emit(PriceWarningEvent(warning, product.id, previousOverride))
             }
         }
-    }
-
-    fun applyServiceLinePriceOverride(line: ServiceCartLine, newUnitPrice: Double) {
-        cartManager.setServiceOverridePrice(line.service.id, newUnitPrice)
     }
 
     fun undoPriceOverride(productId: Long, previousOverride: Double?) {

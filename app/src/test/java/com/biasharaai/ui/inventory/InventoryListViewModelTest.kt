@@ -5,6 +5,7 @@ import com.biasharaai.ai.GemmaService
 import com.biasharaai.data.local.db.ForecastCalibrationDao
 import com.biasharaai.data.local.db.Product
 import com.biasharaai.data.local.db.ProductDao
+import com.biasharaai.enterprise.EnterpriseCatalogRepository
 import com.biasharaai.media.ProductPhotoStore
 import com.biasharaai.service.ServiceRepository
 import io.mockk.coEvery
@@ -41,6 +42,7 @@ class InventoryListViewModelTest {
     private lateinit var calibrationDao: ForecastCalibrationDao
     private lateinit var productPhotoStore: ProductPhotoStore
     private lateinit var serviceRepository: ServiceRepository
+    private lateinit var enterpriseCatalogRepository: EnterpriseCatalogRepository
 
     @Before
     fun setup() {
@@ -58,6 +60,7 @@ class InventoryListViewModelTest {
         demandForecaster = DemandForecaster(gemmaService, calibrationDao)
         productPhotoStore = mockk(relaxed = true)
         serviceRepository = mockk(relaxed = true)
+        enterpriseCatalogRepository = mockk(relaxed = true)
         every { serviceRepository.observeServices() } returns flowOf(emptyList())
     }
 
@@ -86,6 +89,7 @@ class InventoryListViewModelTest {
             serviceRepository,
             demandForecaster,
             productPhotoStore,
+            enterpriseCatalogRepository,
         )
         awaitIoCompletion()
 
@@ -104,6 +108,7 @@ class InventoryListViewModelTest {
             serviceRepository,
             demandForecaster,
             productPhotoStore,
+            enterpriseCatalogRepository,
         )
         awaitIoCompletion()
 
@@ -123,6 +128,7 @@ class InventoryListViewModelTest {
             serviceRepository,
             demandForecaster,
             productPhotoStore,
+            enterpriseCatalogRepository,
         )
         awaitIoCompletion()
 
@@ -143,6 +149,7 @@ class InventoryListViewModelTest {
             serviceRepository,
             demandForecaster,
             productPhotoStore,
+            enterpriseCatalogRepository,
         )
         awaitIoCompletion()
 

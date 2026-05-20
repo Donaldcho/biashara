@@ -52,6 +52,8 @@ import com.biasharaai.data.local.db.TransactionDao
 import com.biasharaai.ai.ForecastCalibrationResolver
 import com.biasharaai.cash.CashEvidenceAnomalyDetector
 import com.biasharaai.data.local.db.BusinessKpiSnapshotDao
+import com.biasharaai.enterprise.EnterpriseAuditRepository
+import com.biasharaai.enterprise.EnterpriseSyncWorker
 import com.biasharaai.knowledge.BusinessMemoryExtractor
 import com.biasharaai.skills.SkillExecutor
 import javax.inject.Inject
@@ -94,6 +96,7 @@ class LossAlertWorkerFactory @Inject constructor(
     private val kpiSnapshotDao: BusinessKpiSnapshotDao,
     private val businessMemoryExtractor: BusinessMemoryExtractor,
     private val forecastCalibrationResolver: ForecastCalibrationResolver,
+    private val enterpriseAuditRepository: EnterpriseAuditRepository,
 ) : WorkerFactory() {
 
     override fun createWorker(
@@ -276,6 +279,12 @@ class LossAlertWorkerFactory @Inject constructor(
                     ledgerEntryDao,
                     agentActionDao,
                     agentSettingDao,
+                )
+            EnterpriseSyncWorker::class.java.name ->
+                EnterpriseSyncWorker(
+                    appContext,
+                    workerParameters,
+                    enterpriseAuditRepository,
                 )
             else -> null
         }

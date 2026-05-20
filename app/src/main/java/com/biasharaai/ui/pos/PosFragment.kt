@@ -31,6 +31,7 @@ import com.biasharaai.ai.AudioCaptureHelper
 import com.biasharaai.ai.VoiceInputPreferences
 import com.biasharaai.ai.VoiceInputProcessor
 import com.biasharaai.data.local.db.Product
+import com.biasharaai.data.local.db.StaffMember
 import com.biasharaai.data.local.db.TransactionDao
 import com.biasharaai.databinding.FragmentPosBinding
 import com.biasharaai.databinding.ItemProductSearchResultBinding
@@ -504,6 +505,24 @@ class PosFragment : BaseFragment() {
                     }
                 }
                 launch {
+                    viewModel.priceChangeDenied.collect { event ->
+                        Snackbar.make(
+                            binding.root,
+                            getString(
+                                R.string.settings_enterprise_permission_denied,
+                                event.operatorName,
+                                roleLabel(event.operatorRole),
+                            ),
+                            Snackbar.LENGTH_LONG,
+                        ).show()
+                    }
+                }
+                launch {
+                    viewModel.voucherAdded.collect {
+                        Snackbar.make(binding.root, R.string.voucher_added_to_cart, Snackbar.LENGTH_SHORT).show()
+                    }
+                }
+                launch {
                     viewModel.unknownBarcode.collect { code ->
                         Snackbar.make(
                             binding.root,
@@ -603,9 +622,14 @@ class PosFragment : BaseFragment() {
         val sheet = VoucherIssueBottomSheet.newInstance(service)
         sheet.onConfirm = { params ->
             viewModel.addVoucherToCart(params)
-            Snackbar.make(binding.root, R.string.voucher_added_to_cart, Snackbar.LENGTH_SHORT).show()
         }
         sheet.show(childFragmentManager, VoucherIssueBottomSheet.TAG)
+    }
+
+    private fun roleLabel(role: String): String = when (role.uppercase(Locale.ROOT)) {
+        StaffMember.ROLE_OWNER -> getString(R.string.staff_role_owner)
+        StaffMember.ROLE_MANAGER -> getString(R.string.staff_role_manager)
+        else -> getString(R.string.staff_role_staff)
     }
 
     private fun observeStaffPicker() {

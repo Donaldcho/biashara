@@ -8,6 +8,7 @@ import com.biasharaai.data.local.db.AgentActionDao
 import com.biasharaai.data.local.db.CustomerDao
 import com.biasharaai.data.local.db.DebtDao
 import com.biasharaai.data.local.db.ProductDao
+import com.biasharaai.enterprise.EnterpriseCatalogRepository
 import com.biasharaai.whatsapp.WhatsAppIntegration
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -35,6 +36,7 @@ class AgentActionExecutor @Inject constructor(
     private val debtDao: DebtDao,
     private val customerDao: CustomerDao,
     private val agentActionDao: AgentActionDao,
+    private val enterpriseCatalogRepository: EnterpriseCatalogRepository,
     @ApplicationContext private val context: Context,
 ) {
     private val gson = Gson()
@@ -142,7 +144,12 @@ class AgentActionExecutor @Inject constructor(
             ?: return ExecutionResult.Error("Missing productId")
         val product = productDao.getProductByIdOnce(productId)
             ?: return ExecutionResult.Error("Unknown product")
-        productDao.updateProduct(product.copy(price = newPrice))
+        val updated = enterpriseCatalogRepository.prepareProductForLocalSave(
+            existing = product,
+            draft = product.copy(price = newPrice),
+        )
+        productDao.updateProduct(updated)
+        enterpriseCatalogRepository.onProductSaved(updated, "AGENT_PRICE_UPDATE")
         return ExecutionResult.Success
     }
 

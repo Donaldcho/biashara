@@ -8,6 +8,7 @@ import com.biasharaai.data.local.db.ServiceItemDao
 import com.biasharaai.data.local.db.ServicePriceMode
 import com.biasharaai.data.local.db.ServiceVoucher
 import com.biasharaai.data.local.db.ServiceVoucherDao
+import com.biasharaai.enterprise.EnterpriseCatalogRepository
 import com.biasharaai.productline.ProductLineManager
 import kotlinx.coroutines.flow.Flow
 import java.util.UUID
@@ -22,6 +23,7 @@ class ServiceRepository @Inject constructor(
     private val serviceDeliveryDao: ServiceDeliveryDao,
     private val ledgerRepository: LedgerRepository,
     private val productLineManager: ProductLineManager,
+    private val enterpriseCatalogRepository: EnterpriseCatalogRepository,
 ) {
     private fun requirePro() {
         check(productLineManager.isProEnabled()) { "Service features require Biashara AI Pro" }
@@ -53,32 +55,37 @@ class ServiceRepository @Inject constructor(
         val now = System.currentTimeMillis()
         return if (id > 0L) {
             val existing = serviceItemDao.getById(id) ?: error("Service not found")
+            val draft = existing.copy(
+                name = name.trim(),
+                description = description?.trim()?.takeIf { it.isNotEmpty() },
+                basePrice = basePrice,
+                priceMode = priceMode.name,
+                durationMinutes = durationMinutes.coerceAtLeast(0),
+                category = category?.trim()?.takeIf { it.isNotEmpty() },
+                warrantyDays = warrantyDays.coerceAtLeast(0),
+                updatedAt = now,
+            )
             serviceItemDao.update(
-                existing.copy(
-                    name = name.trim(),
-                    description = description?.trim()?.takeIf { it.isNotEmpty() },
-                    basePrice = basePrice,
-                    priceMode = priceMode.name,
-                    durationMinutes = durationMinutes.coerceAtLeast(0),
-                    category = category?.trim()?.takeIf { it.isNotEmpty() },
-                    warrantyDays = warrantyDays.coerceAtLeast(0),
-                    updatedAt = now,
-                ),
+                enterpriseCatalogRepository.prepareServiceForLocalSave(existing, draft),
             )
             id
         } else {
+            val draft = ServiceItem(
+                name = name.trim(),
+                description = description?.trim()?.takeIf { it.isNotEmpty() },
+                basePrice = basePrice,
+                priceMode = priceMode.name,
+                durationMinutes = durationMinutes.coerceAtLeast(0),
+                category = category?.trim()?.takeIf { it.isNotEmpty() },
+                catalogueToken = ServiceTokenCodec.catalogueToken(0),
+                warrantyDays = warrantyDays.coerceAtLeast(0),
+                createdAt = now,
+                updatedAt = now,
+            )
             val insertedId = serviceItemDao.insert(
-                ServiceItem(
-                    name = name.trim(),
-                    description = description?.trim()?.takeIf { it.isNotEmpty() },
-                    basePrice = basePrice,
-                    priceMode = priceMode.name,
-                    durationMinutes = durationMinutes.coerceAtLeast(0),
-                    category = category?.trim()?.takeIf { it.isNotEmpty() },
-                    catalogueToken = ServiceTokenCodec.catalogueToken(0),
-                    warrantyDays = warrantyDays.coerceAtLeast(0),
-                    createdAt = now,
-                    updatedAt = now,
+                enterpriseCatalogRepository.prepareServiceForLocalSave(
+                    existing = null,
+                    draft = draft,
                 ),
             )
             val token = ServiceTokenCodec.catalogueToken(insertedId)
@@ -90,7 +97,11 @@ class ServiceRepository @Inject constructor(
 
     suspend fun deleteService(id: Long) {
         requirePro()
+        val service = serviceItemDao.getById(id)
         serviceItemDao.deleteById(id)
+        if (service != null) {
+            enterpriseCatalogRepository.onServiceDeleted(service)
+        }
     }
 
     suspend fun recordDeliveriesForSale(

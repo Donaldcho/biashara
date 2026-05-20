@@ -1228,6 +1228,171 @@ object DatabaseMigrations {
         }
     }
 
+    val MIGRATION_36_37 = object : Migration(36, 37) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS enterprise_registered_devices (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    device_id TEXT NOT NULL,
+                    business_id TEXT NOT NULL,
+                    display_name TEXT NOT NULL,
+                    deployment_mode TEXT NOT NULL,
+                    app_version_name TEXT NOT NULL,
+                    max_devices_snapshot INTEGER NOT NULL,
+                    first_seen_at INTEGER NOT NULL,
+                    last_seen_at INTEGER NOT NULL,
+                    is_active INTEGER NOT NULL DEFAULT 1
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS index_enterprise_registered_devices_device_id ON enterprise_registered_devices(device_id)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_enterprise_registered_devices_business_id ON enterprise_registered_devices(business_id)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_enterprise_registered_devices_last_seen_at ON enterprise_registered_devices(last_seen_at)",
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS enterprise_audit_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    business_id TEXT NOT NULL,
+                    device_id TEXT NOT NULL,
+                    actor_staff_id INTEGER,
+                    actor_role TEXT,
+                    action TEXT NOT NULL,
+                    entity_type TEXT NOT NULL,
+                    entity_id TEXT,
+                    summary TEXT NOT NULL,
+                    metadata TEXT,
+                    deployment_mode TEXT NOT NULL,
+                    created_at INTEGER NOT NULL
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_enterprise_audit_events_business_id_created_at ON enterprise_audit_events(business_id, created_at)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_enterprise_audit_events_device_id ON enterprise_audit_events(device_id)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_enterprise_audit_events_action_created_at ON enterprise_audit_events(action, created_at)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_enterprise_audit_events_entity_type_entity_id ON enterprise_audit_events(entity_type, entity_id)",
+            )
+        }
+    }
+
+    val MIGRATION_37_38 = object : Migration(37, 38) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS enterprise_branches (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    business_id TEXT NOT NULL,
+                    code TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    location TEXT,
+                    is_default INTEGER NOT NULL DEFAULT 0,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS index_enterprise_branches_business_id_code ON enterprise_branches(business_id, code)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_enterprise_branches_business_id_is_default ON enterprise_branches(business_id, is_default)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_enterprise_branches_is_active ON enterprise_branches(is_active)",
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS enterprise_sync_outbox (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    business_id TEXT NOT NULL,
+                    branch_id INTEGER,
+                    device_id TEXT NOT NULL,
+                    destination_mode TEXT NOT NULL,
+                    payload_type TEXT NOT NULL,
+                    payload_entity_id TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    attempt_count INTEGER NOT NULL,
+                    last_error TEXT,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    next_attempt_at INTEGER NOT NULL
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_enterprise_sync_outbox_status_next_attempt_at ON enterprise_sync_outbox(status, next_attempt_at)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_enterprise_sync_outbox_business_id_created_at ON enterprise_sync_outbox(business_id, created_at)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_enterprise_sync_outbox_payload_type_payload_entity_id ON enterprise_sync_outbox(payload_type, payload_entity_id)",
+            )
+        }
+    }
+
+    val MIGRATION_38_39 = object : Migration(38, 39) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            addColumnIfMissing(db, "staff_members", "pin_hash", "TEXT")
+            addColumnIfMissing(db, "staff_members", "pin_salt", "TEXT")
+            addColumnIfMissing(db, "staff_members", "pin_updated_at", "INTEGER")
+        }
+    }
+
+    val MIGRATION_39_40 = object : Migration(39, 40) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            addEnterpriseCatalogColumns(db, "products")
+            addEnterpriseCatalogColumns(db, "service_items")
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS enterprise_stock_movements (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    product_id INTEGER NOT NULL,
+                    enterprise_product_id TEXT,
+                    movement_type TEXT NOT NULL,
+                    quantity_delta INTEGER NOT NULL,
+                    stock_after INTEGER,
+                    source_type TEXT,
+                    source_id TEXT,
+                    note TEXT,
+                    created_at INTEGER NOT NULL
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_enterprise_stock_movements_product_id_created_at " +
+                    "ON enterprise_stock_movements(product_id, created_at)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_enterprise_stock_movements_enterprise_product_id " +
+                    "ON enterprise_stock_movements(enterprise_product_id)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_enterprise_stock_movements_movement_type_created_at " +
+                    "ON enterprise_stock_movements(movement_type, created_at)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_enterprise_stock_movements_source_type_source_id " +
+                    "ON enterprise_stock_movements(source_type, source_id)",
+            )
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_3_5,
         MIGRATION_5_6,
@@ -1261,6 +1426,10 @@ object DatabaseMigrations {
         MIGRATION_33_34,
         MIGRATION_34_35,
         MIGRATION_35_36,
+        MIGRATION_36_37,
+        MIGRATION_37_38,
+        MIGRATION_38_39,
+        MIGRATION_39_40,
     )
 
     private fun addColumnIfMissing(
@@ -1281,5 +1450,12 @@ object DatabaseMigrations {
         if (!exists) {
             db.execSQL("ALTER TABLE `$table` ADD COLUMN `$column` $definition")
         }
+    }
+
+    private fun addEnterpriseCatalogColumns(db: SupportSQLiteDatabase, table: String) {
+        addColumnIfMissing(db, table, "enterprise_catalog_id", "TEXT")
+        addColumnIfMissing(db, table, "enterprise_catalog_version", "INTEGER NOT NULL DEFAULT 0")
+        addColumnIfMissing(db, table, "enterprise_catalog_updated_at", "INTEGER NOT NULL DEFAULT 0")
+        addColumnIfMissing(db, table, "enterprise_sync_status", "TEXT NOT NULL DEFAULT 'LOCAL'")
     }
 }

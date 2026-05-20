@@ -20,26 +20,41 @@ object KnowledgeChunkParser {
      */
     fun parse(markdownContent: String, sourcePath: String, languageCode: String): List<ParsedChunk> {
         val paragraphs = markdownContent
-            .split(Regex("\n{2,}|(?=##)"))
+            .replace("\r\n", "\n")
+            .replace('\r', '\n')
+            .split(Regex("""(?:\n\s*){2,}|(?=^##\s)""", RegexOption.MULTILINE))
             .map { it.trim() }
             .filter { it.length >= 20 }
 
         val chunks = mutableListOf<ParsedChunk>()
         var chunkIndex = 0
-        val buffer = StringBuilder()
 
         for (paragraph in paragraphs) {
-            if (buffer.length + paragraph.length + 1 > MAX_CHUNK_CHARS && buffer.isNotEmpty()) {
-                chunks.add(ParsedChunk(buffer.toString().trim(), sourcePath, languageCode, chunkIndex++))
-                buffer.clear()
+            for (chunkText in splitParagraph(paragraph)) {
+                if (chunkText.length >= 20) {
+                    chunks.add(ParsedChunk(chunkText, sourcePath, languageCode, chunkIndex++))
+                }
             }
-            if (buffer.isNotEmpty()) buffer.append('\n')
-            buffer.append(paragraph)
-        }
-        if (buffer.isNotEmpty()) {
-            chunks.add(ParsedChunk(buffer.toString().trim(), sourcePath, languageCode, chunkIndex))
         }
 
+        return chunks
+    }
+
+    private fun splitParagraph(paragraph: String): List<String> {
+        if (paragraph.length <= MAX_CHUNK_CHARS) return listOf(paragraph)
+
+        val chunks = mutableListOf<String>()
+        var remaining = paragraph.trim()
+        while (remaining.length > MAX_CHUNK_CHARS) {
+            val splitAt = remaining.lastIndexOf(' ', startIndex = MAX_CHUNK_CHARS)
+                .takeIf { it >= 20 }
+                ?: MAX_CHUNK_CHARS
+            chunks.add(remaining.substring(0, splitAt).trim())
+            remaining = remaining.substring(splitAt).trim()
+        }
+        if (remaining.isNotEmpty()) {
+            chunks.add(remaining)
+        }
         return chunks
     }
 }

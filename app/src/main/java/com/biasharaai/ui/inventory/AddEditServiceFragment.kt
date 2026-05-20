@@ -100,6 +100,17 @@ class AddEditServiceFragment : BaseFragment() {
                         findNavController().navigateUp()
                     }
                 }
+                is AddEditServiceViewModel.Event.PermissionDenied -> {
+                    Snackbar.make(
+                        binding.root,
+                        getString(
+                            R.string.settings_enterprise_permission_denied,
+                            event.operatorName,
+                            event.operatorRole,
+                        ),
+                        Snackbar.LENGTH_LONG,
+                    ).show()
+                }
                 is AddEditServiceViewModel.Event.Error -> {
                     Snackbar.make(binding.root, event.message, Snackbar.LENGTH_LONG).show()
                 }

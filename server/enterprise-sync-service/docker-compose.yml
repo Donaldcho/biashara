@@ -1,0 +1,33 @@
+services:
+  biashara-enterprise-sync:
+    build:
+      context: .
+    image: biasharaai-enterprise-sync:local
+    container_name: biasharaai-enterprise-sync
+    restart: unless-stopped
+    environment:
+      BIASHARA_ENTERPRISE_HOST: 0.0.0.0
+      BIASHARA_ENTERPRISE_PORT: 8088
+      BIASHARA_ENTERPRISE_DISCOVERY_PORT: 8099
+      BIASHARA_ENTERPRISE_DB: /data/enterprise_sync.db
+      BIASHARA_ENTERPRISE_SYNC_TOKEN: ${BIASHARA_ENTERPRISE_SYNC_TOKEN:-biashara-enterprise-local-test-token}
+    ports:
+      - "${BIASHARA_ENTERPRISE_PORT:-8088}:8088"
+      - "${BIASHARA_ENTERPRISE_DISCOVERY_PORT:-8099}:8099/udp"
+    volumes:
+      - enterprise_sync_data:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8088/health', timeout=3).read()",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  enterprise_sync_data:

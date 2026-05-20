@@ -33,6 +33,11 @@ import com.biasharaai.data.local.db.ChatSessionDao
 import com.biasharaai.data.local.db.CustomerDao
 import com.biasharaai.data.local.db.DebtDao
 import com.biasharaai.data.local.db.DatabaseMigrations
+import com.biasharaai.data.local.db.EnterpriseAuditEventDao
+import com.biasharaai.data.local.db.EnterpriseBranchDao
+import com.biasharaai.data.local.db.EnterpriseRegisteredDeviceDao
+import com.biasharaai.data.local.db.EnterpriseStockMovementDao
+import com.biasharaai.data.local.db.EnterpriseSyncOutboxDao
 import com.biasharaai.data.local.db.FeatureMasteryDao
 import com.biasharaai.data.local.db.KnowledgeChunkDao
 import com.biasharaai.data.local.db.LessonCompletionDao
@@ -120,6 +125,26 @@ object AppModule {
     @Provides
     fun provideAgentAdviceFeedbackDao(database: AppDatabase): AgentAdviceFeedbackDao =
         database.agentAdviceFeedbackDao()
+
+    @Provides
+    fun provideEnterpriseRegisteredDeviceDao(database: AppDatabase): EnterpriseRegisteredDeviceDao =
+        database.enterpriseRegisteredDeviceDao()
+
+    @Provides
+    fun provideEnterpriseAuditEventDao(database: AppDatabase): EnterpriseAuditEventDao =
+        database.enterpriseAuditEventDao()
+
+    @Provides
+    fun provideEnterpriseBranchDao(database: AppDatabase): EnterpriseBranchDao =
+        database.enterpriseBranchDao()
+
+    @Provides
+    fun provideEnterpriseSyncOutboxDao(database: AppDatabase): EnterpriseSyncOutboxDao =
+        database.enterpriseSyncOutboxDao()
+
+    @Provides
+    fun provideEnterpriseStockMovementDao(database: AppDatabase): EnterpriseStockMovementDao =
+        database.enterpriseStockMovementDao()
 
     @Provides
     fun provideAgentSettingDao(database: AppDatabase): AgentSettingDao = database.agentSettingDao()

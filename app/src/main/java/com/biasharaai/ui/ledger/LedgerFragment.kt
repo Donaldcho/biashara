@@ -83,7 +83,26 @@ class LedgerFragment : BaseFragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.uiState.collect { state -> bindState(state) }
+                launch {
+                    viewModel.uiState.collect { state -> bindState(state) }
+                }
+                launch {
+                    viewModel.events.collect { event ->
+                        when (event) {
+                            is LedgerViewModel.Event.PermissionDenied -> {
+                                com.google.android.material.snackbar.Snackbar.make(
+                                    binding.root,
+                                    getString(
+                                        R.string.settings_enterprise_permission_denied,
+                                        event.operatorName,
+                                        event.operatorRole,
+                                    ),
+                                    com.google.android.material.snackbar.Snackbar.LENGTH_LONG,
+                                ).show()
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -131,7 +150,7 @@ class LedgerFragment : BaseFragment() {
 
     private fun shareReport() {
         viewLifecycleOwner.lifecycleScope.launch {
-            val csv = viewModel.exportCsv()
+            val csv = viewModel.exportCsv() ?: return@launch
             val send = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
                 putExtra(Intent.EXTRA_SUBJECT, getString(R.string.ledger_export_subject))

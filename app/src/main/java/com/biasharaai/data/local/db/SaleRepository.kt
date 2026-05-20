@@ -1,6 +1,7 @@
 package com.biasharaai.data.local.db
 
 import androidx.room.withTransaction
+import com.biasharaai.enterprise.EnterpriseCatalogRepository
 import com.biasharaai.pos.cart.CartItem
 import com.biasharaai.pos.payment.MixedPaymentPlan
 import com.biasharaai.pos.payment.MixedSaleAllocator
@@ -23,6 +24,15 @@ data class ReturnLineCommit(
     val returnQty: Int,
 )
 
+private data class PendingEnterpriseStockMovement(
+    val product: Product,
+    val quantityDelta: Int,
+    val movementType: String,
+    val sourceType: String,
+    val sourceId: String,
+    val note: String,
+)
+
 /**
  * Atomic POS return: RETURN transaction, negative line items, stock restore, optional debt reduction.
  */
@@ -37,6 +47,7 @@ class SaleRepository @Inject constructor(
     private val ledgerRepository: LedgerRepository,
     private val serviceRepository: ServiceRepository,
     private val serviceVoucherDao: ServiceVoucherDao,
+    private val enterpriseCatalogRepository: EnterpriseCatalogRepository,
 ) {
 
     companion object {
@@ -109,6 +120,7 @@ class SaleRepository @Inject constructor(
             paymentFieldsFromDraft(draft, amountDueNow)
 
         val issuedVoucherIds = mutableListOf<String>()
+        val enterpriseStockMovements = mutableListOf<PendingEnterpriseStockMovement>()
         val txId = database.withTransaction {
             for (item in lines) {
                 val row = productDao.getProductByIdOnce(item.product.id)
@@ -156,6 +168,8 @@ class SaleRepository @Inject constructor(
             val txId = transactionDao.insertTransaction(tx)
 
             for (item in lines) {
+                val row = productDao.getProductByIdOnce(item.product.id)
+                    ?: error("Product no longer exists: ${item.product.name}")
                 saleLineItemDao.insertLineItem(
                     SaleLineItem(
                         transactionId = txId,
@@ -168,6 +182,15 @@ class SaleRepository @Inject constructor(
                     ),
                 )
                 productDao.incrementStock(item.product.id, -item.quantity)
+                val stockAfter = row.stockQuantity - item.quantity
+                enterpriseStockMovements += PendingEnterpriseStockMovement(
+                    product = row.copy(stockQuantity = stockAfter),
+                    quantityDelta = -item.quantity,
+                    movementType = EnterpriseStockMovement.TYPE_SALE,
+                    sourceType = EnterpriseStockMovement.SOURCE_POS_TRANSACTION,
+                    sourceId = txId.toString(),
+                    note = receiptNumber,
+                )
             }
 
             val committedTx = tx.copy(id = txId)
@@ -301,6 +324,16 @@ class SaleRepository @Inject constructor(
             }
 
             txId
+        }
+        enterpriseStockMovements.forEach { movement ->
+            enterpriseCatalogRepository.recordProductStockMovement(
+                product = movement.product,
+                quantityDelta = movement.quantityDelta,
+                movementType = movement.movementType,
+                sourceType = movement.sourceType,
+                sourceId = movement.sourceId,
+                note = movement.note,
+            )
         }
         return PosSaleCommitResult(transactionId = txId, issuedVoucherIds = issuedVoucherIds)
     }
@@ -457,7 +490,8 @@ class SaleRepository @Inject constructor(
             returnGrandTotal += l.unitPrice * l.returnQty
         }
 
-        return database.withTransaction {
+        val enterpriseStockMovements = mutableListOf<PendingEnterpriseStockMovement>()
+        val returnTxId = database.withTransaction {
             val returnTx = Transaction(
                 type = TransactionType.RETURN,
                 amount = -returnGrandTotal,
@@ -491,6 +525,17 @@ class SaleRepository @Inject constructor(
                     ),
                 )
                 productDao.incrementStock(l.productId, l.returnQty)
+                val product = productDao.getProductByIdOnce(l.productId)
+                if (product != null) {
+                    enterpriseStockMovements += PendingEnterpriseStockMovement(
+                        product = product,
+                        quantityDelta = l.returnQty,
+                        movementType = EnterpriseStockMovement.TYPE_RETURN,
+                        sourceType = EnterpriseStockMovement.SOURCE_POS_TRANSACTION,
+                        sourceId = returnTxId.toString(),
+                        note = "Return for sale #${original.receiptNumber ?: original.id}",
+                    )
+                }
             }
 
             if (original.paymentMethod == "CREDIT") {
@@ -504,5 +549,16 @@ class SaleRepository @Inject constructor(
 
             returnTxId
         }
+        enterpriseStockMovements.forEach { movement ->
+            enterpriseCatalogRepository.recordProductStockMovement(
+                product = movement.product,
+                quantityDelta = movement.quantityDelta,
+                movementType = movement.movementType,
+                sourceType = movement.sourceType,
+                sourceId = movement.sourceId,
+                note = movement.note,
+            )
+        }
+        return returnTxId
     }
 }

@@ -33,11 +33,43 @@
                 tools:text="STAFF" />
         </LinearLayout>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_deactivate"
-            style="@style/Widget.Material3.Button.TextButton"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/staff_deactivate" />
+            android:gravity="end"
+            android:orientation="vertical">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_role"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minWidth="104dp"
+                android:text="@string/staff_change_role" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_device_operator"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minWidth="104dp"
+                android:text="@string/staff_use_on_device" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_pin"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minWidth="104dp"
+                android:text="@string/staff_pin_set_button" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_deactivate"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minWidth="104dp"
+                android:text="@string/staff_deactivate" />
+        </LinearLayout>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

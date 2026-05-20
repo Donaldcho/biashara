@@ -4,9 +4,12 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.text.InputType
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.fragment.app.viewModels
 import androidx.core.os.bundleOf
@@ -23,6 +26,7 @@ import com.biasharaai.ai.InferenceSettingsStore
 import com.biasharaai.ai.InferenceUiConfig
 import com.biasharaai.ai.ModelDownloadManager
 import com.biasharaai.cloud.EnterpriseDeploymentMode
+import com.biasharaai.data.local.db.StaffMember
 import com.biasharaai.databinding.FragmentSettingsBinding
 import com.biasharaai.money.RegionalDefaults
 import com.biasharaai.ui.base.BaseFragment
@@ -36,8 +40,11 @@ import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.slider.Slider
 import com.google.android.material.snackbar.Snackbar
+import com.google.android.material.textfield.TextInputEditText
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import java.text.DateFormat
+import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
 import kotlin.math.roundToInt
@@ -87,6 +94,7 @@ class SettingsFragment : BaseFragment() {
         setupCurrency()
         setupAgentRunHistoryNav()
         setupStaffSettingsNav()
+        setupEnterpriseOperator()
         setupBusinessProfileNav()
         observeDownloadState()
         observeDownloadProgress()
@@ -158,7 +166,93 @@ class SettingsFragment : BaseFragment() {
                 binding.root.showProRequiredSnackbar(productLineManager)
                 return@setOnClickListener
             }
-            findNavController().navigate(R.id.action_settingsFragment_to_staffSettingsFragment)
+            viewModel.requestEnterpriseAction(SettingsViewModel.RestrictedAction.OPEN_STAFF_SETTINGS)
+        }
+    }
+
+    private fun setupEnterpriseOperator() {
+        binding.btnEnterpriseOperator.setOnClickListener { showEnterpriseOperatorDialog() }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.currentEnterpriseOperator.collect { operator ->
+                    binding.textEnterpriseOperatorStatus.text = if (operator == null) {
+                        getString(R.string.settings_enterprise_operator_none)
+                    } else {
+                        getString(
+                            R.string.settings_enterprise_operator_status,
+                            operator.name,
+                            roleLabel(operator.role),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun showEnterpriseOperatorDialog() {
+        val staff = viewModel.enterpriseStaff.value
+        if (staff.isEmpty()) {
+            Snackbar.make(
+                binding.root,
+                R.string.settings_enterprise_operator_no_staff,
+                Snackbar.LENGTH_SHORT,
+            ).show()
+            return
+        }
+        val currentId = viewModel.currentEnterpriseOperator.value?.id
+        val labels = buildList {
+            add(getString(R.string.staff_operator_none))
+            staff.forEach { member ->
+                add("${member.name} (${roleLabel(member.role)})")
+            }
+        }.toTypedArray()
+        val checked = staff.indexOfFirst { it.id == currentId }.let { index ->
+            if (index >= 0) index + 1 else 0
+        }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.settings_enterprise_operator_dialog_title)
+            .setSingleChoiceItems(labels, checked) { dialog, which ->
+                if (which == 0) {
+                    viewModel.selectEnterpriseOperator(null)
+                } else {
+                    showEnterpriseOperatorPinDialog(staff[which - 1])
+                }
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun showEnterpriseOperatorPinDialog(member: StaffMember) {
+        if (member.pinHash.isNullOrBlank() || member.pinSalt.isNullOrBlank()) {
+            Snackbar.make(binding.root, R.string.staff_pin_required, Snackbar.LENGTH_LONG).show()
+            return
+        }
+        val input = EditText(requireContext()).apply {
+            hint = getString(R.string.staff_pin_hint)
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            maxLines = 1
+        }
+        val padding = resources.getDimensionPixelSize(R.dimen.pos_dialog_padding)
+        val container = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(padding, padding, padding, 0)
+            addView(input)
+        }
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setTitle(getString(R.string.staff_pin_enter_title, member.name))
+            .setView(container)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
+        dialog.getButton(android.content.DialogInterface.BUTTON_POSITIVE).setOnClickListener {
+            val pin = input.text?.toString().orEmpty()
+            if (pin.length !in 4..8 || pin.any { !it.isDigit() }) {
+                input.error = getString(R.string.staff_pin_format_invalid)
+                return@setOnClickListener
+            }
+            viewModel.selectEnterpriseOperator(member, pin)
+            dialog.dismiss()
         }
     }
 
@@ -185,6 +279,7 @@ class SettingsFragment : BaseFragment() {
                         getString(viewModel.editionNameRes(key.edition)),
                         key.maxDevices,
                     )
+                    updateEnterpriseDeviceSummary()
                     updateEnterpriseDeploymentVisibility()
                 }
             }
@@ -219,11 +314,65 @@ class SettingsFragment : BaseFragment() {
 
     private fun setupLedgerNav() {
         binding.btnOpenLedger.setOnClickListener {
-            findNavController().navigate(
-                R.id.action_settingsFragment_to_insightsFragment,
-                bundleOf(CashFlowInsightsFragment.ARG_INITIAL_TAB to CashFlowInsightsFragment.TAB_LEDGER),
-            )
+            viewModel.requestEnterpriseAction(SettingsViewModel.RestrictedAction.OPEN_LEDGER)
         }
+    }
+
+    private fun performEnterpriseAction(action: SettingsViewModel.RestrictedAction) {
+        when (action) {
+            SettingsViewModel.RestrictedAction.OPEN_LEDGER -> openLedger()
+            SettingsViewModel.RestrictedAction.OPEN_STAFF_SETTINGS ->
+                findNavController().navigate(R.id.action_settingsFragment_to_staffSettingsFragment)
+            SettingsViewModel.RestrictedAction.SAVE_CLOUD_SETTINGS -> saveCloudSettingsFromFields()
+            SettingsViewModel.RestrictedAction.UPLOAD_ANALYTICS_JSON -> confirmCloudJsonUpload()
+            SettingsViewModel.RestrictedAction.UPLOAD_SQLITE_DATABASE -> confirmCloudSqliteUpload()
+            SettingsViewModel.RestrictedAction.SYNC_ENTERPRISE_QUEUE -> viewModel.syncEnterpriseQueue()
+        }
+    }
+
+    private fun openLedger() {
+        findNavController().navigate(
+            R.id.action_settingsFragment_to_insightsFragment,
+            bundleOf(CashFlowInsightsFragment.ARG_INITIAL_TAB to CashFlowInsightsFragment.TAB_LEDGER),
+        )
+    }
+
+    private fun saveCloudSettingsFromFields() {
+        val keyText = binding.inputCloudApiKey.text?.toString()?.trim().orEmpty()
+        viewModel.saveCloudAnalysis(
+            enabled = binding.switchCloudAnalysisEnabled.isChecked,
+            deploymentMode = selectedDeploymentMode(),
+            endpointUrl = binding.inputCloudEndpoint.text?.toString().orEmpty(),
+            newApiKeyIfNonBlank = keyText.ifBlank { null },
+        )
+        binding.inputCloudApiKey.text?.clear()
+    }
+
+    private fun confirmCloudJsonUpload() {
+        MaterialAlertDialogBuilder(requireContext())
+            .setMessage(R.string.settings_cloud_upload_json_confirm)
+            .setPositiveButton(R.string.settings_cloud_btn_upload_json) { _, _ ->
+                viewModel.uploadCloudAnalyticsJson()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun confirmCloudSqliteUpload() {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.settings_cloud_upload_db_confirm_title)
+            .setMessage(R.string.settings_cloud_upload_db_confirm_message)
+            .setPositiveButton(R.string.settings_cloud_btn_upload_db) { _, _ ->
+                viewModel.uploadCloudSqliteDatabase()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun roleLabel(role: String): String = when (role.uppercase(Locale.ROOT)) {
+        StaffMember.ROLE_OWNER -> getString(R.string.staff_role_owner)
+        StaffMember.ROLE_MANAGER -> getString(R.string.staff_role_manager)
+        else -> getString(R.string.staff_role_staff)
     }
 
     private fun setupOrderParserFromClipboard() {
@@ -412,6 +561,105 @@ class SettingsFragment : BaseFragment() {
                             Snackbar.make(binding.root, msg, Snackbar.LENGTH_LONG).show()
                         }
 
+                        is SettingsViewModel.Event.EnterpriseSyncComplete -> {
+                            Snackbar.make(
+                                binding.root,
+                                getString(
+                                    R.string.settings_enterprise_sync_done,
+                                    event.sent,
+                                    event.failed,
+                                ),
+                                Snackbar.LENGTH_LONG,
+                            ).show()
+                        }
+
+                        is SettingsViewModel.Event.EnterpriseSyncFailed -> {
+                            val msg = when (event.message) {
+                                SettingsViewModel.CLOUD_ERR_NOT_ENABLED ->
+                                    getString(R.string.settings_cloud_not_enabled)
+                                SettingsViewModel.CLOUD_ERR_MISSING_URL ->
+                                    getString(R.string.settings_cloud_missing_url)
+                                SettingsViewModel.CLOUD_ERR_MISSING_KEY ->
+                                    getString(R.string.settings_cloud_missing_key)
+                                else -> getString(R.string.settings_enterprise_sync_failed, event.message)
+                            }
+                            Snackbar.make(binding.root, msg, Snackbar.LENGTH_LONG).show()
+                        }
+
+                        is SettingsViewModel.Event.EnterpriseServiceDiscovered -> {
+                            binding.inputCloudEndpoint.setText(event.endpointUrl)
+                            binding.toggleEnterpriseDeploymentMode.check(R.id.btn_deployment_on_premise)
+                            Snackbar.make(
+                                binding.root,
+                                getString(R.string.settings_enterprise_discovered, event.endpointUrl),
+                                Snackbar.LENGTH_LONG,
+                            ).show()
+                        }
+
+                        is SettingsViewModel.Event.EnterpriseDiscoveryFailed -> {
+                            Snackbar.make(
+                                binding.root,
+                                R.string.settings_enterprise_discovery_failed,
+                                Snackbar.LENGTH_LONG,
+                            ).show()
+                        }
+
+                        is SettingsViewModel.Event.EnterpriseBranchSaved -> {
+                            Snackbar.make(
+                                binding.root,
+                                R.string.settings_enterprise_branch_saved,
+                                Snackbar.LENGTH_SHORT,
+                            ).show()
+                        }
+
+                        is SettingsViewModel.Event.EnterpriseBranchInvalid -> {
+                            Snackbar.make(
+                                binding.root,
+                                R.string.settings_enterprise_branch_invalid,
+                                Snackbar.LENGTH_SHORT,
+                            ).show()
+                        }
+
+                        is SettingsViewModel.Event.EnterpriseActionAllowed -> {
+                            performEnterpriseAction(event.action)
+                        }
+
+                        is SettingsViewModel.Event.EnterprisePermissionDenied -> {
+                            Snackbar.make(
+                                binding.root,
+                                getString(
+                                    R.string.settings_enterprise_permission_denied,
+                                    event.operatorName,
+                                    roleLabel(event.operatorRole),
+                                ),
+                                Snackbar.LENGTH_LONG,
+                            ).show()
+                        }
+
+                        is SettingsViewModel.Event.EnterpriseOperatorChanged -> {
+                            Snackbar.make(
+                                binding.root,
+                                R.string.settings_enterprise_operator_changed,
+                                Snackbar.LENGTH_SHORT,
+                            ).show()
+                        }
+
+                        is SettingsViewModel.Event.EnterpriseOperatorPinRequired -> {
+                            Snackbar.make(
+                                binding.root,
+                                R.string.staff_pin_required,
+                                Snackbar.LENGTH_LONG,
+                            ).show()
+                        }
+
+                        is SettingsViewModel.Event.EnterpriseOperatorPinInvalid -> {
+                            Snackbar.make(
+                                binding.root,
+                                R.string.staff_pin_invalid,
+                                Snackbar.LENGTH_SHORT,
+                            ).show()
+                        }
+
                         is SettingsViewModel.Event.LicenceApplied -> {
                             binding.editLicenceKey.text?.clear()
                             val status = if (event.proEnabled) {
@@ -459,6 +707,30 @@ class SettingsFragment : BaseFragment() {
                         getString(R.string.settings_cloud_uploading)
                     } else {
                         getString(R.string.settings_cloud_btn_upload_json)
+                    }
+                }
+            }
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.isEnterpriseSyncing.collect { syncing ->
+                    binding.btnEnterpriseSyncNow.isEnabled = !syncing
+                    binding.btnEnterpriseSyncNow.text = if (syncing) {
+                        getString(R.string.settings_enterprise_syncing)
+                    } else {
+                        getString(R.string.settings_enterprise_sync_now)
+                    }
+                }
+            }
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.isEnterpriseDiscovering.collect { discovering ->
+                    binding.btnEnterpriseDiscoverService.isEnabled = !discovering
+                    binding.btnEnterpriseDiscoverService.text = if (discovering) {
+                        getString(R.string.settings_enterprise_discovering)
+                    } else {
+                        getString(R.string.settings_enterprise_discover_service)
                     }
                 }
             }
@@ -597,45 +869,205 @@ class SettingsFragment : BaseFragment() {
                 }
             }
         }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.enterpriseDevices.collect { devices ->
+                    updateEnterpriseDeviceSummary(devices.size)
+                }
+            }
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.enterpriseAuditEvents.collect { events ->
+                    val last = events.firstOrNull()
+                    binding.textEnterpriseAuditSummary.text = if (last == null) {
+                        getString(R.string.settings_enterprise_audit_empty)
+                    } else {
+                        getString(R.string.settings_enterprise_audit_last, last.action)
+                    }
+                }
+            }
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.enterpriseBranches.collect { branches ->
+                    binding.textEnterpriseBranchSummary.text = resources.getQuantityString(
+                        R.plurals.settings_enterprise_branches_count,
+                        branches.size,
+                        branches.size,
+                    )
+                }
+            }
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.pendingEnterpriseSyncCount.collect { count ->
+                    binding.textEnterpriseSyncSummary.text = if (count == 0) {
+                        getString(R.string.settings_enterprise_sync_empty)
+                    } else {
+                        resources.getQuantityString(
+                            R.plurals.settings_enterprise_sync_pending_count,
+                            count,
+                            count,
+                        )
+                    }
+                }
+            }
+        }
         binding.btnCloudAnalysisSave.setOnClickListener {
-            val keyText = binding.inputCloudApiKey.text?.toString()?.trim().orEmpty()
-            viewModel.saveCloudAnalysis(
-                enabled = binding.switchCloudAnalysisEnabled.isChecked,
-                deploymentMode = selectedDeploymentMode(),
-                endpointUrl = binding.inputCloudEndpoint.text?.toString().orEmpty(),
-                newApiKeyIfNonBlank = keyText.ifBlank { null },
-            )
-            binding.inputCloudApiKey.text?.clear()
+            viewModel.requestEnterpriseAction(SettingsViewModel.RestrictedAction.SAVE_CLOUD_SETTINGS)
+        }
+        binding.btnEnterpriseDiscoverService.setOnClickListener {
+            viewModel.discoverEnterpriseService()
         }
         binding.btnCloudUploadJson.setOnClickListener {
-            MaterialAlertDialogBuilder(requireContext())
-                .setMessage(R.string.settings_cloud_upload_json_confirm)
-                .setPositiveButton(R.string.settings_cloud_btn_upload_json) { _, _ ->
-                    viewModel.uploadCloudAnalyticsJson()
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
+            viewModel.requestEnterpriseAction(SettingsViewModel.RestrictedAction.UPLOAD_ANALYTICS_JSON)
         }
         binding.btnCloudUploadSqlite.setOnClickListener {
-            MaterialAlertDialogBuilder(requireContext())
-                .setTitle(R.string.settings_cloud_upload_db_confirm_title)
-                .setMessage(R.string.settings_cloud_upload_db_confirm_message)
-                .setPositiveButton(R.string.settings_cloud_btn_upload_db) { _, _ ->
-                    viewModel.uploadCloudSqliteDatabase()
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-            .show()
+            viewModel.requestEnterpriseAction(SettingsViewModel.RestrictedAction.UPLOAD_SQLITE_DATABASE)
+        }
+        binding.btnEnterpriseActivity.setOnClickListener {
+            showEnterpriseActivityDialog()
+        }
+        binding.btnEnterpriseSyncNow.setOnClickListener {
+            viewModel.requestEnterpriseAction(SettingsViewModel.RestrictedAction.SYNC_ENTERPRISE_QUEUE)
+        }
+        binding.btnEnterpriseBranch.setOnClickListener {
+            showEnterpriseBranchDialog()
         }
     }
 
     private fun updateEnterpriseDeploymentVisibility() {
         val visibility = if (viewModel.isEnterprisePro) View.VISIBLE else View.GONE
+        binding.textCloudAnalysisSection.visibility = visibility
+        binding.cardCloudAnalysis.visibility = visibility
         binding.textEnterpriseDeploymentTitle.visibility = visibility
         binding.textEnterpriseDeploymentBody.visibility = visibility
         binding.toggleEnterpriseDeploymentMode.visibility = visibility
+        binding.textEnterpriseDeviceSummary.visibility = visibility
+        binding.textEnterpriseAuditSummary.visibility = visibility
+        binding.textEnterpriseBranchSummary.visibility = visibility
+        binding.textEnterpriseSyncSummary.visibility = visibility
+        binding.btnEnterpriseBranch.visibility = visibility
+        binding.btnEnterpriseSyncNow.visibility = visibility
+        binding.btnEnterpriseActivity.visibility = visibility
+        binding.btnEnterpriseDiscoverService.visibility = visibility
+        binding.textEnterpriseOperatorStatus.visibility = visibility
+        binding.btnEnterpriseOperator.visibility = visibility
         if (!viewModel.isEnterprisePro) {
             binding.toggleEnterpriseDeploymentMode.check(R.id.btn_deployment_cloud)
         }
+    }
+
+    private fun updateEnterpriseDeviceSummary(deviceCount: Int = viewModel.enterpriseDevices.value.size) {
+        val limit = viewModel.licenceKey.value?.maxDevices ?: 1
+        binding.textEnterpriseDeviceSummary.text = getString(
+            if (deviceCount > limit) {
+                R.string.settings_enterprise_devices_over_limit
+            } else {
+                R.string.settings_enterprise_devices_status
+            },
+            deviceCount,
+            limit,
+        )
+    }
+
+    private fun showEnterpriseActivityDialog() {
+        val devices = viewModel.enterpriseDevices.value
+        val events = viewModel.enterpriseAuditEvents.value
+        val branches = viewModel.enterpriseBranches.value
+        val pendingSync = viewModel.pendingEnterpriseSyncCount.value
+        val dateFormat = DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+        val body = buildString {
+            append(getString(R.string.settings_enterprise_devices_section))
+            append("\n")
+            if (devices.isEmpty()) {
+                append("- ")
+                append(getString(R.string.settings_enterprise_devices_status, 0, viewModel.licenceKey.value?.maxDevices ?: 1))
+            } else {
+                devices.take(8).forEach { device ->
+                    append("- ")
+                    append(device.displayName)
+                    append(" - ")
+                    append(device.deploymentMode)
+                    append(" - ")
+                    append(dateFormat.format(Date(device.lastSeenAt)))
+                    append("\n")
+                }
+            }
+            append("\n")
+            append(getString(R.string.settings_enterprise_branches_section))
+            append("\n")
+            if (branches.isEmpty()) {
+                append("- ")
+                append(resources.getQuantityString(R.plurals.settings_enterprise_branches_count, 0, 0))
+                append("\n")
+            } else {
+                branches.take(8).forEach { branch ->
+                    append("- ")
+                    append(branch.name)
+                    append(" (")
+                    append(branch.code)
+                    append(")")
+                    if (branch.isDefault) append(" - default")
+                    append("\n")
+                }
+            }
+            append(
+                if (pendingSync == 0) {
+                    getString(R.string.settings_enterprise_sync_empty)
+                } else {
+                    resources.getQuantityString(
+                        R.plurals.settings_enterprise_sync_pending_count,
+                        pendingSync,
+                        pendingSync,
+                    )
+                },
+            )
+            append("\n\n")
+            append(getString(R.string.settings_enterprise_audit_section))
+            append("\n")
+            if (events.isEmpty()) {
+                append("- ")
+                append(getString(R.string.settings_enterprise_audit_empty))
+            } else {
+                events.take(8).forEach { event ->
+                    append("- ")
+                    append(event.action)
+                    append(" - ")
+                    append(dateFormat.format(Date(event.createdAt)))
+                    append("\n")
+                    append(event.summary)
+                    append("\n")
+                }
+            }
+        }.trim()
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.settings_enterprise_activity_title)
+            .setMessage(body)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
+    }
+
+    private fun showEnterpriseBranchDialog() {
+        val current = viewModel.enterpriseBranches.value.firstOrNull { it.isDefault }
+            ?: viewModel.enterpriseBranches.value.firstOrNull()
+        val dialogView = layoutInflater.inflate(R.layout.dialog_enterprise_branch, null)
+        val nameInput = dialogView.findViewById<TextInputEditText>(R.id.input_enterprise_branch_name)
+        val locationInput = dialogView.findViewById<TextInputEditText>(R.id.input_enterprise_branch_location)
+        nameInput.setText(current?.name.orEmpty().ifBlank { "Main branch" })
+        locationInput.setText(current?.location.orEmpty())
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.settings_enterprise_branch_title)
+            .setView(dialogView)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                viewModel.saveDefaultEnterpriseBranch(
+                    name = nameInput.text?.toString().orEmpty(),
+                    location = locationInput.text?.toString(),
+                )
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun applyDeploymentMode(mode: EnterpriseDeploymentMode) {
