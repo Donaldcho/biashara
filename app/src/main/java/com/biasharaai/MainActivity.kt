@@ -10,6 +10,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.bundleOf
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
 import com.biasharaai.databinding.ActivityMainBinding
@@ -18,6 +20,7 @@ import com.biasharaai.ui.pos.ReceiptViewModel
 import androidx.lifecycle.lifecycleScope
 import com.biasharaai.notifications.NotificationScheduler
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -49,6 +52,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        applySystemBarInsets()
         applyRootLayoutDirectionFromLocale()
 
         val navHostFragment =
@@ -98,8 +102,10 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 notificationScheduler.flushPendingDue()
-            } catch (e: Exception) {
-                Log.w(TAG, "flushPendingDue failed", e)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Throwable) {
+                Log.w(TAG, "flushPendingDue failed", t)
             }
         }
     }
@@ -150,6 +156,18 @@ class MainActivity : AppCompatActivity() {
             binding.root,
             if (rtl) ViewCompat.LAYOUT_DIRECTION_RTL else ViewCompat.LAYOUT_DIRECTION_LTR,
         )
+    }
+
+    private fun applySystemBarInsets() {
+        val navHostTop = binding.navHostFragment.paddingTop
+        val bottomNavBottom = binding.bottomNav.paddingBottom
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            binding.navHostFragment.updatePadding(top = navHostTop + systemBars.top)
+            binding.bottomNav.updatePadding(bottom = bottomNavBottom + systemBars.bottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(binding.root)
     }
 
     private fun runStartupSplashIfNeeded(savedInstanceState: Bundle?) {

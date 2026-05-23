@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -13,6 +14,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.fragment.app.viewModels
 import androidx.core.os.bundleOf
+import androidx.navigation.NavController
 import androidx.navigation.fragment.findNavController
 import com.biasharaai.ui.insights.CashFlowInsightsFragment
 import androidx.lifecycle.Lifecycle
@@ -137,11 +139,12 @@ class SettingsFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.shopSettings.collect { s ->
+                    val b = _binding ?: return@collect
                     val codes = resources.getStringArray(R.array.supported_currency_codes)
                     val names = resources.getStringArray(R.array.supported_currency_names)
                     val code = s?.currencyCode?.uppercase(Locale.ROOT) ?: RegionalDefaults.CURRENCY_CODE
                     val idx = codes.indexOf(code).let { if (it >= 0) it else 0 }
-                    binding.textCurrencyCurrent.text = names[idx]
+                    b.textCurrencyCurrent.text = names[idx]
                 }
             }
         }
@@ -149,13 +152,13 @@ class SettingsFragment : BaseFragment() {
 
     private fun setupAgentRunHistoryNav() {
         binding.btnAgentActivity.setOnClickListener {
-            findNavController().navigate(R.id.action_settingsFragment_to_agentSettingsFragment)
+            navigateSafely { navigate(R.id.action_settingsFragment_to_agentSettingsFragment) }
         }
     }
 
     private fun setupBusinessProfileNav() {
         binding.btnBusinessProfile.setOnClickListener {
-            findNavController().navigate(R.id.action_settingsFragment_to_businessProfileEditFragment)
+            navigateSafely { navigate(R.id.action_settingsFragment_to_businessProfileEditFragment) }
         }
     }
 
@@ -175,7 +178,8 @@ class SettingsFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.currentEnterpriseOperator.collect { operator ->
-                    binding.textEnterpriseOperatorStatus.text = if (operator == null) {
+                    val b = _binding ?: return@collect
+                    b.textEnterpriseOperatorStatus.text = if (operator == null) {
                         getString(R.string.settings_enterprise_operator_none)
                     } else {
                         getString(
@@ -192,8 +196,9 @@ class SettingsFragment : BaseFragment() {
     private fun showEnterpriseOperatorDialog() {
         val staff = viewModel.enterpriseStaff.value
         if (staff.isEmpty()) {
+            val root = _binding?.root ?: return
             Snackbar.make(
-                binding.root,
+                root,
                 R.string.settings_enterprise_operator_no_staff,
                 Snackbar.LENGTH_SHORT,
             ).show()
@@ -209,7 +214,8 @@ class SettingsFragment : BaseFragment() {
         val checked = staff.indexOfFirst { it.id == currentId }.let { index ->
             if (index >= 0) index + 1 else 0
         }
-        MaterialAlertDialogBuilder(requireContext())
+        val ctx = context ?: return
+        MaterialAlertDialogBuilder(ctx)
             .setTitle(R.string.settings_enterprise_operator_dialog_title)
             .setSingleChoiceItems(labels, checked) { dialog, which ->
                 if (which == 0) {
@@ -225,21 +231,23 @@ class SettingsFragment : BaseFragment() {
 
     private fun showEnterpriseOperatorPinDialog(member: StaffMember) {
         if (member.pinHash.isNullOrBlank() || member.pinSalt.isNullOrBlank()) {
-            Snackbar.make(binding.root, R.string.staff_pin_required, Snackbar.LENGTH_LONG).show()
+            val root = _binding?.root ?: return
+            Snackbar.make(root, R.string.staff_pin_required, Snackbar.LENGTH_LONG).show()
             return
         }
-        val input = EditText(requireContext()).apply {
+        val ctx = context ?: return
+        val input = EditText(ctx).apply {
             hint = getString(R.string.staff_pin_hint)
             inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
             maxLines = 1
         }
         val padding = resources.getDimensionPixelSize(R.dimen.pos_dialog_padding)
-        val container = LinearLayout(requireContext()).apply {
+        val container = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(padding, padding, padding, 0)
             addView(input)
         }
-        val dialog = MaterialAlertDialogBuilder(requireContext())
+        val dialog = MaterialAlertDialogBuilder(ctx)
             .setTitle(getString(R.string.staff_pin_enter_title, member.name))
             .setView(container)
             .setNegativeButton(android.R.string.cancel, null)
@@ -268,12 +276,13 @@ class SettingsFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.licenceKey.collect { key ->
+                    val b = _binding ?: return@collect
                     if (key == null) {
-                        binding.textLicenceCurrent.text = getString(R.string.settings_licence_invalid)
+                        b.textLicenceCurrent.text = getString(R.string.settings_licence_invalid)
                         updateEnterpriseDeploymentVisibility()
                         return@collect
                     }
-                    binding.textLicenceCurrent.text = getString(
+                    b.textLicenceCurrent.text = getString(
                         R.string.settings_licence_current,
                         getString(viewModel.productLineNameRes(key.productLine)),
                         getString(viewModel.editionNameRes(key.edition)),
@@ -287,12 +296,13 @@ class SettingsFragment : BaseFragment() {
     }
 
     private fun showCurrencyPicker() {
+        val ctx = context ?: return
         val codes = resources.getStringArray(R.array.supported_currency_codes)
         val names = resources.getStringArray(R.array.supported_currency_names)
         val current = viewModel.shopSettings.value?.currencyCode?.uppercase(Locale.ROOT)
             ?: RegionalDefaults.CURRENCY_CODE
         val checked = codes.indexOf(current).let { if (it >= 0) it else 0 }
-        MaterialAlertDialogBuilder(requireContext())
+        MaterialAlertDialogBuilder(ctx)
             .setTitle(R.string.settings_currency_dialog_title)
             .setSingleChoiceItems(names, checked) { dialog, which ->
                 viewModel.setShopCurrency(codes[which])
@@ -308,7 +318,7 @@ class SettingsFragment : BaseFragment() {
 
     private fun setupVoiceSettingsNav() {
         binding.btnVoiceSettings.setOnClickListener {
-            findNavController().navigate(R.id.action_settingsFragment_to_voiceSettingsFragment)
+            navigateSafely { navigate(R.id.action_settingsFragment_to_voiceSettingsFragment) }
         }
     }
 
@@ -322,7 +332,7 @@ class SettingsFragment : BaseFragment() {
         when (action) {
             SettingsViewModel.RestrictedAction.OPEN_LEDGER -> openLedger()
             SettingsViewModel.RestrictedAction.OPEN_STAFF_SETTINGS ->
-                findNavController().navigate(R.id.action_settingsFragment_to_staffSettingsFragment)
+                navigateSafely { navigate(R.id.action_settingsFragment_to_staffSettingsFragment) }
             SettingsViewModel.RestrictedAction.SAVE_CLOUD_SETTINGS -> saveCloudSettingsFromFields()
             SettingsViewModel.RestrictedAction.UPLOAD_ANALYTICS_JSON -> confirmCloudJsonUpload()
             SettingsViewModel.RestrictedAction.UPLOAD_SQLITE_DATABASE -> confirmCloudSqliteUpload()
@@ -331,25 +341,29 @@ class SettingsFragment : BaseFragment() {
     }
 
     private fun openLedger() {
-        findNavController().navigate(
-            R.id.action_settingsFragment_to_insightsFragment,
-            bundleOf(CashFlowInsightsFragment.ARG_INITIAL_TAB to CashFlowInsightsFragment.TAB_LEDGER),
-        )
+        navigateSafely {
+            navigate(
+                R.id.action_settingsFragment_to_insightsFragment,
+                bundleOf(CashFlowInsightsFragment.ARG_INITIAL_TAB to CashFlowInsightsFragment.TAB_LEDGER),
+            )
+        }
     }
 
     private fun saveCloudSettingsFromFields() {
-        val keyText = binding.inputCloudApiKey.text?.toString()?.trim().orEmpty()
+        val b = _binding ?: return
+        val keyText = b.inputCloudApiKey.text?.toString()?.trim().orEmpty()
         viewModel.saveCloudAnalysis(
-            enabled = binding.switchCloudAnalysisEnabled.isChecked,
+            enabled = b.switchCloudAnalysisEnabled.isChecked,
             deploymentMode = selectedDeploymentMode(),
-            endpointUrl = binding.inputCloudEndpoint.text?.toString().orEmpty(),
+            endpointUrl = b.inputCloudEndpoint.text?.toString().orEmpty(),
             newApiKeyIfNonBlank = keyText.ifBlank { null },
         )
-        binding.inputCloudApiKey.text?.clear()
+        b.inputCloudApiKey.text?.clear()
     }
 
     private fun confirmCloudJsonUpload() {
-        MaterialAlertDialogBuilder(requireContext())
+        val ctx = context ?: return
+        MaterialAlertDialogBuilder(ctx)
             .setMessage(R.string.settings_cloud_upload_json_confirm)
             .setPositiveButton(R.string.settings_cloud_btn_upload_json) { _, _ ->
                 viewModel.uploadCloudAnalyticsJson()
@@ -359,7 +373,8 @@ class SettingsFragment : BaseFragment() {
     }
 
     private fun confirmCloudSqliteUpload() {
-        MaterialAlertDialogBuilder(requireContext())
+        val ctx = context ?: return
+        MaterialAlertDialogBuilder(ctx)
             .setTitle(R.string.settings_cloud_upload_db_confirm_title)
             .setMessage(R.string.settings_cloud_upload_db_confirm_message)
             .setPositiveButton(R.string.settings_cloud_btn_upload_db) { _, _ ->
@@ -380,26 +395,34 @@ class SettingsFragment : BaseFragment() {
             if (showOrderParserTierBlockedDialogIfNeeded(viewModel.capabilityResult.tier)) {
                 return@setOnClickListener
             }
-            val cm = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val ctx = context ?: return@setOnClickListener
+            val root = _binding?.root ?: return@setOnClickListener
+            val cm = ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
             val text = cm.primaryClip?.getItemAt(0)?.text?.toString().orEmpty().trim()
             if (text.isBlank()) {
                 Snackbar.make(
-                    binding.root,
+                    root,
                     R.string.settings_order_parser_clipboard_empty,
                     Snackbar.LENGTH_SHORT,
                 ).show()
             } else {
-                startActivity(
-                    Intent(requireContext(), OrderParserActivity::class.java).apply {
-                        putExtra(Intent.EXTRA_TEXT, text)
-                    },
-                )
+                runCatching {
+                    startActivity(
+                        Intent(ctx, OrderParserActivity::class.java).apply {
+                            putExtra(Intent.EXTRA_TEXT, text)
+                        },
+                    )
+                }.onFailure {
+                    Log.w(TAG, "Could not open order parser", it)
+                    Snackbar.make(root, R.string.chat_error_generic, Snackbar.LENGTH_SHORT).show()
+                }
             }
         }
     }
 
     private fun setupWhatsappIntegration() {
-        val installed = WhatsAppIntegration.isInstalled(requireContext())
+        val ctx = context ?: return
+        val installed = WhatsAppIntegration.isInstalled(ctx)
         binding.textWhatsappStatus.text = getString(
             if (installed) {
                 R.string.settings_whatsapp_status_ready
@@ -408,12 +431,15 @@ class SettingsFragment : BaseFragment() {
             },
         )
         binding.btnOpenWhatsapp.setOnClickListener {
-            if (!WhatsAppIntegration.open(requireContext())) {
-                Snackbar.make(binding.root, R.string.settings_whatsapp_open_failed, Snackbar.LENGTH_LONG).show()
+            val clickCtx = context ?: return@setOnClickListener
+            val root = _binding?.root ?: return@setOnClickListener
+            if (!WhatsAppIntegration.open(clickCtx)) {
+                Snackbar.make(root, R.string.settings_whatsapp_open_failed, Snackbar.LENGTH_LONG).show()
             }
         }
         binding.btnWhatsappHelp.setOnClickListener {
-            MaterialAlertDialogBuilder(requireContext())
+            val dialogCtx = context ?: return@setOnClickListener
+            MaterialAlertDialogBuilder(dialogCtx)
                 .setTitle(R.string.settings_whatsapp_how_to)
                 .setMessage(R.string.settings_whatsapp_help_body)
                 .setPositiveButton(android.R.string.ok, null)
@@ -423,7 +449,7 @@ class SettingsFragment : BaseFragment() {
 
     private fun setupModelSettingsNav() {
         binding.btnManageModels.setOnClickListener {
-            findNavController().navigate(R.id.action_settingsFragment_to_modelSettingsFragment)
+            navigateSafely { navigate(R.id.action_settingsFragment_to_modelSettingsFragment) }
         }
     }
 
@@ -448,7 +474,8 @@ class SettingsFragment : BaseFragment() {
     }
 
     private fun showDownloadConfirmDialog() {
-        MaterialAlertDialogBuilder(requireContext())
+        val ctx = context ?: return
+        MaterialAlertDialogBuilder(ctx)
             .setTitle(R.string.settings_download_confirm_title)
             .setMessage(
                 getString(
@@ -464,7 +491,8 @@ class SettingsFragment : BaseFragment() {
     }
 
     private fun showRedownloadDialog() {
-        MaterialAlertDialogBuilder(requireContext())
+        val ctx = context ?: return
+        MaterialAlertDialogBuilder(ctx)
             .setTitle(R.string.settings_redownload_title)
             .setMessage(R.string.settings_redownload_message)
             .setPositiveButton(R.string.settings_btn_redownload) { _, _ ->
@@ -475,7 +503,8 @@ class SettingsFragment : BaseFragment() {
     }
 
     private fun showDeleteConfirmDialog() {
-        MaterialAlertDialogBuilder(requireContext())
+        val ctx = context ?: return
+        MaterialAlertDialogBuilder(ctx)
             .setTitle(R.string.settings_delete_confirm_title)
             .setMessage(R.string.settings_delete_confirm_message)
             .setPositiveButton(R.string.settings_btn_delete) { _, _ ->
@@ -501,10 +530,11 @@ class SettingsFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.events.collect { event ->
+                    val root = _binding?.root ?: return@collect
                     when (event) {
                         is SettingsViewModel.Event.DownloadComplete -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 R.string.settings_download_complete,
                                 Snackbar.LENGTH_SHORT,
                             ).show()
@@ -512,7 +542,7 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.DownloadFailed -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 getString(R.string.settings_download_failed, event.message),
                                 Snackbar.LENGTH_LONG,
                             ).setAction(R.string.settings_btn_retry) {
@@ -526,7 +556,7 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.BenchmarkFailed -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 getString(R.string.settings_benchmark_failed, event.message),
                                 Snackbar.LENGTH_LONG,
                             ).show()
@@ -534,7 +564,7 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.CloudSettingsSaved -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 R.string.settings_cloud_saved,
                                 Snackbar.LENGTH_SHORT,
                             ).show()
@@ -542,7 +572,7 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.CloudUploadSucceeded -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 R.string.settings_cloud_upload_success,
                                 Snackbar.LENGTH_SHORT,
                             ).show()
@@ -558,12 +588,12 @@ class SettingsFragment : BaseFragment() {
                                     getString(R.string.settings_cloud_missing_key)
                                 else -> getString(R.string.settings_cloud_upload_failed, event.message)
                             }
-                            Snackbar.make(binding.root, msg, Snackbar.LENGTH_LONG).show()
+                            Snackbar.make(root, msg, Snackbar.LENGTH_LONG).show()
                         }
 
                         is SettingsViewModel.Event.EnterpriseSyncComplete -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 getString(
                                     R.string.settings_enterprise_sync_done,
                                     event.sent,
@@ -583,14 +613,14 @@ class SettingsFragment : BaseFragment() {
                                     getString(R.string.settings_cloud_missing_key)
                                 else -> getString(R.string.settings_enterprise_sync_failed, event.message)
                             }
-                            Snackbar.make(binding.root, msg, Snackbar.LENGTH_LONG).show()
+                            Snackbar.make(root, msg, Snackbar.LENGTH_LONG).show()
                         }
 
                         is SettingsViewModel.Event.EnterpriseServiceDiscovered -> {
-                            binding.inputCloudEndpoint.setText(event.endpointUrl)
-                            binding.toggleEnterpriseDeploymentMode.check(R.id.btn_deployment_on_premise)
+                            _binding?.inputCloudEndpoint?.setText(event.endpointUrl)
+                            _binding?.toggleEnterpriseDeploymentMode?.check(R.id.btn_deployment_on_premise)
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 getString(R.string.settings_enterprise_discovered, event.endpointUrl),
                                 Snackbar.LENGTH_LONG,
                             ).show()
@@ -598,7 +628,7 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.EnterpriseDiscoveryFailed -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 R.string.settings_enterprise_discovery_failed,
                                 Snackbar.LENGTH_LONG,
                             ).show()
@@ -606,7 +636,7 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.EnterpriseBranchSaved -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 R.string.settings_enterprise_branch_saved,
                                 Snackbar.LENGTH_SHORT,
                             ).show()
@@ -614,7 +644,7 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.EnterpriseBranchInvalid -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 R.string.settings_enterprise_branch_invalid,
                                 Snackbar.LENGTH_SHORT,
                             ).show()
@@ -626,7 +656,7 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.EnterprisePermissionDenied -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 getString(
                                     R.string.settings_enterprise_permission_denied,
                                     event.operatorName,
@@ -638,7 +668,7 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.EnterpriseOperatorChanged -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 R.string.settings_enterprise_operator_changed,
                                 Snackbar.LENGTH_SHORT,
                             ).show()
@@ -646,7 +676,7 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.EnterpriseOperatorPinRequired -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 R.string.staff_pin_required,
                                 Snackbar.LENGTH_LONG,
                             ).show()
@@ -654,21 +684,21 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.EnterpriseOperatorPinInvalid -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 R.string.staff_pin_invalid,
                                 Snackbar.LENGTH_SHORT,
                             ).show()
                         }
 
                         is SettingsViewModel.Event.LicenceApplied -> {
-                            binding.editLicenceKey.text?.clear()
+                            _binding?.editLicenceKey?.text?.clear()
                             val status = if (event.proEnabled) {
                                 R.string.settings_pro_features_on
                             } else {
                                 R.string.settings_pro_features_off
                             }
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 getString(R.string.settings_licence_applied, getString(status)),
                                 Snackbar.LENGTH_LONG,
                             ).show()
@@ -676,7 +706,7 @@ class SettingsFragment : BaseFragment() {
 
                         is SettingsViewModel.Event.LicenceInvalid -> {
                             Snackbar.make(
-                                binding.root,
+                                root,
                                 event.message.ifBlank { getString(R.string.settings_licence_invalid) },
                                 Snackbar.LENGTH_LONG,
                             ).show()
@@ -688,8 +718,9 @@ class SettingsFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.isBenchmarking.collect { running ->
-                    binding.btnRunBenchmark.isEnabled = !running
-                    binding.btnRunBenchmark.text = if (running) {
+                    val b = _binding ?: return@collect
+                    b.btnRunBenchmark.isEnabled = !running
+                    b.btnRunBenchmark.text = if (running) {
                         getString(R.string.settings_benchmark_running)
                     } else {
                         getString(R.string.settings_btn_benchmark)
@@ -700,10 +731,11 @@ class SettingsFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.isCloudUploading.collect { uploading ->
-                    binding.btnCloudUploadJson.isEnabled = !uploading
-                    binding.btnCloudUploadSqlite.isEnabled = !uploading
-                    binding.btnCloudAnalysisSave.isEnabled = !uploading
-                    binding.btnCloudUploadJson.text = if (uploading) {
+                    val b = _binding ?: return@collect
+                    b.btnCloudUploadJson.isEnabled = !uploading
+                    b.btnCloudUploadSqlite.isEnabled = !uploading
+                    b.btnCloudAnalysisSave.isEnabled = !uploading
+                    b.btnCloudUploadJson.text = if (uploading) {
                         getString(R.string.settings_cloud_uploading)
                     } else {
                         getString(R.string.settings_cloud_btn_upload_json)
@@ -714,8 +746,9 @@ class SettingsFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.isEnterpriseSyncing.collect { syncing ->
-                    binding.btnEnterpriseSyncNow.isEnabled = !syncing
-                    binding.btnEnterpriseSyncNow.text = if (syncing) {
+                    val b = _binding ?: return@collect
+                    b.btnEnterpriseSyncNow.isEnabled = !syncing
+                    b.btnEnterpriseSyncNow.text = if (syncing) {
                         getString(R.string.settings_enterprise_syncing)
                     } else {
                         getString(R.string.settings_enterprise_sync_now)
@@ -726,8 +759,9 @@ class SettingsFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.isEnterpriseDiscovering.collect { discovering ->
-                    binding.btnEnterpriseDiscoverService.isEnabled = !discovering
-                    binding.btnEnterpriseDiscoverService.text = if (discovering) {
+                    val b = _binding ?: return@collect
+                    b.btnEnterpriseDiscoverService.isEnabled = !discovering
+                    b.btnEnterpriseDiscoverService.text = if (discovering) {
                         getString(R.string.settings_enterprise_discovering)
                     } else {
                         getString(R.string.settings_enterprise_discover_service)
@@ -738,6 +772,7 @@ class SettingsFragment : BaseFragment() {
     }
 
     private fun showBenchmarkResultDialog(result: SettingsViewModel.Event.BenchmarkResult) {
+        val ctx = context ?: return
         val body = getString(
             R.string.settings_benchmark_result_body,
             result.firstTokenMs,
@@ -745,7 +780,7 @@ class SettingsFragment : BaseFragment() {
             result.approxTokens,
             String.format(Locale.getDefault(), "%.1f", result.tokensPerSecond),
         )
-        MaterialAlertDialogBuilder(requireContext())
+        MaterialAlertDialogBuilder(ctx)
             .setTitle(R.string.settings_benchmark_result_title)
             .setMessage(body)
             .setPositiveButton(android.R.string.ok, null)
@@ -757,11 +792,12 @@ class SettingsFragment : BaseFragment() {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.modelDownloadManager.progress.collect { progress ->
                     if (viewModel.downloadState.value == DownloadState.DOWNLOADING) {
-                        binding.progressDownload.isIndeterminate = progress.totalBytes == 0L
+                        val b = _binding ?: return@collect
+                        b.progressDownload.isIndeterminate = progress.totalBytes == 0L
                         if (progress.totalBytes > 0) {
-                            binding.progressDownload.setProgressCompat(progress.percent, true)
-                            binding.textDownloadProgress.visibility = View.VISIBLE
-                            binding.textDownloadProgress.text = formatProgress(progress)
+                            b.progressDownload.setProgressCompat(progress.percent, true)
+                            b.textDownloadProgress.visibility = View.VISIBLE
+                            b.textDownloadProgress.text = formatProgress(progress)
                         }
                     }
                 }
@@ -785,59 +821,60 @@ class SettingsFragment : BaseFragment() {
     }
 
     private fun updateModelStatusUi(state: DownloadState) {
+        val b = _binding ?: return
         when (state) {
             DownloadState.NOT_DOWNLOADED -> {
-                binding.textModelStatus.text = getString(R.string.settings_model_not_downloaded)
-                binding.progressDownload.visibility = View.GONE
-                binding.textDownloadProgress.visibility = View.GONE
-                binding.textDataWarning.visibility = View.VISIBLE
-                binding.btnDownloadModel.visibility = if (viewModel.isAiCapable) View.VISIBLE else View.GONE
-                binding.btnDownloadModel.text = getString(R.string.settings_btn_download)
-                binding.btnDeleteModel.visibility = View.GONE
+                b.textModelStatus.text = getString(R.string.settings_model_not_downloaded)
+                b.progressDownload.visibility = View.GONE
+                b.textDownloadProgress.visibility = View.GONE
+                b.textDataWarning.visibility = View.VISIBLE
+                b.btnDownloadModel.visibility = if (viewModel.isAiCapable) View.VISIBLE else View.GONE
+                b.btnDownloadModel.text = getString(R.string.settings_btn_download)
+                b.btnDeleteModel.visibility = View.GONE
             }
 
             DownloadState.DOWNLOADING -> {
-                binding.textModelStatus.text = getString(R.string.settings_model_downloading)
-                binding.progressDownload.visibility = View.VISIBLE
-                binding.progressDownload.isIndeterminate = true // starts indeterminate, switches when progress arrives
-                binding.textDataWarning.visibility = View.VISIBLE
-                binding.btnDownloadModel.visibility = View.GONE
-                binding.btnDeleteModel.visibility = View.GONE
+                b.textModelStatus.text = getString(R.string.settings_model_downloading)
+                b.progressDownload.visibility = View.VISIBLE
+                b.progressDownload.isIndeterminate = true // starts indeterminate, switches when progress arrives
+                b.textDataWarning.visibility = View.VISIBLE
+                b.btnDownloadModel.visibility = View.GONE
+                b.btnDeleteModel.visibility = View.GONE
             }
 
             DownloadState.DOWNLOADED -> {
                 val sizeMb = viewModel.modelDownloadManager.modelSizeBytes / (1024 * 1024)
-                binding.textModelStatus.text = getString(
+                b.textModelStatus.text = getString(
                     R.string.settings_model_downloaded,
                     sizeMb,
                 )
-                binding.progressDownload.visibility = View.GONE
-                binding.textDownloadProgress.visibility = View.GONE
-                binding.textDataWarning.visibility = View.GONE
-                binding.btnDownloadModel.visibility = View.VISIBLE
-                binding.btnDownloadModel.text = getString(R.string.settings_btn_redownload)
-                binding.btnDeleteModel.visibility = View.VISIBLE
+                b.progressDownload.visibility = View.GONE
+                b.textDownloadProgress.visibility = View.GONE
+                b.textDataWarning.visibility = View.GONE
+                b.btnDownloadModel.visibility = View.VISIBLE
+                b.btnDownloadModel.text = getString(R.string.settings_btn_redownload)
+                b.btnDeleteModel.visibility = View.VISIBLE
             }
 
             DownloadState.FAILED -> {
-                binding.textModelStatus.text = getString(R.string.settings_model_failed)
-                binding.progressDownload.visibility = View.GONE
-                binding.textDownloadProgress.visibility = View.GONE
-                binding.textDataWarning.visibility = View.GONE
-                binding.btnDownloadModel.visibility = View.VISIBLE
-                binding.btnDownloadModel.text = getString(R.string.settings_btn_retry)
-                binding.btnDeleteModel.visibility = View.GONE
+                b.textModelStatus.text = getString(R.string.settings_model_failed)
+                b.progressDownload.visibility = View.GONE
+                b.textDownloadProgress.visibility = View.GONE
+                b.textDataWarning.visibility = View.GONE
+                b.btnDownloadModel.visibility = View.VISIBLE
+                b.btnDownloadModel.text = getString(R.string.settings_btn_retry)
+                b.btnDeleteModel.visibility = View.GONE
             }
         }
 
         // If device is not AI-capable, show a note
         if (!viewModel.isAiCapable) {
-            binding.textModelStatus.text = getString(R.string.settings_model_not_supported)
-            binding.progressDownload.visibility = View.GONE
-            binding.textDownloadProgress.visibility = View.GONE
-            binding.textDataWarning.visibility = View.GONE
-            binding.btnDownloadModel.visibility = View.GONE
-            binding.btnDeleteModel.visibility = View.GONE
+            b.textModelStatus.text = getString(R.string.settings_model_not_supported)
+            b.progressDownload.visibility = View.GONE
+            b.textDownloadProgress.visibility = View.GONE
+            b.textDataWarning.visibility = View.GONE
+            b.btnDownloadModel.visibility = View.GONE
+            b.btnDeleteModel.visibility = View.GONE
         }
 
         updateInferenceSectionVisibility()
@@ -854,17 +891,18 @@ class SettingsFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.cloudSettings.collect { s ->
+                    val b = _binding ?: return@collect
                     updateEnterpriseDeploymentVisibility()
                     applyDeploymentMode(s.deploymentMode)
-                    binding.switchCloudAnalysisEnabled.setOnCheckedChangeListener(null)
-                    if (binding.switchCloudAnalysisEnabled.isChecked != s.enabled) {
-                        binding.switchCloudAnalysisEnabled.isChecked = s.enabled
+                    b.switchCloudAnalysisEnabled.setOnCheckedChangeListener(null)
+                    if (b.switchCloudAnalysisEnabled.isChecked != s.enabled) {
+                        b.switchCloudAnalysisEnabled.isChecked = s.enabled
                     }
                     val url = s.endpointUrl
-                    if (binding.inputCloudEndpoint.text?.toString() != url) {
-                        binding.inputCloudEndpoint.setText(url)
+                    if (b.inputCloudEndpoint.text?.toString() != url) {
+                        b.inputCloudEndpoint.setText(url)
                     }
-                    binding.textCloudApiKeySaved.visibility =
+                    b.textCloudApiKeySaved.visibility =
                         if (s.hasApiKey) View.VISIBLE else View.GONE
                 }
             }
@@ -879,8 +917,9 @@ class SettingsFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.enterpriseAuditEvents.collect { events ->
+                    val b = _binding ?: return@collect
                     val last = events.firstOrNull()
-                    binding.textEnterpriseAuditSummary.text = if (last == null) {
+                    b.textEnterpriseAuditSummary.text = if (last == null) {
                         getString(R.string.settings_enterprise_audit_empty)
                     } else {
                         getString(R.string.settings_enterprise_audit_last, last.action)
@@ -891,7 +930,8 @@ class SettingsFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.enterpriseBranches.collect { branches ->
-                    binding.textEnterpriseBranchSummary.text = resources.getQuantityString(
+                    val b = _binding ?: return@collect
+                    b.textEnterpriseBranchSummary.text = resources.getQuantityString(
                         R.plurals.settings_enterprise_branches_count,
                         branches.size,
                         branches.size,
@@ -902,7 +942,8 @@ class SettingsFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.pendingEnterpriseSyncCount.collect { count ->
-                    binding.textEnterpriseSyncSummary.text = if (count == 0) {
+                    val b = _binding ?: return@collect
+                    b.textEnterpriseSyncSummary.text = if (count == 0) {
                         getString(R.string.settings_enterprise_sync_empty)
                     } else {
                         resources.getQuantityString(
@@ -938,30 +979,32 @@ class SettingsFragment : BaseFragment() {
     }
 
     private fun updateEnterpriseDeploymentVisibility() {
+        val b = _binding ?: return
         val visibility = if (viewModel.isEnterprisePro) View.VISIBLE else View.GONE
-        binding.textCloudAnalysisSection.visibility = visibility
-        binding.cardCloudAnalysis.visibility = visibility
-        binding.textEnterpriseDeploymentTitle.visibility = visibility
-        binding.textEnterpriseDeploymentBody.visibility = visibility
-        binding.toggleEnterpriseDeploymentMode.visibility = visibility
-        binding.textEnterpriseDeviceSummary.visibility = visibility
-        binding.textEnterpriseAuditSummary.visibility = visibility
-        binding.textEnterpriseBranchSummary.visibility = visibility
-        binding.textEnterpriseSyncSummary.visibility = visibility
-        binding.btnEnterpriseBranch.visibility = visibility
-        binding.btnEnterpriseSyncNow.visibility = visibility
-        binding.btnEnterpriseActivity.visibility = visibility
-        binding.btnEnterpriseDiscoverService.visibility = visibility
-        binding.textEnterpriseOperatorStatus.visibility = visibility
-        binding.btnEnterpriseOperator.visibility = visibility
+        b.textCloudAnalysisSection.visibility = visibility
+        b.cardCloudAnalysis.visibility = visibility
+        b.textEnterpriseDeploymentTitle.visibility = visibility
+        b.textEnterpriseDeploymentBody.visibility = visibility
+        b.toggleEnterpriseDeploymentMode.visibility = visibility
+        b.textEnterpriseDeviceSummary.visibility = visibility
+        b.textEnterpriseAuditSummary.visibility = visibility
+        b.textEnterpriseBranchSummary.visibility = visibility
+        b.textEnterpriseSyncSummary.visibility = visibility
+        b.btnEnterpriseBranch.visibility = visibility
+        b.btnEnterpriseSyncNow.visibility = visibility
+        b.btnEnterpriseActivity.visibility = visibility
+        b.btnEnterpriseDiscoverService.visibility = visibility
+        b.textEnterpriseOperatorStatus.visibility = visibility
+        b.btnEnterpriseOperator.visibility = visibility
         if (!viewModel.isEnterprisePro) {
-            binding.toggleEnterpriseDeploymentMode.check(R.id.btn_deployment_cloud)
+            b.toggleEnterpriseDeploymentMode.check(R.id.btn_deployment_cloud)
         }
     }
 
     private fun updateEnterpriseDeviceSummary(deviceCount: Int = viewModel.enterpriseDevices.value.size) {
+        val b = _binding ?: return
         val limit = viewModel.licenceKey.value?.maxDevices ?: 1
-        binding.textEnterpriseDeviceSummary.text = getString(
+        b.textEnterpriseDeviceSummary.text = getString(
             if (deviceCount > limit) {
                 R.string.settings_enterprise_devices_over_limit
             } else {
@@ -1042,7 +1085,8 @@ class SettingsFragment : BaseFragment() {
                 }
             }
         }.trim()
-        MaterialAlertDialogBuilder(requireContext())
+        val ctx = context ?: return
+        MaterialAlertDialogBuilder(ctx)
             .setTitle(R.string.settings_enterprise_activity_title)
             .setMessage(body)
             .setPositiveButton(android.R.string.ok, null)
@@ -1052,12 +1096,13 @@ class SettingsFragment : BaseFragment() {
     private fun showEnterpriseBranchDialog() {
         val current = viewModel.enterpriseBranches.value.firstOrNull { it.isDefault }
             ?: viewModel.enterpriseBranches.value.firstOrNull()
-        val dialogView = layoutInflater.inflate(R.layout.dialog_enterprise_branch, null)
+        val ctx = context ?: return
+        val dialogView = LayoutInflater.from(ctx).inflate(R.layout.dialog_enterprise_branch, null)
         val nameInput = dialogView.findViewById<TextInputEditText>(R.id.input_enterprise_branch_name)
         val locationInput = dialogView.findViewById<TextInputEditText>(R.id.input_enterprise_branch_location)
         nameInput.setText(current?.name.orEmpty().ifBlank { "Main branch" })
         locationInput.setText(current?.location.orEmpty())
-        MaterialAlertDialogBuilder(requireContext())
+        MaterialAlertDialogBuilder(ctx)
             .setTitle(R.string.settings_enterprise_branch_title)
             .setView(dialogView)
             .setPositiveButton(android.R.string.ok) { _, _ ->
@@ -1071,7 +1116,8 @@ class SettingsFragment : BaseFragment() {
     }
 
     private fun applyDeploymentMode(mode: EnterpriseDeploymentMode) {
-        binding.toggleEnterpriseDeploymentMode.check(
+        val b = _binding ?: return
+        b.toggleEnterpriseDeploymentMode.check(
             when (mode) {
                 EnterpriseDeploymentMode.ON_PREMISE -> R.id.btn_deployment_on_premise
                 EnterpriseDeploymentMode.CLOUD -> R.id.btn_deployment_cloud
@@ -1080,24 +1126,26 @@ class SettingsFragment : BaseFragment() {
     }
 
     private fun selectedDeploymentMode(): EnterpriseDeploymentMode =
-        if (binding.toggleEnterpriseDeploymentMode.checkedButtonId == R.id.btn_deployment_cloud) {
+        if (_binding?.toggleEnterpriseDeploymentMode?.checkedButtonId == R.id.btn_deployment_cloud) {
             EnterpriseDeploymentMode.CLOUD
         } else {
             EnterpriseDeploymentMode.ON_PREMISE
         }
 
     private fun updateInferenceSectionVisibility() {
+        val b = _binding ?: return
         val vis = if (viewModel.isAiCapable) View.VISIBLE else View.GONE
-        binding.textInferenceSectionTitle.visibility = vis
-        binding.cardInferenceSettings.visibility = vis
+        b.textInferenceSectionTitle.visibility = vis
+        b.cardInferenceSettings.visibility = vis
     }
 
     private fun showInferenceConfigurationsDialog() {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_inference_settings, null)
+        val ctx = context ?: return
+        val dialogView = LayoutInflater.from(ctx).inflate(R.layout.dialog_inference_settings, null)
         val store = viewModel.inferenceSettingsStore
         bindInferenceConfigurationViews(dialogView, store.load())
 
-        MaterialAlertDialogBuilder(requireContext())
+        MaterialAlertDialogBuilder(ctx)
             .setTitle(R.string.inference_dialog_title)
             .setView(dialogView)
             .setNeutralButton(R.string.inference_defaults) { _, _ ->
@@ -1109,7 +1157,7 @@ class SettingsFragment : BaseFragment() {
                 store.save(cfg)
                 viewModel.onInferenceSettingsSaved()
                 Snackbar.make(
-                    binding.root,
+                    dialogView,
                     R.string.inference_configs_saved,
                     Snackbar.LENGTH_SHORT,
                 ).show()
@@ -1178,5 +1226,19 @@ class SettingsFragment : BaseFragment() {
             enableThinking = switchThinking.isChecked,
             enableSpeculativeDecoding = switchSpec.isChecked,
         )
+    }
+
+    private fun navigateSafely(block: NavController.() -> Unit): Boolean {
+        return runCatching {
+            findNavController().block()
+            true
+        }.getOrElse {
+            Log.w(TAG, "Settings navigation failed", it)
+            false
+        }
+    }
+
+    companion object {
+        private const val TAG = "SettingsFragment"
     }
 }

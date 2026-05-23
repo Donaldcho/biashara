@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -99,34 +100,49 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun downloadModel() {
-        viewModelScope.launch {
+        launchSafe {
             try {
                 modelDownloadManager.downloadModel()
                 _events.emit(Event.DownloadComplete)
-            } catch (e: Exception) {
-                Log.e("SettingsViewModel", "Model download failed", e)
-                _events.emit(Event.DownloadFailed(e.message ?: "Download failed"))
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Throwable) {
+                Log.e(TAG, "Model download failed", t)
+                _events.emit(Event.DownloadFailed(t.message ?: "Download failed"))
             }
         }
     }
 
     fun deleteModel() {
-        viewModelScope.launch {
-            gemmaService.close()
-            modelDownloadManager.deleteModel()
+        launchSafe {
+            try {
+                withContext(Dispatchers.IO) {
+                    gemmaService.close()
+                    modelDownloadManager.deleteModel()
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Throwable) {
+                Log.e(TAG, "Model delete failed", t)
+                _events.emit(Event.DownloadFailed(t.message ?: "Delete failed"))
+            }
         }
     }
 
     /** Call after saving Edge-style inference UI so the next chat run reloads the engine. */
     fun onInferenceSettingsSaved() {
-        gemmaService.resetEngine()
+        runCatching {
+            gemmaService.resetEngine()
+        }.onFailure {
+            Log.w(TAG, "resetEngine after inference settings failed", it)
+        }
     }
 
     /** Persists ISO 4217 code and a display symbol for receipts and prompts. */
     fun setShopCurrency(isoCode: String) {
-        viewModelScope.launch {
+        launchSafe {
             val code = isoCode.trim().uppercase(Locale.ROOT)
-            val currency = runCatching { Currency.getInstance(code) }.getOrNull() ?: return@launch
+            val currency = runCatching { Currency.getInstance(code) }.getOrNull() ?: return@launchSafe
             // Room forbids synchronous DAO reads on the main thread (no allowMainThreadQueries).
             withContext(Dispatchers.IO) {
                 val row = appSettingsDao.getSettingsSync() ?: AppSettings()
@@ -146,7 +162,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun applyLicenceKey(keyString: String) {
-        viewModelScope.launch(Dispatchers.IO) {
+        launchSafe(Dispatchers.IO) {
             val result = licenceValidator.storeLicenceKey(keyString.trim())
             result.fold(
                 onSuccess = {
@@ -172,15 +188,19 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun redownloadModel() {
-        viewModelScope.launch {
+        launchSafe {
             try {
-                gemmaService.close()
-                modelDownloadManager.deleteModel()
+                withContext(Dispatchers.IO) {
+                    gemmaService.close()
+                    modelDownloadManager.deleteModel()
+                }
                 modelDownloadManager.downloadModel()
                 _events.emit(Event.DownloadComplete)
-            } catch (e: Exception) {
-                Log.e("SettingsViewModel", "Model re-download failed", e)
-                _events.emit(Event.DownloadFailed(e.message ?: "Download failed"))
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Throwable) {
+                Log.e(TAG, "Model re-download failed", t)
+                _events.emit(Event.DownloadFailed(t.message ?: "Download failed"))
             }
         }
     }
@@ -227,7 +247,7 @@ class SettingsViewModel @Inject constructor(
         endpointUrl: String,
         newApiKeyIfNonBlank: String?,
     ) {
-        viewModelScope.launch(Dispatchers.IO) {
+        launchSafe(Dispatchers.IO) {
             val effectiveMode = if (productLineManager.isEnterprisePro()) {
                 deploymentMode
             } else {
@@ -253,22 +273,22 @@ class SettingsViewModel @Inject constructor(
 
     fun uploadCloudAnalyticsJson() {
         if (_isCloudUploading.value) return
-        viewModelScope.launch {
+        launchSafe {
             val cfg = cloudAnalysisSettingsStore.load()
             val url = cfg.endpointUrl.trim()
             val key = cloudAnalysisSettingsStore.apiKeyOrNull()
             when {
                 !cfg.enabled -> {
                     _events.emit(Event.CloudUploadFailed(CLOUD_ERR_NOT_ENABLED))
-                    return@launch
+                    return@launchSafe
                 }
                 url.isBlank() || !EnterpriseEndpointPolicy.isAllowed(url, cfg.deploymentMode.name) -> {
                     _events.emit(Event.CloudUploadFailed(CLOUD_ERR_MISSING_URL))
-                    return@launch
+                    return@launchSafe
                 }
                 key.isNullOrBlank() -> {
                     _events.emit(Event.CloudUploadFailed(CLOUD_ERR_MISSING_KEY))
-                    return@launch
+                    return@launchSafe
                 }
             }
             _isCloudUploading.value = true
@@ -312,7 +332,7 @@ class SettingsViewModel @Inject constructor(
 
     fun syncEnterpriseQueue() {
         if (_isEnterpriseSyncing.value) return
-        viewModelScope.launch {
+        launchSafe {
             _isEnterpriseSyncing.value = true
             try {
                 val result = withContext(Dispatchers.IO) { enterpriseAuditRepository.flushPendingSync() }
@@ -332,9 +352,10 @@ class SettingsViewModel @Inject constructor(
                 } else {
                     _events.emit(Event.EnterpriseSyncComplete(result.sent, result.failed))
                 }
-            } catch (e: Exception) {
-                Log.w("SettingsViewModel", "enterprise sync failed", e)
-                _events.emit(Event.EnterpriseSyncFailed(e.message ?: "Unknown error"))
+            } catch (t: Throwable) {
+                if (t is CancellationException) throw t
+                Log.w(TAG, "enterprise sync failed", t)
+                _events.emit(Event.EnterpriseSyncFailed(t.message ?: "Unknown error"))
             } finally {
                 _isEnterpriseSyncing.value = false
             }
@@ -343,7 +364,7 @@ class SettingsViewModel @Inject constructor(
 
     fun discoverEnterpriseService() {
         if (_isEnterpriseDiscovering.value) return
-        viewModelScope.launch {
+        launchSafe {
             _isEnterpriseDiscovering.value = true
             try {
                 val result = enterpriseLanDiscoveryClient.discover()
@@ -371,7 +392,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun requestEnterpriseAction(action: RestrictedAction) {
-        viewModelScope.launch(Dispatchers.IO) {
+        launchSafe(Dispatchers.IO) {
             val permission = permissionFor(action)
             val operator = loadCurrentEnterpriseOperator()
             if (
@@ -394,14 +415,14 @@ class SettingsViewModel @Inject constructor(
                         operatorRole = operator.role,
                     ),
                 )
-                return@launch
+                return@launchSafe
             }
             _events.emit(Event.EnterpriseActionAllowed(action))
         }
     }
 
     fun selectEnterpriseOperator(member: StaffMember?, pin: String? = null) {
-        viewModelScope.launch(Dispatchers.IO) {
+        launchSafe(Dispatchers.IO) {
             if (member == null) {
                 val previous = _currentEnterpriseOperator.value
                 enterpriseOperatorStore.clear()
@@ -416,10 +437,10 @@ class SettingsViewModel @Inject constructor(
                     actorRole = previous?.role,
                 )
             } else {
-                val fresh = staffMemberDao.getById(member.id)?.takeIf { it.isActive } ?: return@launch
+                val fresh = staffMemberDao.getById(member.id)?.takeIf { it.isActive } ?: return@launchSafe
                 if (fresh.pinHash.isNullOrBlank() || fresh.pinSalt.isNullOrBlank()) {
                     _events.emit(Event.EnterpriseOperatorPinRequired)
-                    return@launch
+                    return@launchSafe
                 }
                 val verified = withContext(Dispatchers.Default) {
                     EnterprisePinHasher.verify(pin.orEmpty(), fresh.pinSalt, fresh.pinHash)
@@ -435,7 +456,7 @@ class SettingsViewModel @Inject constructor(
                         actorRole = fresh.role,
                     )
                     _events.emit(Event.EnterpriseOperatorPinInvalid)
-                    return@launch
+                    return@launchSafe
                 }
                 enterpriseOperatorStore.selectStaff(fresh.id)
                 _currentEnterpriseOperator.value = fresh
@@ -454,7 +475,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun refreshEnterpriseOperator() {
-        viewModelScope.launch(Dispatchers.IO) {
+        launchSafe(Dispatchers.IO) {
             loadCurrentEnterpriseOperator()
         }
     }
@@ -482,10 +503,10 @@ class SettingsViewModel @Inject constructor(
     fun saveDefaultEnterpriseBranch(name: String, location: String?) {
         val trimmed = name.trim()
         if (trimmed.length < 2) {
-            viewModelScope.launch { _events.emit(Event.EnterpriseBranchInvalid) }
+            launchSafe { _events.emit(Event.EnterpriseBranchInvalid) }
             return
         }
-        viewModelScope.launch(Dispatchers.IO) {
+        launchSafe(Dispatchers.IO) {
             enterpriseAuditRepository.saveDefaultBranch(trimmed, location)
             _events.emit(Event.EnterpriseBranchSaved)
         }
@@ -493,29 +514,32 @@ class SettingsViewModel @Inject constructor(
 
     fun uploadCloudSqliteDatabase() {
         if (_isCloudUploading.value) return
-        viewModelScope.launch {
+        launchSafe {
             val cfg = cloudAnalysisSettingsStore.load()
             val url = cfg.endpointUrl.trim()
             val key = cloudAnalysisSettingsStore.apiKeyOrNull()
             when {
                 !cfg.enabled -> {
                     _events.emit(Event.CloudUploadFailed(CLOUD_ERR_NOT_ENABLED))
-                    return@launch
+                    return@launchSafe
                 }
                 url.isBlank() || !EnterpriseEndpointPolicy.isAllowed(url, cfg.deploymentMode.name) -> {
                     _events.emit(Event.CloudUploadFailed(CLOUD_ERR_MISSING_URL))
-                    return@launch
+                    return@launchSafe
                 }
                 key.isNullOrBlank() -> {
                     _events.emit(Event.CloudUploadFailed(CLOUD_ERR_MISSING_KEY))
-                    return@launch
+                    return@launchSafe
                 }
             }
             _isCloudUploading.value = true
             var temp: java.io.File? = null
             try {
                 temp = withContext(Dispatchers.IO) { businessAnalyticsJsonExporter.copyCheckpointedDatabaseToCache() }
-                val file = temp!!
+                val file = temp ?: run {
+                    _events.emit(Event.CloudUploadFailed("Could not prepare database export."))
+                    return@launchSafe
+                }
                 val result = withContext(Dispatchers.IO) {
                     cloudAnalysisHttpClient.postSqliteFile(
                         url = url,
@@ -560,11 +584,11 @@ class SettingsViewModel @Inject constructor(
     fun runBenchmark() {
         if (_isBenchmarking.value) return
         if (!gemmaService.isAvailable) {
-            viewModelScope.launch { _events.emit(Event.BenchmarkFailed("Model not available.")) }
+            launchSafe { _events.emit(Event.BenchmarkFailed("Model not available.")) }
             return
         }
         _isBenchmarking.value = true
-        viewModelScope.launch {
+        launchSafe {
             try {
                 // LiteRT-LM applies the chat template internally; just send plain user text.
                 val prompt = "Say one short sentence about your purpose."
@@ -590,9 +614,11 @@ class SettingsViewModel @Inject constructor(
                         tokensPerSecond = tps,
                     ),
                 )
-            } catch (e: Exception) {
-                Log.w("SettingsViewModel", "benchmark failed", e)
-                _events.emit(Event.BenchmarkFailed(e.message ?: "Unknown error"))
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Throwable) {
+                Log.w(TAG, "benchmark failed", t)
+                _events.emit(Event.BenchmarkFailed(t.message ?: "Unknown error"))
             } finally {
                 _isBenchmarking.value = false
             }
@@ -651,6 +677,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     companion object {
+        private const val TAG = "SettingsViewModel"
         const val CLOUD_ERR_NOT_ENABLED = "__cloud_not_enabled__"
         const val CLOUD_ERR_MISSING_URL = "__cloud_missing_url__"
         const val CLOUD_ERR_MISSING_KEY = "__cloud_missing_key__"

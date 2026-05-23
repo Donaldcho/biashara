@@ -29,6 +29,7 @@ import com.biasharaai.data.local.db.LedgerDirection
 import com.biasharaai.databinding.FragmentCashScanBinding
 import com.biasharaai.ui.base.BaseFragment
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -46,9 +47,11 @@ class CashScanFragment : BaseFragment() {
 
     private lateinit var cameraExecutor: ExecutorService
     private var imageCapture: ImageCapture? = null
+    private var resultNavigationInProgress = false
 
     private val cameraPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (_binding == null) return@registerForActivityResult
             if (granted) { showCameraUi(); startCamera() } else showPermissionDeniedUi()
         }
 
@@ -82,7 +85,7 @@ class CashScanFragment : BaseFragment() {
             ),
         )
 
-        binding.fabClose.setOnClickListener { findNavController().navigateUp() }
+        binding.fabClose.setOnClickListener { navigateUpSafely() }
         binding.btnGrantPermission.setOnClickListener {
             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
@@ -102,8 +105,7 @@ class CashScanFragment : BaseFragment() {
                         is CashScanUiState.QrFound -> {
                             b.progressProcessing.visibility = View.GONE
                             b.tvScanStatus.visibility = View.GONE
-                            findNavController().navigate(
-                                R.id.action_cashScanFragment_to_confirmationFragment,
+                            navigateToConfirmationSafely(
                                 bundleOf(
                                     ConfirmationFragment.ARG_DIRECTION to state.payload.direction.name,
                                     ConfirmationFragment.ARG_CATEGORY_TYPE to state.payload.entryType.name,
@@ -111,13 +113,11 @@ class CashScanFragment : BaseFragment() {
                                     ConfirmationFragment.ARG_CAPTURE_METHOD to "QR_CODE",
                                 ),
                             )
-                            viewModel.resetToIdle()
                         }
                         is CashScanUiState.Confirming -> {
                             b.progressProcessing.visibility = View.GONE
                             b.tvScanStatus.visibility = View.GONE
-                            findNavController().navigate(
-                                R.id.action_cashScanFragment_to_confirmationFragment,
+                            navigateToConfirmationSafely(
                                 bundleOf(
                                     ConfirmationFragment.ARG_DIRECTION to state.direction.name,
                                     ConfirmationFragment.ARG_PARSED_AMOUNT to (state.parsed.amount?.toString() ?: ""),
@@ -130,7 +130,6 @@ class CashScanFragment : BaseFragment() {
                                     ConfirmationFragment.ARG_PARSER_ENGINE to state.parsed.engine.name,
                                 ),
                             )
-                            viewModel.resetToIdle()
                         }
                         is CashScanUiState.Error -> {
                             b.progressProcessing.visibility = View.GONE
@@ -157,7 +156,7 @@ class CashScanFragment : BaseFragment() {
         super.onDestroyView()
         // Camera is unbound automatically — bindToLifecycle(viewLifecycleOwner, …) ties it to
         // this view's lifecycle, so CameraX cleans up when the view is destroyed.
-        cameraExecutor.shutdown()
+        if (::cameraExecutor.isInitialized) cameraExecutor.shutdown()
         imageCapture = null
         _binding = null
     }
@@ -179,14 +178,15 @@ class CashScanFragment : BaseFragment() {
     }
 
     private fun startCamera() {
-        val future = ProcessCameraProvider.getInstance(requireContext())
+        val ctx = context ?: return
+        val future = ProcessCameraProvider.getInstance(ctx)
         future.addListener(
             {
                 if (_binding == null) return@addListener
                 runCatching { bindCamera(future.get()) }
                     .onFailure { Log.e(TAG, "Camera bind failed", it) }
             },
-            ContextCompat.getMainExecutor(requireContext()),
+            ContextCompat.getMainExecutor(ctx),
         )
     }
 
@@ -217,41 +217,82 @@ class CashScanFragment : BaseFragment() {
     private fun captureDocument() {
         val capture = imageCapture ?: return
         val b = _binding ?: return
+        val ctx = context ?: return
         b.btnCapture.isEnabled = false
         b.progressProcessing.visibility = View.VISIBLE
 
-        val file = File(requireContext().cacheDir, "cash_cap_${System.currentTimeMillis()}.jpg")
-        capture.takePicture(
-            ImageCapture.OutputFileOptions.Builder(file).build(),
-            cameraExecutor,
-            object : ImageCapture.OnImageSavedCallback {
-                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                    view?.post {
-                        if (!isAdded || _binding == null) { file.delete(); return@post }
-                        viewLifecycleOwner.lifecycleScope.launch {
-                            val bmp = withContext(Dispatchers.IO) {
-                                BitmapFactory.decodeFile(file.absolutePath).also { file.delete() }
+        val file = File(ctx.cacheDir, "cash_cap_${System.currentTimeMillis()}.jpg")
+        runCatching {
+            capture.takePicture(
+                ImageCapture.OutputFileOptions.Builder(file).build(),
+                cameraExecutor,
+                object : ImageCapture.OnImageSavedCallback {
+                    override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                        view?.post {
+                            if (!isAdded || _binding == null) { file.delete(); return@post }
+                            viewLifecycleOwner.lifecycleScope.launch {
+                                try {
+                                    val bmp = withContext(Dispatchers.IO) {
+                                        BitmapFactory.decodeFile(file.absolutePath).also { file.delete() }
+                                    }
+                                    if (bmp == null) {
+                                        _binding?.progressProcessing?.visibility = View.GONE
+                                        _binding?.btnCapture?.isEnabled = true
+                                        return@launch
+                                    }
+                                    viewModel.onImageCaptured(bmp)
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (t: Throwable) {
+                                    Log.w(TAG, "Cash scan image handling failed", t)
+                                    file.delete()
+                                    _binding?.progressProcessing?.visibility = View.GONE
+                                    _binding?.btnCapture?.isEnabled = true
+                                }
                             }
-                            if (bmp == null) {
-                                _binding?.progressProcessing?.visibility = View.GONE
-                                _binding?.btnCapture?.isEnabled = true
-                                return@launch
-                            }
-                            viewModel.onImageCaptured(bmp)
                         }
                     }
-                }
 
-                override fun onError(exception: ImageCaptureException) {
-                    file.delete()
-                    view?.post {
-                        if (!isAdded || _binding == null) return@post
-                        _binding?.progressProcessing?.visibility = View.GONE
-                        _binding?.btnCapture?.isEnabled = true
+                    override fun onError(exception: ImageCaptureException) {
+                        file.delete()
+                        view?.post {
+                            if (!isAdded || _binding == null) return@post
+                            _binding?.progressProcessing?.visibility = View.GONE
+                            _binding?.btnCapture?.isEnabled = true
+                        }
                     }
-                }
-            },
-        )
+                },
+            )
+        }.onFailure {
+            Log.w(TAG, "Cash scan capture failed", it)
+            file.delete()
+            b.progressProcessing.visibility = View.GONE
+            b.btnCapture.isEnabled = true
+        }
+    }
+
+    private fun navigateToConfirmationSafely(args: Bundle) {
+        if (resultNavigationInProgress) return
+        resultNavigationInProgress = true
+        runCatching {
+            findNavController().navigate(
+                R.id.action_cashScanFragment_to_confirmationFragment,
+                args,
+            )
+            viewModel.resetToIdle()
+        }.onFailure {
+            Log.w(TAG, "Cash scan navigation failed", it)
+            resultNavigationInProgress = false
+            _binding?.btnCapture?.isEnabled = true
+        }
+    }
+
+    private fun navigateUpSafely() {
+        runCatching {
+            findNavController().navigateUp()
+        }.onFailure {
+            Log.w(TAG, "Cash scan navigateUp failed", it)
+        }
     }
 
     companion object {

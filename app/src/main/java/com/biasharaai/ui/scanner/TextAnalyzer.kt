@@ -77,6 +77,10 @@ class TextAnalyzer(
         previousTopLine = null
     }
 
+    fun close() {
+        recognizer.close()
+    }
+
     companion object {
         private const val MIN_TEXT_LENGTH = 2
     }

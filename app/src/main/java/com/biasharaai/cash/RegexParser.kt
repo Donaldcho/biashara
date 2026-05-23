@@ -184,7 +184,8 @@ object RegexParser {
     private fun extractDate(text: String): Long? {
         val m = DATE_PATTERN.find(text) ?: return null
         val dateStr = m.value
-        for (fmt in DATE_FORMATS.get()!!) {
+        val formats = DATE_FORMATS.get() ?: return null
+        for (fmt in formats) {
             runCatching { fmt.parse(dateStr)?.time }
                 .getOrNull()
                 ?.let { return it }

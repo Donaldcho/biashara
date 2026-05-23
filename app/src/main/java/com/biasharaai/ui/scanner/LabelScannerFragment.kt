@@ -13,11 +13,13 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.NavController
 import androidx.navigation.fragment.findNavController
 import com.biasharaai.ai.LabelProductEnricher
 import com.biasharaai.databinding.FragmentLabelScannerBinding
 import com.biasharaai.ui.base.BaseFragment
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -45,9 +47,11 @@ class LabelScannerFragment : BaseFragment() {
 
     private lateinit var cameraExecutor: ExecutorService
     private var textAnalyzer: TextAnalyzer? = null
+    private var scanHandled = false
 
     private val cameraPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (_binding == null) return@registerForActivityResult
             if (granted) {
                 showCameraUi()
                 startCamera()
@@ -69,7 +73,7 @@ class LabelScannerFragment : BaseFragment() {
         super.onViewCreated(view, savedInstanceState)
         cameraExecutor = Executors.newSingleThreadExecutor()
 
-        binding.fabClose.setOnClickListener { findNavController().navigateUp() }
+        binding.fabClose.setOnClickListener { navigateSafely { navigateUp() } }
         binding.btnGrantPermission.setOnClickListener {
             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
@@ -88,29 +92,33 @@ class LabelScannerFragment : BaseFragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        cameraExecutor.shutdown()
+        if (::cameraExecutor.isInitialized) cameraExecutor.shutdown()
+        textAnalyzer?.close()
         textAnalyzer = null
         _binding = null
     }
 
     private fun showCameraUi() {
-        binding.previewView.visibility = View.VISIBLE
-        binding.viewfinderOverlay.visibility = View.VISIBLE
-        binding.viewfinderBorder.visibility = View.VISIBLE
-        binding.textScanHint.visibility = View.VISIBLE
-        binding.permissionDeniedGroup.visibility = View.GONE
+        val b = _binding ?: return
+        b.previewView.visibility = View.VISIBLE
+        b.viewfinderOverlay.visibility = View.VISIBLE
+        b.viewfinderBorder.visibility = View.VISIBLE
+        b.textScanHint.visibility = View.VISIBLE
+        b.permissionDeniedGroup.visibility = View.GONE
     }
 
     private fun showPermissionDeniedUi() {
-        binding.previewView.visibility = View.GONE
-        binding.viewfinderOverlay.visibility = View.GONE
-        binding.viewfinderBorder.visibility = View.GONE
-        binding.textScanHint.visibility = View.GONE
-        binding.permissionDeniedGroup.visibility = View.VISIBLE
+        val b = _binding ?: return
+        b.previewView.visibility = View.GONE
+        b.viewfinderOverlay.visibility = View.GONE
+        b.viewfinderBorder.visibility = View.GONE
+        b.textScanHint.visibility = View.GONE
+        b.permissionDeniedGroup.visibility = View.VISIBLE
     }
 
     private fun startCamera() {
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
+        val ctx = context ?: return
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
         cameraProviderFuture.addListener(
             {
                 if (_binding == null) return@addListener
@@ -121,7 +129,7 @@ class LabelScannerFragment : BaseFragment() {
                     Log.e(TAG, "Camera provider failed", e)
                 }
             },
-            ContextCompat.getMainExecutor(requireContext()),
+            ContextCompat.getMainExecutor(ctx),
         )
     }
 
@@ -131,13 +139,14 @@ class LabelScannerFragment : BaseFragment() {
             .build()
             .also { it.surfaceProvider = binding.previewView.surfaceProvider }
 
-        textAnalyzer = TextAnalyzer { text ->
+        val analyzer = TextAnalyzer { text ->
             view?.post { handleTextResult(text) }
         }
+        textAnalyzer = analyzer
         val imageAnalysis = ImageAnalysis.Builder()
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .build()
-            .also { it.setAnalyzer(cameraExecutor, textAnalyzer!!) }
+            .also { it.setAnalyzer(cameraExecutor, analyzer) }
 
         try {
             cameraProvider.unbindAll()
@@ -153,26 +162,50 @@ class LabelScannerFragment : BaseFragment() {
     }
 
     private fun handleTextResult(text: String) {
+        if (scanHandled) return
         val firstLine = text.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() }
             ?: text.trim()
         val binding = _binding ?: return
+        scanHandled = true
         binding.progressEnrichment.visibility = View.VISIBLE
         binding.fabClose.isEnabled = false
         viewLifecycleOwner.lifecycleScope.launch {
-            val enrichment = labelProductEnricher.enrich(productName = firstLine, fullOcrText = text)
-            val prev = findNavController().previousBackStackEntry?.savedStateHandle
-            if (prev != null) {
-                prev.set(RESULT_KEY, firstLine)
-                enrichment.description?.let { prev.set(RESULT_DESCRIPTION_KEY, it) }
-                enrichment.category?.let { prev.set(RESULT_CATEGORY_KEY, it) }
-            }
-            if (isAdded) {
+            try {
+                val enrichment = labelProductEnricher.enrich(productName = firstLine, fullOcrText = text)
+                val prev = findNavController().previousBackStackEntry?.savedStateHandle
+                if (prev != null) {
+                    prev.set(RESULT_KEY, firstLine)
+                    enrichment.description?.let { prev.set(RESULT_DESCRIPTION_KEY, it) }
+                    enrichment.category?.let { prev.set(RESULT_CATEGORY_KEY, it) }
+                }
+                if (isAdded) {
+                    _binding?.let { b ->
+                        b.progressEnrichment.visibility = View.GONE
+                        b.fabClose.isEnabled = true
+                    }
+                    navigateSafely { navigateUp() }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Throwable) {
+                Log.w(TAG, "Label scan handling failed", t)
+                scanHandled = false
                 _binding?.let { b ->
                     b.progressEnrichment.visibility = View.GONE
                     b.fabClose.isEnabled = true
                 }
-                findNavController().navigateUp()
+                textAnalyzer?.reset()
             }
+        }
+    }
+
+    private fun navigateSafely(block: NavController.() -> Unit) {
+        runCatching {
+            findNavController().block()
+        }.onFailure {
+            Log.w(TAG, "Label scanner navigation failed", it)
+            scanHandled = false
+            textAnalyzer?.reset()
         }
     }
 

@@ -14,6 +14,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.NavController
 import androidx.navigation.fragment.findNavController
 import com.biasharaai.R
 import com.biasharaai.data.local.db.ProductDao
@@ -26,6 +27,7 @@ import com.biasharaai.ui.pos.PosFragment
 import com.biasharaai.ui.pos.ServiceReceiptScanFragment
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import java.util.concurrent.ExecutorService
@@ -56,6 +58,7 @@ class BarcodeScannerFragment : BaseFragment() {
 
     private lateinit var cameraExecutor: ExecutorService
     private var barcodeAnalyzer: BarcodeAnalyzer? = null
+    private var scanHandled = false
 
     /** Resolve [ScanMode] from the navigation argument, defaulting to LOOKUP. */
     private val scanMode: ScanMode by lazy {
@@ -71,6 +74,7 @@ class BarcodeScannerFragment : BaseFragment() {
 
     private val cameraPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (_binding == null) return@registerForActivityResult
             if (granted) {
                 showCameraUi()
                 startCamera()
@@ -94,9 +98,7 @@ class BarcodeScannerFragment : BaseFragment() {
         super.onViewCreated(view, savedInstanceState)
         cameraExecutor = Executors.newSingleThreadExecutor()
 
-        binding.fabClose.setOnClickListener {
-            findNavController().navigateUp()
-        }
+        binding.fabClose.setOnClickListener { navigateUpSafely() }
 
         binding.btnGrantPermission.setOnClickListener {
             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
@@ -117,7 +119,8 @@ class BarcodeScannerFragment : BaseFragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        cameraExecutor.shutdown()
+        if (::cameraExecutor.isInitialized) cameraExecutor.shutdown()
+        barcodeAnalyzer?.close()
         barcodeAnalyzer = null
         _binding = null
     }
@@ -125,25 +128,28 @@ class BarcodeScannerFragment : BaseFragment() {
     // ── UI states ───────────────────────────────────────────────────────
 
     private fun showCameraUi() {
-        binding.previewView.visibility = View.VISIBLE
-        binding.viewfinderOverlay.visibility = View.VISIBLE
-        binding.viewfinderBorder.visibility = View.VISIBLE
-        binding.textScanHint.visibility = View.VISIBLE
-        binding.permissionDeniedGroup.visibility = View.GONE
+        val b = _binding ?: return
+        b.previewView.visibility = View.VISIBLE
+        b.viewfinderOverlay.visibility = View.VISIBLE
+        b.viewfinderBorder.visibility = View.VISIBLE
+        b.textScanHint.visibility = View.VISIBLE
+        b.permissionDeniedGroup.visibility = View.GONE
     }
 
     private fun showPermissionDeniedUi() {
-        binding.previewView.visibility = View.GONE
-        binding.viewfinderOverlay.visibility = View.GONE
-        binding.viewfinderBorder.visibility = View.GONE
-        binding.textScanHint.visibility = View.GONE
-        binding.permissionDeniedGroup.visibility = View.VISIBLE
+        val b = _binding ?: return
+        b.previewView.visibility = View.GONE
+        b.viewfinderOverlay.visibility = View.GONE
+        b.viewfinderBorder.visibility = View.GONE
+        b.textScanHint.visibility = View.GONE
+        b.permissionDeniedGroup.visibility = View.VISIBLE
     }
 
     // ── CameraX ─────────────────────────────────────────────────────────
 
     private fun startCamera() {
-        val cameraProviderFuture = ProcessCameraProvider.getInstance(requireContext())
+        val ctx = context ?: return
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
         cameraProviderFuture.addListener(
             {
                 if (_binding == null) return@addListener
@@ -154,7 +160,7 @@ class BarcodeScannerFragment : BaseFragment() {
                     Log.e(TAG, "Camera provider failed", e)
                 }
             },
-            ContextCompat.getMainExecutor(requireContext()),
+            ContextCompat.getMainExecutor(ctx),
         )
     }
 
@@ -166,15 +172,17 @@ class BarcodeScannerFragment : BaseFragment() {
             .also { it.surfaceProvider = binding.previewView.surfaceProvider }
 
         // Image analysis with BarcodeAnalyzer
-        barcodeAnalyzer = BarcodeAnalyzer { rawValue ->
+        val analyzer = BarcodeAnalyzer { rawValue ->
             // Called on the analysis thread — dispatch to main for navigation/UI
             view?.post { handleBarcodeResult(rawValue) }
         }
 
+        barcodeAnalyzer = analyzer
+
         val imageAnalysis = ImageAnalysis.Builder()
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .build()
-            .also { it.setAnalyzer(cameraExecutor, barcodeAnalyzer!!) }
+            .also { it.setAnalyzer(cameraExecutor, analyzer) }
 
         // Select back camera
         val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
@@ -195,6 +203,7 @@ class BarcodeScannerFragment : BaseFragment() {
     // ── Result handling ─────────────────────────────────────────────────
 
     private fun handleBarcodeResult(rawValue: String) {
+        if (scanHandled) return
         if (BarcodeScanRouter.isServiceToken(rawValue)) {
             if (!productLineManager.isProEnabled()) {
                 val root = _binding?.root
@@ -207,10 +216,10 @@ class BarcodeScannerFragment : BaseFragment() {
             if (rawValue.startsWith(ServiceTokenCodec.PREFIX_RECEIPT) &&
                 rawValue.substringAfter(ServiceTokenCodec.PREFIX_RECEIPT).contains('.')
             ) {
-                findNavController().navigate(
-                    R.id.serviceReceiptScanFragment,
-                    ServiceReceiptScanFragment.args(rawValue),
-                )
+                scanHandled = true
+                navigateSafely {
+                    navigate(R.id.serviceReceiptScanFragment, ServiceReceiptScanFragment.args(rawValue))
+                }
                 return
             }
             if (arguments?.getBoolean(ARG_RETURN_BARCODE_TO_POS, false) == true) {
@@ -237,30 +246,42 @@ class BarcodeScannerFragment : BaseFragment() {
      */
     private fun lookupProduct(barcodeValue: String) {
         viewLifecycleOwner.lifecycleScope.launch {
-            val product = productDao.getProductByBarcode(barcodeValue).firstOrNull()
-            val root = _binding?.root ?: return@launch
-            if (product != null) {
-                // Found – navigate to AddEditProductFragment with the product id
-                findNavController().navigate(
-                    R.id.action_barcodeScannerFragment_to_addEditProductFragment,
-                    bundleOf(InventoryListFragment.ARG_PRODUCT_ID to product.id),
-                )
-            } else {
-                // Not found – show Snackbar with option to add
-                Snackbar.make(
-                    root,
-                    getString(R.string.scanner_product_not_found),
-                    Snackbar.LENGTH_LONG,
-                ).setAction(getString(R.string.scanner_add_it)) {
-                    navigateToAddWithBarcode(barcodeValue)
-                }.addCallback(object : Snackbar.Callback() {
-                    override fun onDismissed(transientBottomBar: Snackbar?, event: Int) {
-                        // Allow re-scanning after Snackbar is dismissed (if user didn't tap "Add")
-                        if (event != DISMISS_EVENT_ACTION) {
-                            barcodeAnalyzer?.reset()
-                        }
+            try {
+                val product = productDao.getProductByBarcode(barcodeValue).firstOrNull()
+                val root = _binding?.root ?: return@launch
+                if (product != null) {
+                    scanHandled = true
+                    // Found - navigate to AddEditProductFragment with the product id.
+                    navigateSafely {
+                        navigate(
+                            R.id.action_barcodeScannerFragment_to_addEditProductFragment,
+                            bundleOf(InventoryListFragment.ARG_PRODUCT_ID to product.id),
+                        )
                     }
-                }).show()
+                } else {
+                    // Not found - show Snackbar with option to add.
+                    Snackbar.make(
+                        root,
+                        getString(R.string.scanner_product_not_found),
+                        Snackbar.LENGTH_LONG,
+                    ).setAction(getString(R.string.scanner_add_it)) {
+                        scanHandled = true
+                        navigateToAddWithBarcode(barcodeValue)
+                    }.addCallback(object : Snackbar.Callback() {
+                        override fun onDismissed(transientBottomBar: Snackbar?, event: Int) {
+                            // Allow re-scanning after Snackbar is dismissed (if user didn't tap "Add").
+                            if (event != DISMISS_EVENT_ACTION) {
+                                barcodeAnalyzer?.reset()
+                            }
+                        }
+                    }).show()
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Throwable) {
+                Log.w(TAG, "Barcode lookup failed", t)
+                scanHandled = false
+                barcodeAnalyzer?.reset()
             }
         }
     }
@@ -270,24 +291,30 @@ class BarcodeScannerFragment : BaseFragment() {
      * [androidx.lifecycle.SavedStateHandle], then pop the scanner.
      */
     private fun returnBarcodeToPos(barcodeValue: String) {
-        findNavController().previousBackStackEntry?.savedStateHandle?.set(
-            PosFragment.RESULT_KEY_SCANNED_BARCODE,
-            barcodeValue,
-        )
-        findNavController().navigateUp()
+        scanHandled = true
+        navigateSafely {
+            previousBackStackEntry?.savedStateHandle?.set(
+                PosFragment.RESULT_KEY_SCANNED_BARCODE,
+                barcodeValue,
+            )
+            navigateUp()
+        }
     }
 
     /**
      * SCAN_TO_ADD: navigate straight to the new-product form pre-filled with the barcode.
      */
     private fun navigateToAddWithBarcode(barcodeValue: String) {
-        findNavController().navigate(
-            R.id.action_barcodeScannerFragment_to_addEditProductFragment,
-            bundleOf(
-                InventoryListFragment.ARG_PRODUCT_ID to 0L,
-                ARG_BARCODE_VALUE to barcodeValue,
-            ),
-        )
+        scanHandled = true
+        navigateSafely {
+            navigate(
+                R.id.action_barcodeScannerFragment_to_addEditProductFragment,
+                bundleOf(
+                    InventoryListFragment.ARG_PRODUCT_ID to 0L,
+                    ARG_BARCODE_VALUE to barcodeValue,
+                ),
+            )
+        }
     }
 
     /**
@@ -298,6 +325,20 @@ class BarcodeScannerFragment : BaseFragment() {
         // TODO(Prompt 6+): navigate to POS / sale recording screen
         // For now, fall back to product lookup
         lookupProduct(barcodeValue)
+    }
+
+    private fun navigateUpSafely() {
+        navigateSafely { navigateUp() }
+    }
+
+    private fun navigateSafely(block: NavController.() -> Unit) {
+        runCatching {
+            findNavController().block()
+        }.onFailure {
+            Log.w(TAG, "Scanner navigation failed", it)
+            scanHandled = false
+            barcodeAnalyzer?.reset()
+        }
     }
 
     companion object {

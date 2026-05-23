@@ -45,7 +45,7 @@ class ModelSettingsFragment : BaseFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         binding.toolbar.setNavigationOnClickListener {
-            requireActivity().onBackPressedDispatcher.onBackPressed()
+            activity?.onBackPressedDispatcher?.onBackPressed()
         }
         binding.btnHfAccess.setOnClickListener { showHuggingFaceTokenDialog() }
         observeModels()
@@ -62,12 +62,13 @@ class ModelSettingsFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.models.collect { models ->
-                    binding.containerModels.removeAllViews()
+                    val b = _binding ?: return@collect
+                    b.containerModels.removeAllViews()
                     val downloadState = viewModel.downloadState.value
                     models.forEach { row ->
                         val cardBinding = ItemModelCardBinding.inflate(
                             layoutInflater,
-                            binding.containerModels,
+                            b.containerModels,
                             true,
                         )
                         bindModelCard(cardBinding, row, downloadState)
@@ -164,10 +165,11 @@ class ModelSettingsFragment : BaseFragment() {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.downloadProgress.collect { progress: ModelDownloadManager.DownloadProgress ->
                     val targetModelId = progress.modelId ?: return@collect
+                    val b = _binding ?: return@collect
                     val models = viewModel.models.value
                     val idx = models.indexOfFirst { it.entry.modelId == targetModelId }
                     if (idx < 0) return@collect
-                    val cardView = binding.containerModels.getChildAt(idx) ?: return@collect
+                    val cardView = b.containerModels.getChildAt(idx) ?: return@collect
                     val card = ItemModelCardBinding.bind(cardView)
                     card.progressDownload.progress = progress.percent
                     card.textDownloadDetail.text = getString(
@@ -208,13 +210,14 @@ class ModelSettingsFragment : BaseFragment() {
     }
 
     private fun showHuggingFaceTokenDialog() {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_hf_token, null)
+        val ctx = context ?: return
+        val dialogView = LayoutInflater.from(ctx).inflate(R.layout.dialog_hf_token, null)
         val edit = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(
             R.id.edit_hf_token,
         )
         viewModel.getHuggingFaceToken()?.let { edit.setText(it) }
 
-        MaterialAlertDialogBuilder(requireContext())
+        MaterialAlertDialogBuilder(ctx)
             .setTitle(R.string.model_settings_hf_access_title)
             .setView(dialogView)
             .setPositiveButton(android.R.string.ok) { _, _ ->
@@ -244,7 +247,8 @@ class ModelSettingsFragment : BaseFragment() {
         requiresHfAccess: Boolean,
     ) {
         if (requiresHfAccess && !viewModel.hasHuggingFaceToken()) {
-            MaterialAlertDialogBuilder(requireContext())
+            val ctx = context ?: return
+            MaterialAlertDialogBuilder(ctx)
                 .setTitle(R.string.model_settings_hf_access_title)
                 .setMessage(R.string.model_settings_hf_access_message)
                 .setPositiveButton(R.string.model_settings_hf_access_btn) { _, _ ->
@@ -254,8 +258,9 @@ class ModelSettingsFragment : BaseFragment() {
                 .show()
             return
         }
+        val ctx = context ?: return
         val sizeMb = formatSizeMb(sizeBytes)
-        MaterialAlertDialogBuilder(requireContext())
+        MaterialAlertDialogBuilder(ctx)
             .setTitle(R.string.settings_download_confirm_title)
             .setMessage(
                 getString(R.string.settings_download_confirm_message, sizeMb),
@@ -268,7 +273,8 @@ class ModelSettingsFragment : BaseFragment() {
     }
 
     private fun showDeleteConfirm(modelId: String, displayName: String) {
-        MaterialAlertDialogBuilder(requireContext())
+        val ctx = context ?: return
+        MaterialAlertDialogBuilder(ctx)
             .setTitle(R.string.settings_delete_confirm_title)
             .setMessage(R.string.settings_delete_confirm_message)
             .setPositiveButton(R.string.settings_btn_delete) { _, _ ->

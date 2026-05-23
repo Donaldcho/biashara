@@ -2,6 +2,7 @@ package com.biasharaai.ai
 
 import android.util.Log
 import com.biasharaai.data.local.db.ModelDescriptorDao
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -56,8 +57,10 @@ class BenchmarkRunner @Inject constructor(
             }
             activeModelStore.resetSession()
             tokensPerSec
-        } catch (e: Exception) {
-            Log.e(TAG, "Benchmark failed for $modelId", e)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (t: Throwable) {
+            Log.e(TAG, "Benchmark failed for $modelId", t)
             null
         }
     }

@@ -12,7 +12,9 @@ import com.google.ai.edge.litertlm.MessageCallback
 import com.google.ai.edge.litertlm.ToolProvider
 import com.biasharaai.agent.AgentLoopResult
 import com.biasharaai.agent.AgentToolCallRecord
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -21,7 +23,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.util.concurrent.Callable
-import java.util.concurrent.CancellationException
+import java.util.concurrent.CancellationException as FutureCancellationException
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -49,8 +51,9 @@ class ActiveModelStore @Inject constructor(
     companion object {
         private const val TAG = "ActiveModelStore"
 
-        private const val INIT_TIMEOUT_MS = 180_000L
+        private const val INIT_TIMEOUT_MS = 30_000L
         private const val GENERATION_TIMEOUT_MS = 90_000L
+        private const val MIN_EXPECTED_MODEL_SIZE_PERCENT = 90L
 
         private const val SYSTEM_PROMPT =
             "You are Biashara AI, a helpful, friendly assistant for small business owners in " +
@@ -73,25 +76,53 @@ class ActiveModelStore @Inject constructor(
     @Volatile
     private var conversation: Conversation? = null
 
+    @Volatile
+    private var runtimeDisabledReason: String? = null
+
     private val generationMutex = Mutex()
 
     private fun effectiveTier(): CapabilityTier =
         DeviceCapabilityChecker.evaluate(
             context,
-            modelPresentOnDisk = modelDownloadManager.isModelDownloaded,
+            modelPresentOnDisk = hasUsablePrimaryModel(),
         ).tier
 
     val isAvailable: Boolean
-        get() = modelDownloadManager.isModelDownloaded && effectiveTier() != CapabilityTier.RULES_BASED
+        get() = runtimeDisabledReason == null &&
+            hasUsablePrimaryModel() &&
+            effectiveTier() != CapabilityTier.RULES_BASED
 
     /** Returns true if the current inference config forces CPU backend. */
     fun isForcedCpu(): Boolean = inferenceSettingsStore.load().preferCpu
 
+    private fun hasUsablePrimaryModel(): Boolean = hasUsableModel(modelRegistry.primaryModelId())
+
+    private fun hasUsableModel(modelId: String): Boolean {
+        val file = modelRegistry.modelFile(modelId)
+        if (!file.exists() || file.length() <= 0L) return false
+        val expectedBytes = modelRegistry.catalogue().models
+            .firstOrNull { it.modelId == modelId }
+            ?.sizeBytes
+            ?: return true
+        val minimumBytes = (expectedBytes * MIN_EXPECTED_MODEL_SIZE_PERCENT) / 100L
+        if (file.length() < minimumBytes) {
+            Log.w(
+                TAG,
+                "Model is incomplete: modelId=$modelId, bytes=${file.length()}, expected=$expectedBytes",
+            )
+            return false
+        }
+        return true
+    }
+
     private fun ensureEngineOnGateThread(): Engine {
         engine?.let { return it }
+        runtimeDisabledReason?.let { reason ->
+            error("On-device AI disabled after runtime failure: $reason")
+        }
         check(isAvailable) {
             "ActiveModelStore is not available (tier=${effectiveTier()}, " +
-                "modelExists=${modelDownloadManager.isModelDownloaded})"
+                "modelExists=${hasUsablePrimaryModel()})"
         }
         val tier = effectiveTier()
         val cfg = inferenceSettingsStore.load()
@@ -129,64 +160,81 @@ class ActiveModelStore @Inject constructor(
         onPartial: (delta: String, done: Boolean) -> Unit,
     ) = withContext(Dispatchers.IO) {
         generationMutex.withLock {
-            val convo = inferenceExecutor.submit(Callable { ensureConversationOnGateThread() })
-                .get(INIT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            try {
+                val conversationFuture = inferenceExecutor.submit(Callable { ensureConversationOnGateThread() })
+                val convo = try {
+                    conversationFuture.get(INIT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                } catch (t: Throwable) {
+                    conversationFuture.cancel(true)
+                    throw t
+                }
 
-            withTimeout(GENERATION_TIMEOUT_MS) {
-                suspendCancellableCoroutine<Unit> { cont ->
-                    val callback = object : MessageCallback {
-                        override fun onMessage(message: Message) {
-                            val delta = message.toString()
-                            if (delta.startsWith("<ctrl")) return
-                            try {
-                                onPartial(delta, false)
-                            } catch (t: Throwable) {
-                                Log.w(TAG, "onPartial threw", t)
+                withTimeout(GENERATION_TIMEOUT_MS) {
+                    suspendCancellableCoroutine<Unit> { cont ->
+                        val callback = object : MessageCallback {
+                            override fun onMessage(message: Message) {
+                                val delta = message.toString()
+                                if (delta.startsWith("<ctrl")) return
+                                try {
+                                    onPartial(delta, false)
+                                } catch (t: Throwable) {
+                                    Log.w(TAG, "onPartial threw", t)
+                                }
+                            }
+
+                            override fun onDone() {
+                                try {
+                                    onPartial("", true)
+                                } catch (_: Throwable) {
+                                }
+                                if (cont.isActive) cont.resume(Unit)
+                            }
+
+                            override fun onError(throwable: Throwable) {
+                                if (throwable is CancellationException ||
+                                    throwable is FutureCancellationException
+                                ) {
+                                    Log.i(TAG, "Inference cancelled")
+                                    if (cont.isActive) cont.resume(Unit)
+                                } else {
+                                    Log.e(TAG, "Inference error", throwable)
+                                    if (cont.isActive) cont.resumeWithException(throwable)
+                                }
                             }
                         }
 
-                        override fun onDone() {
+                        cont.invokeOnCancellation {
                             try {
-                                onPartial("", true)
+                                convo.cancelProcess()
                             } catch (_: Throwable) {
                             }
-                            if (cont.isActive) cont.resume(Unit)
                         }
 
-                        override fun onError(throwable: Throwable) {
-                            if (throwable is CancellationException) {
-                                Log.i(TAG, "Inference cancelled")
-                                if (cont.isActive) cont.resume(Unit)
-                            } else {
-                                Log.e(TAG, "Inference error", throwable)
-                                if (cont.isActive) cont.resumeWithException(throwable)
-                            }
-                        }
-                    }
-
-                    cont.invokeOnCancellation {
                         try {
-                            convo.cancelProcess()
-                        } catch (_: Throwable) {
-                        }
-                    }
-
-                    try {
-                        inferenceExecutor.submit {
-                            try {
-                                convo.sendMessageAsync(
-                                    Contents.of(Content.Text(prompt)),
-                                    callback,
-                                    emptyMap<String, String>(),
-                                )
-                            } catch (e: Throwable) {
-                                if (cont.isActive) cont.resumeWithException(e)
+                            inferenceExecutor.submit {
+                                try {
+                                    convo.sendMessageAsync(
+                                        Contents.of(Content.Text(prompt)),
+                                        callback,
+                                        emptyMap<String, String>(),
+                                    )
+                                } catch (e: Throwable) {
+                                    if (cont.isActive) cont.resumeWithException(e)
+                                }
                             }
+                        } catch (e: Throwable) {
+                            if (cont.isActive) cont.resumeWithException(e)
                         }
-                    } catch (e: Throwable) {
-                        if (cont.isActive) cont.resumeWithException(e)
                     }
                 }
+            } catch (timeout: TimeoutCancellationException) {
+                handleRuntimeFailure("generateStreaming timeout", timeout)
+                throw ModelRuntimeException("On-device AI timed out; using local fallback.", timeout)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Throwable) {
+                handleRuntimeFailure("generateStreaming", t)
+                throw ModelRuntimeException("On-device AI failed; using local fallback.", rootCause(t))
             }
         }
     }
@@ -195,6 +243,42 @@ class ActiveModelStore @Inject constructor(
         val sb = StringBuilder()
         generateStreaming(prompt) { delta, _ -> sb.append(delta) }
         return sb.toString()
+    }
+
+    private fun handleRuntimeFailure(operation: String, throwable: Throwable) {
+        val root = rootCause(throwable)
+        if (root is CancellationException && root !is TimeoutCancellationException) return
+        if (root is FutureCancellationException) return
+        val reason = root.message?.take(240) ?: root.javaClass.simpleName
+        runtimeDisabledReason = reason
+        Log.e(TAG, "$operation failed; disabling on-device AI for this process", root)
+        val staleConversation = conversation
+        val staleEngine = engine
+        conversation = null
+        engine = null
+        try {
+            inferenceExecutor.execute {
+                try {
+                    staleConversation?.close()
+                } catch (_: Throwable) {
+                }
+                try {
+                    staleEngine?.close()
+                } catch (_: Throwable) {
+                }
+            }
+        } catch (closeError: Throwable) {
+            Log.w(TAG, "Could not schedule failed runtime cleanup", closeError)
+        }
+    }
+
+    private tailrec fun rootCause(throwable: Throwable): Throwable {
+        val cause = throwable.cause ?: return throwable
+        return if (throwable is java.util.concurrent.ExecutionException) {
+            rootCause(cause)
+        } else {
+            throwable
+        }
     }
 
     /**
@@ -208,6 +292,14 @@ class ActiveModelStore @Inject constructor(
         toolCallsExecuted: List<AgentToolCallRecord>,
         toolModelId: String? = null,
     ): AgentLoopResult = withContext(Dispatchers.IO) {
+        runtimeDisabledReason?.let { reason ->
+            return@withContext AgentLoopResult(
+                finalText = "",
+                toolCalls = toolCallsExecuted,
+                success = false,
+                errorMessage = "On-device AI is temporarily disabled: $reason",
+            )
+        }
         if (effectiveTier() == CapabilityTier.RULES_BASED) {
             return@withContext AgentLoopResult(
                 finalText = "",
@@ -217,12 +309,12 @@ class ActiveModelStore @Inject constructor(
             )
         }
         val loopModelId = toolModelId?.takeIf { it.isNotBlank() } ?: modelRegistry.primaryModelId()
-        if (!modelRegistry.isDownloaded(loopModelId)) {
+        if (!hasUsableModel(loopModelId)) {
             return@withContext AgentLoopResult(
                 finalText = "",
                 toolCalls = toolCallsExecuted,
                 success = false,
-                errorMessage = "Model '$loopModelId' is not downloaded.",
+                errorMessage = "Model '$loopModelId' is not downloaded or is incomplete.",
             )
         }
         if (toolProviders.isEmpty()) {
@@ -246,7 +338,7 @@ class ActiveModelStore @Inject constructor(
 
         return@withContext generationMutex.withLock {
             try {
-                inferenceExecutor.submit(
+                val loopFuture = inferenceExecutor.submit(
                     Callable {
                         val tier = effectiveTier()
                         val cfg = inferenceSettingsStore.load()
@@ -296,7 +388,9 @@ class ActiveModelStore @Inject constructor(
                                         }
 
                                         override fun onError(throwable: Throwable) {
-                                            if (throwable is CancellationException) {
+                                            if (throwable is CancellationException ||
+                                                throwable is FutureCancellationException
+                                            ) {
                                                 if (cont.isActive) {
                                                     cont.resume(
                                                         AgentLoopResult(
@@ -358,14 +452,22 @@ class ActiveModelStore @Inject constructor(
                             }
                         }
                     },
-                ).get(INIT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-            } catch (e: Exception) {
-                Log.e(TAG, "runAgentLoop failed", e)
+                )
+                try {
+                    loopFuture.get(INIT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                } catch (t: Throwable) {
+                    loopFuture.cancel(true)
+                    throw t
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Throwable) {
+                handleRuntimeFailure("runAgentLoop", t)
                 AgentLoopResult(
                     finalText = "",
                     toolCalls = toolCallsExecuted,
                     success = false,
-                    errorMessage = e.message ?: "Agent loop failed",
+                    errorMessage = rootCause(t).message ?: "Agent loop failed",
                 )
             }
         }
@@ -390,6 +492,7 @@ class ActiveModelStore @Inject constructor(
                     Log.d(TAG, "Engine + conversation warmed up in ${System.currentTimeMillis() - t0}ms")
                 } catch (e: Throwable) {
                     Log.w(TAG, "warmUp failed", e)
+                    handleRuntimeFailure("warmUp", e)
                 }
             }
         } catch (_: Throwable) {
@@ -406,13 +509,14 @@ class ActiveModelStore @Inject constructor(
                 conversation = null
                 Log.d(TAG, "Conversation reset (new chat)")
             }.get(30, TimeUnit.SECONDS)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.w(TAG, "resetSession interrupted", e)
             conversation = null
         }
     }
 
     fun resetEngine() {
+        runtimeDisabledReason = null
         try {
             inferenceExecutor.submit {
                 try {
@@ -427,7 +531,7 @@ class ActiveModelStore @Inject constructor(
                 engine = null
                 Log.d(TAG, "Engine + conversation reset (settings changed)")
             }.get(60, TimeUnit.SECONDS)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.w(TAG, "resetEngine interrupted", e)
             conversation = null
             engine = null
@@ -435,6 +539,7 @@ class ActiveModelStore @Inject constructor(
     }
 
     fun close() {
+        runtimeDisabledReason = null
         try {
             inferenceExecutor.submit {
                 try {
@@ -449,10 +554,15 @@ class ActiveModelStore @Inject constructor(
                 engine = null
                 Log.d(TAG, "ActiveModelStore closed")
             }.get(30, TimeUnit.SECONDS)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.w(TAG, "close() could not run cleanly", e)
             conversation = null
             engine = null
         }
     }
 }
+
+private class ModelRuntimeException(
+    message: String,
+    cause: Throwable,
+) : RuntimeException(message, cause)

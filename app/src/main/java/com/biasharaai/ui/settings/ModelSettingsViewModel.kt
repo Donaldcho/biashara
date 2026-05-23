@@ -1,7 +1,6 @@
 package com.biasharaai.ui.settings
 
 import android.util.Log
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.biasharaai.ai.BenchmarkRunner
 import com.biasharaai.ai.CapabilityTier
@@ -12,14 +11,15 @@ import com.biasharaai.ai.HuggingFaceTokenStore
 import com.biasharaai.ai.ModelDownloadManager
 import com.biasharaai.ai.ModelRegistry
 import com.biasharaai.data.local.db.ModelDescriptor
+import com.biasharaai.ui.base.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class ModelRowUiState(
@@ -43,7 +43,7 @@ class ModelSettingsViewModel @Inject constructor(
     private val huggingFaceTokenStore: HuggingFaceTokenStore,
     private val benchmarkRunner: BenchmarkRunner,
     private val capabilityTier: CapabilityTier,
-) : ViewModel() {
+) : BaseViewModel() {
 
     private val _models = MutableStateFlow<List<ModelRowUiState>>(emptyList())
     val models: StateFlow<List<ModelRowUiState>> = _models.asStateFlow()
@@ -72,7 +72,7 @@ class ModelSettingsViewModel @Inject constructor(
     }
 
     init {
-        viewModelScope.launch {
+        launchSafe {
             modelDownloadManager.state.collect { state ->
                 _downloadState.value = state
                 if (state == DownloadState.DOWNLOADED || state == DownloadState.NOT_DOWNLOADED) {
@@ -103,7 +103,7 @@ class ModelSettingsViewModel @Inject constructor(
     }
 
     fun refreshModels() {
-        viewModelScope.launch {
+        launchSafe {
             val catalogue = modelRegistry.catalogue()
             val primaryId = modelRegistry.primaryModelId()
             val rows = catalogue.models.map { entry ->
@@ -123,25 +123,34 @@ class ModelSettingsViewModel @Inject constructor(
     fun setPrimary(modelId: String) {
         modelRegistry.setPrimaryModelId(modelId)
         refreshModels()
-        viewModelScope.launch { _events.emit(Event.PrimaryModelChanged(modelId)) }
+        launchSafe { _events.emit(Event.PrimaryModelChanged(modelId)) }
     }
 
     fun downloadModel(modelId: String) {
-        viewModelScope.launch {
+        launchSafe {
             try {
                 modelDownloadManager.downloadModel(modelId)
                 _events.emit(Event.DownloadComplete(modelId))
-            } catch (e: Exception) {
-                Log.e("ModelSettingsVM", "Download failed for $modelId", e)
-                _events.emit(Event.DownloadFailed(modelId, e.message ?: "Download failed"))
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Throwable) {
+                Log.e(TAG, "Download failed for $modelId", t)
+                _events.emit(Event.DownloadFailed(modelId, t.message ?: "Download failed"))
             }
         }
     }
 
     fun deleteModel(modelId: String) {
-        viewModelScope.launch {
-            modelDownloadManager.deleteModel(modelId)
-            refreshModels()
+        launchSafe {
+            try {
+                modelDownloadManager.deleteModel(modelId)
+                refreshModels()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Throwable) {
+                Log.e(TAG, "Delete failed for $modelId", t)
+                _events.emit(Event.DownloadFailed(modelId, t.message ?: "Delete failed"))
+            }
         }
     }
 
@@ -150,7 +159,7 @@ class ModelSettingsViewModel @Inject constructor(
         benchmarkingModelIds.add(modelId)
         _isBenchmarking.value = true
         refreshModels()
-        viewModelScope.launch {
+        launchSafe {
             try {
                 val tps = benchmarkRunner.runBenchmark(modelId)
                 benchmarkingModelIds.remove(modelId)
@@ -161,7 +170,10 @@ class ModelSettingsViewModel @Inject constructor(
                 } else {
                     _events.emit(Event.BenchmarkFailed(modelId))
                 }
-            } catch (e: Exception) {
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Throwable) {
+                Log.e(TAG, "Benchmark failed for $modelId", t)
                 benchmarkingModelIds.remove(modelId)
                 _isBenchmarking.value = benchmarkingModelIds.isNotEmpty()
                 refreshModels()
@@ -176,5 +188,9 @@ class ModelSettingsViewModel @Inject constructor(
         data class PrimaryModelChanged(val modelId: String) : Event()
         data class BenchmarkComplete(val modelId: String, val tokensPerSec: Float) : Event()
         data class BenchmarkFailed(val modelId: String) : Event()
+    }
+
+    private companion object {
+        private const val TAG = "ModelSettingsVM"
     }
 }

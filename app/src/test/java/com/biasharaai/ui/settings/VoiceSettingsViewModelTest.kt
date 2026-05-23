@@ -7,6 +7,7 @@ import com.biasharaai.data.local.db.AppSettings
 import com.biasharaai.data.local.db.AppSettingsDao
 import com.biasharaai.voice.BiasharaTtsEngine
 import com.biasharaai.voice.WhisperTranscriber
+import dagger.Lazy
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -17,6 +18,7 @@ import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -35,6 +37,7 @@ class VoiceSettingsViewModelTest {
     private lateinit var dao: AppSettingsDao
     private lateinit var prefs: VoiceInputPreferences
     private lateinit var whisper: WhisperTranscriber
+    private lateinit var lazyWhisper: Lazy<WhisperTranscriber>
     private lateinit var tts: BiasharaTtsEngine
     private lateinit var context: Context
 
@@ -49,8 +52,10 @@ class VoiceSettingsViewModelTest {
         prefs = mockk(relaxed = true)
 
         whisper = mockk(relaxed = true)
-        every { whisper.release() } just runs
-        coEvery { whisper.initialize(any()) } coAnswers { }
+        every { whisper.isReady } returns false
+        coEvery { whisper.releaseAsync() } just runs
+        coEvery { whisper.initialize(any()) } just runs
+        lazyWhisper = Lazy { whisper }
 
         tts = mockk(relaxed = true)
         coEvery { tts.speak(any(), any(), any()) } coAnswers { }
@@ -64,7 +69,7 @@ class VoiceSettingsViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun newVm() = VoiceSettingsViewModel(dao, prefs, whisper, tts, context)
+    private fun newVm() = VoiceSettingsViewModel(dao, prefs, lazyWhisper, tts, context)
 
     @Test
     fun setVoiceInputEnabled_updatesPreferencesAndDatabase() = runTest {
@@ -79,8 +84,8 @@ class VoiceSettingsViewModelTest {
     fun setWhisperModelId_releasesTranscriber() = runTest {
         val vm = newVm()
         vm.setWhisperModelId("whisper-tiny")
-        Thread.sleep(150)
-        verify { whisper.release() }
+        advanceUntilIdle()
+        coVerify { whisper.releaseAsync() }
         coVerify { dao.updateSettings(match { it.whisperModelId == "whisper-tiny" }) }
     }
 
@@ -88,7 +93,7 @@ class VoiceSettingsViewModelTest {
     fun prepareWhisperModel_callsInitialize() = runTest {
         val vm = newVm()
         vm.prepareWhisperModel()
-        Thread.sleep(150)
+        advanceUntilIdle()
         coVerify { whisper.initialize(null) }
     }
 

@@ -27,11 +27,16 @@ import com.biasharaai.knowledge.KnowledgeIngestor
 import com.biasharaai.licence.LicenceValidator
 import com.biasharaai.service.pro.ProOnboardingCardManager
 import com.biasharaai.di.WorkManagerEntryPoint
+import com.biasharaai.core.AppCrashGuard
+import com.biasharaai.core.WorkEnqueueDebouncer
 import com.biasharaai.enterprise.EnterpriseAuditRepository
 import com.biasharaai.loss.LossAlertScheduler
+import com.biasharaai.productline.ProductLineManager
+import kotlinx.coroutines.delay
 import dagger.hilt.android.HiltAndroidApp
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -61,21 +66,33 @@ class BiasharaApp : Application(), Configuration.Provider {
 
     @Inject lateinit var enterpriseAuditRepository: EnterpriseAuditRepository
 
-    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    @Inject lateinit var productLineManager: ProductLineManager
+
+    private val appExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        Log.e(TAG, "Background startup task failed", throwable)
+    }
+
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default + appExceptionHandler)
+
+    private val fraudReactiveDebouncer = WorkEnqueueDebouncer(minIntervalMs = 30_000L)
 
     override fun onCreate() {
         super.onCreate()
+        AppCrashGuard.install(Thread.getDefaultUncaughtExceptionHandler())
         runCatching { licenceValidator.ensureDefaultLicence() }
             .onFailure { Log.e(TAG, "ensureDefaultLicence failed", it) }
-        appScope.launch(Dispatchers.IO) {
-            runCatching { enterpriseAuditRepository.registerCurrentDevice() }
-                .onFailure { Log.e(TAG, "enterprise device registration failed", it) }
-            runCatching { proOnboardingCardManager.checkAndShowIfNeeded() }
-                .onFailure { Log.e(TAG, "proOnboardingCardManager failed", it) }
-        }
         runCatching { WorkManager.initialize(this, workManagerConfiguration) }
             .onFailure { Log.e(TAG, "WorkManager.initialize failed", it) }
-        appScope.launch {
+        appScope.launch(Dispatchers.IO) {
+            runCatching { proOnboardingCardManager.checkAndShowIfNeeded() }
+                .onFailure { Log.e(TAG, "proOnboardingCardManager failed", it) }
+            if (productLineManager.isEnterprisePro()) {
+                runCatching { enterpriseAuditRepository.registerCurrentDevice() }
+                    .onFailure { Log.e(TAG, "enterprise device registration failed", it) }
+            }
+        }
+        appScope.launch(Dispatchers.IO) {
+            delay(STARTUP_DEFER_MS)
             runCatching { modelRegistry.bootstrap() }
                 .onFailure { Log.e(TAG, "modelRegistry.bootstrap failed", it) }
             runCatching { skillRegistry.bootstrap() }
@@ -147,31 +164,26 @@ class BiasharaApp : Application(), Configuration.Provider {
             ExistingPeriodicWorkPolicy.KEEP,
             periodic,
         )
-        val immediate = OneTimeWorkRequestBuilder<EnterpriseSyncWorker>()
-            .setConstraints(constraints)
-            .build()
-        wm.enqueueUniqueWork(
-            EnterpriseSyncWorker.UNIQUE_IMMEDIATE_WORK,
-            ExistingWorkPolicy.KEEP,
-            immediate,
-        )
     }
 
     private fun registerFraudSentinelInvalidationObserver() {
         appDatabase.invalidationTracker.addObserver(
             object : InvalidationTracker.Observer("transactions", "products") {
                 override fun onInvalidated(tables: Set<String>) {
-                    val fraudConstraints = Constraints.Builder()
-                        .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
-                        .build()
-                    val request = OneTimeWorkRequestBuilder<FraudSentinelWorker>()
-                        .setConstraints(fraudConstraints)
-                        .build()
-                    WorkManager.getInstance(applicationContext).enqueueUniqueWork(
-                        AgentOrchestrator.UNIQUE_FRAUD_REACTIVE,
-                        ExistingWorkPolicy.KEEP,
-                        request,
-                    )
+                    if (!fraudReactiveDebouncer.shouldEnqueue()) return
+                    runCatching {
+                        val fraudConstraints = Constraints.Builder()
+                            .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
+                            .build()
+                        val request = OneTimeWorkRequestBuilder<FraudSentinelWorker>()
+                            .setConstraints(fraudConstraints)
+                            .build()
+                        WorkManager.getInstance(applicationContext).enqueueUniqueWork(
+                            AgentOrchestrator.UNIQUE_FRAUD_REACTIVE,
+                            ExistingWorkPolicy.KEEP,
+                            request,
+                        )
+                    }.onFailure { Log.w(TAG, "fraud reactive enqueue failed", it) }
                 }
             },
         )
@@ -192,5 +204,7 @@ class BiasharaApp : Application(), Configuration.Provider {
 
     private companion object {
         private const val TAG = "BiasharaApp"
+        /** Defer heavy IO so cold start and first frame stay responsive. */
+        private const val STARTUP_DEFER_MS = 4_000L
     }
 }

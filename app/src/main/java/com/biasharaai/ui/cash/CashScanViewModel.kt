@@ -57,25 +57,31 @@ class CashScanViewModel @Inject constructor(
     private suspend fun detectBiasharaQr(bitmap: Bitmap): BiasharaQrPayload? =
         withContext(Dispatchers.Default) {
             val scanner = BarcodeScanning.getClient()
-            val image = InputImage.fromBitmap(bitmap, 0)
-            val barcodes = scanner.process(image).await()
-            scanner.close()
-            barcodes.firstNotNullOfOrNull { barcode ->
-                barcode.rawValue
-                    ?.takeIf { it.startsWith("BIASHARA:") }
-                    ?.let { BiasharaQrPayload.decode(it) }
+            try {
+                val image = InputImage.fromBitmap(bitmap, 0)
+                val barcodes = scanner.process(image).await()
+                barcodes.firstNotNullOfOrNull { barcode ->
+                    barcode.rawValue
+                        ?.takeIf { it.startsWith("BIASHARA:") }
+                        ?.let { BiasharaQrPayload.decode(it) }
+                }
+            } finally {
+                scanner.close()
             }
         }
 
     private suspend fun runOcr(bitmap: Bitmap): Pair<String, ParsedFields> =
         withContext(Dispatchers.Default) {
             val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-            val image = InputImage.fromBitmap(bitmap, 0)
-            val result = recognizer.process(image).await()
-            recognizer.close()
-            val rawText = result.text.take(2000)
-            val parsed = cashParser.parse(rawText, direction)
-            rawText to parsed
+            try {
+                val image = InputImage.fromBitmap(bitmap, 0)
+                val result = recognizer.process(image).await()
+                val rawText = result.text.take(2000)
+                val parsed = cashParser.parse(rawText, direction)
+                rawText to parsed
+            } finally {
+                recognizer.close()
+            }
         }
 
     private fun scaledThumbnail(source: Bitmap): Bitmap? = runCatching {

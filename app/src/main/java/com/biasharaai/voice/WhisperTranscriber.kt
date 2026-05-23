@@ -1,6 +1,8 @@
 package com.biasharaai.voice
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.argmaxinc.whisperkit.ExperimentalWhisperKit
 import com.argmaxinc.whisperkit.TranscriptionResult as WhisperKitTranscriptionResult
@@ -40,6 +42,11 @@ class WhisperTranscriber @Inject constructor(
     // Dedicated STT mutex — independent of AgentMutex so mic works while agent workers run.
     private val transcribeMutex = Mutex()
 
+    /** Serialises download/load/release — parallel init crashes native WhisperKit. */
+    private val initMutex = Mutex()
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     private var whisperKit: WhisperKit? = null
 
     @Volatile
@@ -53,7 +60,9 @@ class WhisperTranscriber @Inject constructor(
     private fun textCallback(): WhisperKit.TextOutputCallback {
         textCallback?.let { return it }
         return WhisperKit.TextOutputCallback { what, result ->
-            if (what == WhisperKit.TextOutputCallback.MSG_TEXT_OUT) {
+            if (what != WhisperKit.TextOutputCallback.MSG_TEXT_OUT) return@TextOutputCallback
+            // JNI may invoke off the main thread; complete deferred on main to avoid races/crashes.
+            mainHandler.post {
                 pendingTextOut.getAndSet(null)?.complete(result)
             }
         }.also { textCallback = it }
@@ -70,38 +79,51 @@ class WhisperTranscriber @Inject constructor(
      *
      * @param modelIdOverride optional catalogue id (`whisper_model_id` in settings) — otherwise DB.
      */
-    suspend fun initialize(modelIdOverride: String? = null): Unit = withContext(Dispatchers.IO) {
-        val settingsId = modelIdOverride
-            ?: appSettingsDao.getSettingsSync()?.whisperModelId
-            ?: "whisper-tiny"
-        val modelKey = whisperModelManager.resolveWhisperKitModelKey(settingsId)
-        releaseInternal()
-        try {
-            val kit = WhisperKit.Builder()
-                .setModel(modelKey)
-                .setApplicationContext(context.applicationContext)
-                .setCallback(textCallback())
-                .build()
-            whisperKit = kit
-            kit.loadModel().collect { progress ->
-                Log.d(TAG, "loadModel progress: $progress")
-            }
-            kit.init(
-                frequency = AudioCaptureHelper.SAMPLE_RATE,
-                channels = 1,
-                duration = 0L,
-            )
-            initialised = true
-            Log.i(TAG, "WhisperKit ready (model=$modelKey)")
-            Unit
-        } catch (e: WhisperKitException) {
+    suspend fun initialize(modelIdOverride: String? = null): Unit = initMutex.withLock {
+        withContext(Dispatchers.IO) {
+            val settingsId = modelIdOverride
+                ?: appSettingsDao.getSettingsSync()?.whisperModelId
+                ?: "whisper-tiny"
+            val modelKey = whisperModelManager.resolveWhisperKitModelKey(settingsId)
             releaseInternal()
-            throw e
+            try {
+                val kit = WhisperKit.Builder()
+                    .setModel(modelKey)
+                    .setApplicationContext(context.applicationContext)
+                    .setEncoderBackend(WhisperKit.Builder.CPU_ONLY)
+                    .setDecoderBackend(WhisperKit.Builder.CPU_ONLY)
+                    .setCallback(textCallback())
+                    .build()
+                whisperKit = kit
+                withTimeout(LOAD_MODEL_TIMEOUT_MS) {
+                    kit.loadModel().collect { progress ->
+                        Log.d(TAG, "loadModel progress: $progress")
+                    }
+                }
+                kit.init(
+                    frequency = AudioCaptureHelper.SAMPLE_RATE,
+                    channels = 1,
+                    duration = 0L,
+                )
+                initialised = true
+                Log.i(TAG, "WhisperKit ready (model=$modelKey)")
+            } catch (e: CancellationException) {
+                releaseInternal()
+                throw e
+            } catch (e: Throwable) {
+                releaseInternal()
+                Log.e(TAG, "WhisperKit initialize failed (model=$modelKey)", e)
+                throw e
+            }
         }
     }
 
     fun release() {
         releaseInternal()
+    }
+
+    suspend fun releaseAsync() = initMutex.withLock {
+        withContext(Dispatchers.IO) { releaseInternal() }
     }
 
     private fun releaseInternal() {
@@ -178,5 +200,7 @@ class WhisperTranscriber @Inject constructor(
         private const val TAG = "WhisperTranscriber"
         private const val SAMPLE_RATE = AudioCaptureHelper.SAMPLE_RATE
         private const val TRANSCRIBE_CALLBACK_TIMEOUT_MS = 12_000L
+        /** HF download + load on slow networks; user sees "Preparing…" in Voice settings. */
+        private const val LOAD_MODEL_TIMEOUT_MS = 900_000L
     }
 }

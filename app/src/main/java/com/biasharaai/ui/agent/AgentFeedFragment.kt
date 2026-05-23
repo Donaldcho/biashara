@@ -1,6 +1,7 @@
 package com.biasharaai.ui.agent
 
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -12,6 +13,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.NavController
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -30,6 +32,7 @@ import com.biasharaai.voice.BiasharaTtsEngine
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -90,29 +93,32 @@ class AgentFeedFragment : BaseFragment() {
         binding.buttonPrepareSupplierVisit.setOnClickListener {
             if (showNegotiationTierBlockedDialogIfNeeded(capabilityTier)) return@setOnClickListener
             negotiationViewModel.resetScriptOutput()
-            findNavController().navigate(R.id.action_agentFeedFragment_to_supplierNegotiationFragment)
+            navigateSafely { navigate(R.id.action_agentFeedFragment_to_supplierNegotiationFragment) }
         }
 
         binding.buttonOpenLedger.setOnClickListener {
-            findNavController().navigate(
-                R.id.action_agentFeedFragment_to_insightsFragment,
-                bundleOf(CashFlowInsightsFragment.ARG_INITIAL_TAB to CashFlowInsightsFragment.TAB_LEDGER),
-            )
+            navigateSafely {
+                navigate(
+                    R.id.action_agentFeedFragment_to_insightsFragment,
+                    bundleOf(CashFlowInsightsFragment.ARG_INITIAL_TAB to CashFlowInsightsFragment.TAB_LEDGER),
+                )
+            }
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
                     viewModel.uiState.collect { state ->
-                        binding.textGreeting.text = state.greeting
-                        binding.textDate.text = state.dateLine
-                        binding.chipAttention.text = state.attentionLabel
-                        binding.textAiBriefTitle.text = state.brief.title
-                        binding.textAiBriefBody.text = state.brief.body
+                        val b = _binding ?: return@collect
+                        b.textGreeting.text = state.greeting
+                        b.textDate.text = state.dateLine
+                        b.chipAttention.text = state.attentionLabel
+                        b.textAiBriefTitle.text = state.brief.title
+                        b.textAiBriefBody.text = state.brief.body
                         adapter.submitList(state.rows)
                         val empty = state.rows.isEmpty()
-                        binding.recyclerActions.isVisible = !empty
-                        binding.emptyState.isVisible = empty
+                        b.recyclerActions.isVisible = !empty
+                        b.emptyState.isVisible = empty
                         maybeAutoReadCriticalAlert(state)
                     }
                 }
@@ -121,12 +127,13 @@ class AgentFeedFragment : BaseFragment() {
                         when (event) {
                             is AgentFeedEvent.ApproveSuccess -> flashApproveSuccessCard(event.actionId)
                             is AgentFeedEvent.FeedbackSaved -> {
+                                val root = _binding?.root ?: return@collect
                                 val message = if (event.hidesSimilarReports) {
                                     R.string.agent_feedback_saved_hide_similar
                                 } else {
                                     R.string.agent_feedback_saved
                                 }
-                                Snackbar.make(binding.root, message, Snackbar.LENGTH_SHORT).show()
+                                Snackbar.make(root, message, Snackbar.LENGTH_SHORT).show()
                             }
                             is AgentFeedEvent.ApproveNeedsNavigation -> {
                                 if (navigateReviewIfPossible(event.action)) {
@@ -135,7 +142,8 @@ class AgentFeedFragment : BaseFragment() {
                                 }
                             }
                             is AgentFeedEvent.ApproveFailed -> {
-                                Snackbar.make(binding.root, event.message, Snackbar.LENGTH_LONG)
+                                val root = _binding?.root ?: return@collect
+                                Snackbar.make(root, event.message, Snackbar.LENGTH_LONG)
                                     .setAction(R.string.agent_action_retry) { viewModel.approve(event.action) }
                                     .show()
                             }
@@ -167,12 +175,18 @@ class AgentFeedFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             delay(1_000)
             if (!viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return@launch
-            biasharaTtsEngine.speak(text, preferredTtsLanguageCode())
+            try {
+                biasharaTtsEngine.speak(text, preferredTtsLanguageCode())
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Throwable) {
+                Log.w(TAG, "Auto-read critical alert failed", t)
+            }
         }
     }
 
     private fun preferredTtsLanguageCode(): String? {
-        val ctx = requireContext()
+        val ctx = context ?: return null
         LanguagePreferences.getPersistedLocaleTag(ctx)?.let { tag ->
             val lang = tag.substringBefore('-', missingDelimiterValue = tag).lowercase(Locale.US)
             if (lang.isNotBlank()) return lang
@@ -181,7 +195,7 @@ class AgentFeedFragment : BaseFragment() {
     }
 
     private fun flashApproveSuccessCard(actionId: Long) {
-        binding.recyclerActions.post {
+        _binding?.recyclerActions?.post {
             val b = _binding ?: return@post
             if (!isAdded) return@post
             val i = adapter.currentList.indexOfFirst { it.action.id == actionId }
@@ -203,52 +217,64 @@ class AgentFeedFragment : BaseFragment() {
 
     /** @return true when a navigation was started (so the caller may mark the action executed). */
     private fun navigateReviewIfPossible(action: AgentAction): Boolean {
-        val nav = findNavController()
         if (action.actionVerb == "EXPLORE_SERVICES") {
-            nav.navigate(
-                R.id.inventoryListFragment,
-                bundleOf(InventoryListFragment.ARG_INITIAL_TAB to InventoryListFragment.TAB_SERVICES),
-            )
-            return true
+            return navigateSafely {
+                navigate(
+                    R.id.inventoryListFragment,
+                    bundleOf(InventoryListFragment.ARG_INITIAL_TAB to InventoryListFragment.TAB_SERVICES),
+                )
+            }
         }
         when (action.relatedEntityType?.uppercase()) {
             "DAY", "WEEK" -> {
-                nav.navigate(R.id.action_agentFeedFragment_to_insightsFragment)
-                return true
+                return navigateSafely { navigate(R.id.action_agentFeedFragment_to_insightsFragment) }
             }
         }
         val id = action.relatedEntityId ?: run {
-            Snackbar.make(binding.root, R.string.agent_review_no_target, Snackbar.LENGTH_SHORT).show()
+            _binding?.root?.let { Snackbar.make(it, R.string.agent_review_no_target, Snackbar.LENGTH_SHORT).show() }
             return false
         }
         return when (action.relatedEntityType?.uppercase()) {
-            "PRODUCT" -> {
-                nav.navigate(
+            "PRODUCT" -> navigateSafely {
+                navigate(
                     R.id.action_agentFeedFragment_to_addEditProductFragment,
                     bundleOf("product_id" to id),
                 )
-                true
             }
-            "TRANSACTION" -> {
-                nav.navigate(
+            "TRANSACTION" -> navigateSafely {
+                navigate(
                     R.id.action_agentFeedFragment_to_receiptFragment,
                     bundleOf(ReceiptViewModel.ARG_TRANSACTION_ID to id),
                 )
-                true
             }
-            "CUSTOMER" -> {
-                nav.navigate(R.id.action_agentFeedFragment_to_chatFragment)
-                true
+            "CUSTOMER" -> navigateSafely {
+                navigate(R.id.action_agentFeedFragment_to_chatFragment)
             }
             else -> {
-                Snackbar.make(binding.root, R.string.agent_review_no_target, Snackbar.LENGTH_SHORT).show()
+                _binding?.root?.let {
+                    Snackbar.make(it, R.string.agent_review_no_target, Snackbar.LENGTH_SHORT).show()
+                }
                 false
             }
+        }
+    }
+
+    private fun navigateSafely(block: NavController.() -> Unit): Boolean {
+        return runCatching {
+            findNavController().block()
+            true
+        }.getOrElse {
+            Log.w(TAG, "Agent feed navigation failed", it)
+            false
         }
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    companion object {
+        private const val TAG = "AgentFeedFragment"
     }
 }
