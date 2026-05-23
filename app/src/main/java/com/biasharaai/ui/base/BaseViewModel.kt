@@ -5,8 +5,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.EmptyCoroutineContext
 
 abstract class BaseViewModel : ViewModel() {
 
@@ -21,7 +23,8 @@ abstract class BaseViewModel : ViewModel() {
     protected open fun viewModelLogTag(): String = javaClass.simpleName
 
     /** Launches on [viewModelScope]; logs failures instead of crashing the process. */
-    protected fun launchSafe(block: suspend CoroutineScope.() -> Unit) {
-        viewModelScope.launch(Dispatchers.IO + crashHandler) { block() }
-    }
+    protected fun launchSafe(
+        context: CoroutineContext = EmptyCoroutineContext,
+        block: suspend CoroutineScope.() -> Unit,
+    ): Job = viewModelScope.launch(context + crashHandler) { block() }
 }

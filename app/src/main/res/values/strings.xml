@@ -425,6 +425,9 @@
     <string name="voice_settings_whisper_preparing">Preparing…</string>
     <string name="voice_settings_whisper_ready">Speech model is ready.</string>
     <string name="voice_settings_whisper_failed">Could not prepare speech model: %1$s</string>
+    <string name="voice_settings_whisper_failed_no_network">No internet connection. Connect to Wi‑Fi or mobile data, then try again.</string>
+    <string name="voice_settings_whisper_failed_timeout">Download timed out. Try again on a faster connection, or choose the smaller \"Multilingual tiny\" model.</string>
+    <string name="voice_settings_whisper_failed_oom">Not enough memory for this model. Choose \"Multilingual tiny\" or close other apps, then try again.</string>
     <string name="voice_settings_tts_section">Read aloud (text-to-speech)</string>
     <string name="voice_settings_tts_enable">Enable spoken replies</string>
     <string name="voice_settings_tts_rate_value">Speech rate %.2f</string>
@@ -432,6 +435,7 @@
     <string name="voice_settings_tts_auto_agent">Auto-read critical agent alerts</string>
     <string name="voice_settings_tts_auto_chat">Auto-read assistant answers in Chat</string>
     <string name="voice_settings_install_tts">Install text-to-speech languages</string>
+    <string name="voice_settings_tts_install_failed">Could not open text-to-speech settings.</string>
     <string name="voice_settings_test_tts">Play test phrase</string>
     <string name="voice_settings_tts_test_phrase">Biashara AI voice check. If you hear this, read aloud is working.</string>
     <string name="chat_session_default_title">Chat</string>

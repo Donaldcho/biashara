@@ -25,6 +25,18 @@
 3. Enterprise Pro: save deployment, sync queue, no crash if endpoint offline.
 4. Logcat: filter `BiasharaCrash`, `EnterpriseAudit`, `CashFlowInsightsVM`.
 
+## Whisper model download (Voice settings)
+
+| Issue | Fix |
+|-------|-----|
+| Parallel `initialize()` | `initMutex` serialises load/release |
+| JNI callback thread | `TextOutputCallback` completes on main looper |
+| OOM on `whisper-base` | `largeHeap`, catch `OutOfMemoryError`, user message to use tiny |
+| Uncaught native errors | `catch (Throwable)` + `launchSafe` in `VoiceSettingsViewModel` |
+| No network | Pre-check `ConnectivityManager` before download |
+
+**User tip:** First download needs Wi‑Fi; start with **Multilingual tiny (fast)** before **base**.
+
 ## If crashes persist
 
-Capture `adb logcat -d | findstr BiasharaCrash` after a repro and attach the stack trace.
+Capture `adb logcat -d | findstr BiasharaCrash WhisperTranscriber` after a repro and attach the stack trace.

@@ -1,6 +1,7 @@
 package com.biasharaai.agent
 
 import android.content.Context
+import android.util.Log
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
@@ -24,7 +25,9 @@ import com.biasharaai.productline.ProductLineManager
 import com.biasharaai.data.local.db.AgentSettingDao
 import com.biasharaai.ai.CapabilityTier
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
@@ -48,7 +51,10 @@ class AgentOrchestrator @Inject constructor(
     private val productLineManager: ProductLineManager,
 ) {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        Log.e(TAG, "Agent scheduler coroutine failed", throwable)
+    }
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default + exceptionHandler)
     private val wm get() = WorkManager.getInstance(appContext)
 
     /**
@@ -57,8 +63,14 @@ class AgentOrchestrator @Inject constructor(
      */
     fun scheduleAll() {
         scope.launch(Dispatchers.IO) {
-            val settings = agentSettingDao.getSettingsSync() ?: AgentSetting()
-            applySchedules(settings)
+            try {
+                val settings = agentSettingDao.getSettingsSync() ?: AgentSetting()
+                applySchedules(settings)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Throwable) {
+                Log.e(TAG, "scheduleAll failed", t)
+            }
         }
     }
 
@@ -258,87 +270,94 @@ class AgentOrchestrator @Inject constructor(
      */
     fun runAllNow() {
         scope.launch(Dispatchers.IO) {
-            val s = agentSettingDao.getSettingsSync() ?: AgentSetting()
-            if (!s.masterSwitch) return@launch
-            val batteryOkNetworkFree = Constraints.Builder()
-                .setRequiresBatteryNotLow(true)
-                .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
-                .build()
-            val fraudReactive = Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
-                .build()
-            val weeklyHeavy = Constraints.Builder()
-                .setRequiresCharging(true)
-                .setRequiresBatteryNotLow(true)
-                .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
-                .build()
-            if (s.stockGuardianEnabled) {
-                wm.enqueueUniqueWork(
-                    UNIQUE_RUN_NOW_STOCK,
-                    ExistingWorkPolicy.REPLACE,
-                    OneTimeWorkRequestBuilder<StockGuardianWorker>()
-                        .setConstraints(batteryOkNetworkFree)
-                        .build(),
-                )
-            }
-            if (s.pricingAgentEnabled) {
-                wm.enqueueUniqueWork(
-                    UNIQUE_RUN_NOW_PRICING,
-                    ExistingWorkPolicy.REPLACE,
-                    OneTimeWorkRequestBuilder<PricingAgentWorker>()
-                        .setConstraints(batteryOkNetworkFree)
-                        .build(),
-                )
-            }
-            if (s.cashFlowEnabled) {
-                wm.enqueueUniqueWork(
-                    UNIQUE_RUN_NOW_CASH_FLOW,
-                    ExistingWorkPolicy.REPLACE,
-                    OneTimeWorkRequestBuilder<CashFlowSentinelWorker>()
-                        .setConstraints(batteryOkNetworkFree)
-                        .build(),
-                )
-            }
-            if (s.customerRelationEnabled) {
-                wm.enqueueUniqueWork(
-                    UNIQUE_RUN_NOW_CUSTOMER_RELATION,
-                    ExistingWorkPolicy.REPLACE,
-                    OneTimeWorkRequestBuilder<CustomerRelationWorker>()
-                        .setConstraints(batteryOkNetworkFree)
-                        .build(),
-                )
-            }
-            if (s.fraudSentinelEnabled) {
-                wm.enqueueUniqueWork(
-                    UNIQUE_FRAUD_REACTIVE,
-                    ExistingWorkPolicy.REPLACE,
-                    OneTimeWorkRequestBuilder<FraudSentinelWorker>()
-                        .setConstraints(fraudReactive)
-                        .build(),
-                )
-            }
-            if (s.weeklyReviewEnabled && capabilityTier == CapabilityTier.FULL_AI) {
-                wm.enqueueUniqueWork(
-                    UNIQUE_RUN_NOW_WEEKLY_REVIEW,
-                    ExistingWorkPolicy.REPLACE,
-                    OneTimeWorkRequestBuilder<WeeklyReviewWorker>()
-                        .setConstraints(weeklyHeavy)
-                        .build(),
-                )
-            }
-            if (s.opportunitySpotterEnabled && capabilityTier == CapabilityTier.FULL_AI) {
-                wm.enqueueUniqueWork(
-                    UNIQUE_RUN_NOW_OPPORTUNITY,
-                    ExistingWorkPolicy.REPLACE,
-                    OneTimeWorkRequestBuilder<OpportunitySpotterWorker>()
-                        .setConstraints(weeklyHeavy)
-                        .build(),
-                )
+            try {
+                val s = agentSettingDao.getSettingsSync() ?: AgentSetting()
+                if (!s.masterSwitch) return@launch
+                val batteryOkNetworkFree = Constraints.Builder()
+                    .setRequiresBatteryNotLow(true)
+                    .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
+                    .build()
+                val fraudReactive = Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
+                    .build()
+                val weeklyHeavy = Constraints.Builder()
+                    .setRequiresCharging(true)
+                    .setRequiresBatteryNotLow(true)
+                    .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
+                    .build()
+                if (s.stockGuardianEnabled) {
+                    wm.enqueueUniqueWork(
+                        UNIQUE_RUN_NOW_STOCK,
+                        ExistingWorkPolicy.REPLACE,
+                        OneTimeWorkRequestBuilder<StockGuardianWorker>()
+                            .setConstraints(batteryOkNetworkFree)
+                            .build(),
+                    )
+                }
+                if (s.pricingAgentEnabled) {
+                    wm.enqueueUniqueWork(
+                        UNIQUE_RUN_NOW_PRICING,
+                        ExistingWorkPolicy.REPLACE,
+                        OneTimeWorkRequestBuilder<PricingAgentWorker>()
+                            .setConstraints(batteryOkNetworkFree)
+                            .build(),
+                    )
+                }
+                if (s.cashFlowEnabled) {
+                    wm.enqueueUniqueWork(
+                        UNIQUE_RUN_NOW_CASH_FLOW,
+                        ExistingWorkPolicy.REPLACE,
+                        OneTimeWorkRequestBuilder<CashFlowSentinelWorker>()
+                            .setConstraints(batteryOkNetworkFree)
+                            .build(),
+                    )
+                }
+                if (s.customerRelationEnabled) {
+                    wm.enqueueUniqueWork(
+                        UNIQUE_RUN_NOW_CUSTOMER_RELATION,
+                        ExistingWorkPolicy.REPLACE,
+                        OneTimeWorkRequestBuilder<CustomerRelationWorker>()
+                            .setConstraints(batteryOkNetworkFree)
+                            .build(),
+                    )
+                }
+                if (s.fraudSentinelEnabled) {
+                    wm.enqueueUniqueWork(
+                        UNIQUE_FRAUD_REACTIVE,
+                        ExistingWorkPolicy.REPLACE,
+                        OneTimeWorkRequestBuilder<FraudSentinelWorker>()
+                            .setConstraints(fraudReactive)
+                            .build(),
+                    )
+                }
+                if (s.weeklyReviewEnabled && capabilityTier == CapabilityTier.FULL_AI) {
+                    wm.enqueueUniqueWork(
+                        UNIQUE_RUN_NOW_WEEKLY_REVIEW,
+                        ExistingWorkPolicy.REPLACE,
+                        OneTimeWorkRequestBuilder<WeeklyReviewWorker>()
+                            .setConstraints(weeklyHeavy)
+                            .build(),
+                    )
+                }
+                if (s.opportunitySpotterEnabled && capabilityTier == CapabilityTier.FULL_AI) {
+                    wm.enqueueUniqueWork(
+                        UNIQUE_RUN_NOW_OPPORTUNITY,
+                        ExistingWorkPolicy.REPLACE,
+                        OneTimeWorkRequestBuilder<OpportunitySpotterWorker>()
+                            .setConstraints(weeklyHeavy)
+                            .build(),
+                    )
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Throwable) {
+                Log.e(TAG, "runAllNow failed", t)
             }
         }
     }
 
     companion object {
+        private const val TAG = "AgentOrchestrator"
         const val UNIQUE_STOCK_GUARDIAN = "stock_guardian"
         const val UNIQUE_PRICING_AGENT = "pricing_agent"
         const val UNIQUE_CASH_FLOW = "cash_flow"

@@ -2,6 +2,7 @@ package com.biasharaai.ui.settings
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -157,7 +158,14 @@ class VoiceSettingsFragment : BaseFragment() {
         binding.btnPrepareWhisper.setOnClickListener { viewModel.prepareWhisperModel() }
 
         binding.btnInstallTtsData.setOnClickListener {
-            startActivity(Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA))
+            runCatching {
+                startActivity(Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA))
+            }.onFailure {
+                Log.w(TAG, "Could not open TTS data installer", it)
+                _binding?.root?.let { root ->
+                    Snackbar.make(root, R.string.voice_settings_tts_install_failed, Snackbar.LENGTH_LONG).show()
+                }
+            }
         }
 
         binding.btnTestTts.setOnClickListener { viewModel.playTestUtterance() }
@@ -183,7 +191,7 @@ class VoiceSettingsFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.settings.collect { s ->
-                    if (s != null) bindAppSettings(s)
+                    if (s != null && _binding != null) bindAppSettings(s)
                 }
             }
         }
@@ -205,8 +213,9 @@ class VoiceSettingsFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.preparingWhisper.collect { preparing ->
-                    binding.btnPrepareWhisper.isEnabled = !preparing
-                    binding.btnPrepareWhisper.text = if (preparing) {
+                    val b = _binding ?: return@collect
+                    b.btnPrepareWhisper.isEnabled = !preparing
+                    b.btnPrepareWhisper.text = if (preparing) {
                         getString(R.string.voice_settings_whisper_preparing)
                     } else {
                         getString(R.string.voice_settings_whisper_prepare)
@@ -220,7 +229,7 @@ class VoiceSettingsFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.events.collect { event ->
-                    val anchor = binding.root
+                    val anchor = _binding?.root ?: return@collect
                     when (event) {
                         VoiceSettingsViewModel.Event.WhisperReady -> {
                             Snackbar.make(anchor, R.string.voice_settings_whisper_ready, Snackbar.LENGTH_SHORT)
@@ -289,19 +298,25 @@ class VoiceSettingsFragment : BaseFragment() {
     }
 
     private fun refreshTtsControlsEnabled(ttsEnabled: Boolean) {
-        binding.sliderTtsRate.isEnabled = ttsEnabled
-        binding.sliderTtsPitch.isEnabled = ttsEnabled
-        binding.switchTtsAutoAgent.isEnabled = ttsEnabled
-        binding.switchTtsAutoChat.isEnabled = ttsEnabled
-        binding.btnTestTts.isEnabled = ttsEnabled
+        val b = _binding ?: return
+        b.sliderTtsRate.isEnabled = ttsEnabled
+        b.sliderTtsPitch.isEnabled = ttsEnabled
+        b.switchTtsAutoAgent.isEnabled = ttsEnabled
+        b.switchTtsAutoChat.isEnabled = ttsEnabled
+        b.btnTestTts.isEnabled = ttsEnabled
     }
 
     private fun refreshWhisperStatusUi() {
+        val b = _binding ?: return
         val ready = viewModel.whisperIsReady()
-        binding.textWhisperStatus.text = if (ready) {
+        b.textWhisperStatus.text = if (ready) {
             getString(R.string.voice_settings_whisper_status_ready)
         } else {
             getString(R.string.voice_settings_whisper_status_not_loaded)
         }
+    }
+
+    companion object {
+        private const val TAG = "VoiceSettingsFragment"
     }
 }

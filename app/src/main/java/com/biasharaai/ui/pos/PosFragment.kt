@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Bundle
 import android.speech.RecognizerIntent
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.View
@@ -20,6 +21,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.NavController
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.GridLayoutManager
@@ -48,6 +50,7 @@ import com.google.android.material.chip.Chip
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -203,7 +206,8 @@ class PosFragment : BaseFragment() {
             },
         )
         binding.recyclerCartLines.adapter = wideCartAdapter
-        CartAdapter.attachSwipeToRemove(binding.recyclerCartLines, wideCartAdapter!!, cartManager)
+        val adapter = wideCartAdapter ?: return
+        CartAdapter.attachSwipeToRemove(binding.recyclerCartLines, adapter, cartManager)
     }
 
     private fun gridSpanCount(): Int {
@@ -237,11 +241,16 @@ class PosFragment : BaseFragment() {
     private fun setupCartInteractions() {
         binding.cartSummaryTapArea.setOnClickListener {
             if (isSideCartVisible()) return@setOnClickListener
-            CartBottomSheetFragment.newInstance().show(childFragmentManager, CartBottomSheetFragment.TAG)
+            if (childFragmentManager.isStateSaved) return@setOnClickListener
+            runCatching {
+                CartBottomSheetFragment.newInstance().show(childFragmentManager, CartBottomSheetFragment.TAG)
+            }.onFailure {
+                Log.w(TAG, "Cart bottom sheet display failed", it)
+            }
         }
 
         val payListener = View.OnClickListener {
-            findNavController().navigate(R.id.action_posFragment_to_paymentDialogFragment)
+            navigateSafely { navigate(R.id.action_posFragment_to_paymentDialogFragment) }
         }
         binding.btnPayCompact.setOnClickListener(payListener)
         binding.btnPayWide.setOnClickListener(payListener)
@@ -269,7 +278,7 @@ class PosFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 voiceInputPreferences.voiceInputEnabled.collect { enabled ->
-                    binding.btnVoiceSearch?.visibility = if (enabled) View.VISIBLE else View.GONE
+                    _binding?.btnVoiceSearch?.visibility = if (enabled) View.VISIBLE else View.GONE
                 }
             }
         }
@@ -277,8 +286,9 @@ class PosFragment : BaseFragment() {
 
     private fun onVoiceSearchClicked() {
         if (!voiceInputPreferences.isVoiceInputEnabled()) return
+        val ctx = context ?: return
         val granted = ContextCompat.checkSelfPermission(
-            requireContext(),
+            ctx,
             Manifest.permission.RECORD_AUDIO,
         ) == PackageManager.PERMISSION_GRANTED
         if (granted) {
@@ -290,23 +300,33 @@ class PosFragment : BaseFragment() {
 
     private fun launchPosVoiceSearch() {
         viewLifecycleOwner.lifecycleScope.launch {
-            if (voiceInputProcessor.shouldUseOnDeviceAi() &&
-                AudioCaptureHelper.hasRecordPermission(requireContext())
-            ) {
-                val text = runCatching {
-                    voiceInputProcessor.transcribeWithAi(
-                        Locale.getDefault(),
-                        AudioCaptureHelper.DEFAULT_DURATION_MS,
-                    )
-                }.getOrNull()?.trim().orEmpty()
-                if (text.isNotEmpty()) {
-                    val b = _binding ?: return@launch
-                    b.searchView.setQuery(text, false)
-                    viewModel.setSearchQuery(text)
-                    return@launch
+            try {
+                val ctx = context ?: return@launch
+                if (voiceInputProcessor.shouldUseOnDeviceAi() &&
+                    AudioCaptureHelper.hasRecordPermission(ctx)
+                ) {
+                    val text = runCatching {
+                        voiceInputProcessor.transcribeWithAi(
+                            Locale.getDefault(),
+                            AudioCaptureHelper.DEFAULT_DURATION_MS,
+                        )
+                    }.getOrNull()?.trim().orEmpty()
+                    if (text.isNotEmpty()) {
+                        val b = _binding ?: return@launch
+                        b.searchView.setQuery(text, false)
+                        viewModel.setSearchQuery(text)
+                        return@launch
+                    }
+                }
+                launchPosSystemSpeechRecognizer()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Throwable) {
+                Log.w(TAG, "POS voice search failed", t)
+                _binding?.root?.let { root ->
+                    Snackbar.make(root, R.string.chat_mic_unavailable, Snackbar.LENGTH_SHORT).show()
                 }
             }
-            launchPosSystemSpeechRecognizer()
         }
     }
 
@@ -329,11 +349,12 @@ class PosFragment : BaseFragment() {
                 combine(viewModel.customerSuggestionsUi, cartManager.items) { ui, lines ->
                     ui to lines.map { it.product.id }.toSet()
                 }.collect { (ui, cartIds) ->
+                    val b = _binding ?: return@collect
                     val visible = ui.products.filter { it.id !in cartIds }
-                    binding.chipGroupSuggestions.removeAllViews()
-                    binding.scrollSuggestions.visibility =
+                    b.chipGroupSuggestions.removeAllViews()
+                    b.scrollSuggestions.visibility =
                         if (visible.isEmpty()) View.GONE else View.VISIBLE
-                    val ctx = requireContext()
+                    val ctx = context ?: return@collect
                     for (p in visible) {
                         val chip = Chip(ctx).apply {
                             text = p.name
@@ -342,14 +363,14 @@ class PosFragment : BaseFragment() {
                             contentDescription = getString(R.string.pos_suggestion_chip_cd, p.name)
                             setOnClickListener { viewModel.addProductToCart(p, 1) }
                         }
-                        binding.chipGroupSuggestions.addView(chip)
+                        b.chipGroupSuggestions.addView(chip)
                     }
                     val sub = ui.gemmaSubtitle
                     if (sub.isNullOrBlank()) {
-                        binding.textSuggestionSubtitle.visibility = View.GONE
+                        b.textSuggestionSubtitle.visibility = View.GONE
                     } else {
-                        binding.textSuggestionSubtitle.text = sub
-                        binding.textSuggestionSubtitle.visibility = View.VISIBLE
+                        b.textSuggestionSubtitle.text = sub
+                        b.textSuggestionSubtitle.visibility = View.VISIBLE
                     }
                 }
             }
@@ -358,28 +379,41 @@ class PosFragment : BaseFragment() {
 
     private fun setupCustomerChip() {
         binding.chipCustomer.setOnClickListener {
-            CustomerSelectorBottomSheet.newInstance().apply {
-                onCustomerPicked = { customer ->
-                    if (customer == null) {
-                        viewModel.selectWalkInCustomer()
-                    } else {
-                        viewModel.selectCustomer(customer)
+            if (childFragmentManager.isStateSaved) return@setOnClickListener
+            runCatching {
+                CustomerSelectorBottomSheet.newInstance().apply {
+                    onCustomerPicked = { customer ->
+                        if (customer == null) {
+                            viewModel.selectWalkInCustomer()
+                        } else {
+                            viewModel.selectCustomer(customer)
+                        }
                     }
-                }
-            }.show(childFragmentManager, "customer_selector")
+                }.show(childFragmentManager, "customer_selector")
+            }.onFailure {
+                Log.w(TAG, "Customer selector display failed", it)
+            }
         }
         binding.chipCustomer.setOnLongClickListener {
             val customer = viewModel.selectedCustomer.value ?: return@setOnLongClickListener false
             viewLifecycleOwner.lifecycleScope.launch {
-                val open = transactionDao.getOpenBalancesForCustomer(customer.id)
-                if (open.isEmpty()) {
-                    return@launch
-                }
-                CollectBalanceBottomSheet.newInstance(open.first().id).apply {
-                    onSettled = {
-                        Snackbar.make(binding.root, R.string.product_saved, Snackbar.LENGTH_SHORT).show()
+                try {
+                    val open = transactionDao.getOpenBalancesForCustomer(customer.id)
+                    if (open.isEmpty() || !isAdded || childFragmentManager.isStateSaved) {
+                        return@launch
                     }
-                }.show(childFragmentManager, CollectBalanceBottomSheet.TAG)
+                    CollectBalanceBottomSheet.newInstance(open.first().id).apply {
+                        onSettled = {
+                            _binding?.root?.let { root ->
+                                Snackbar.make(root, R.string.product_saved, Snackbar.LENGTH_SHORT).show()
+                            }
+                        }
+                    }.show(childFragmentManager, CollectBalanceBottomSheet.TAG)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (t: Throwable) {
+                    Log.w(TAG, "Open balance lookup failed", t)
+                }
             }
             true
         }
@@ -387,26 +421,14 @@ class PosFragment : BaseFragment() {
 
     private fun setupScanButton() {
         binding.btnScan.setOnClickListener {
-            findNavController().navigate(
-                R.id.action_posFragment_to_barcodeScannerFragment,
-                bundleOf(
-                    BarcodeScannerFragment.ARG_SCAN_MODE to ScanMode.SCAN_TO_ADD.name,
-                    BarcodeScannerFragment.ARG_RETURN_BARCODE_TO_POS to true,
-                ),
-            )
+            navigateToScanner()
         }
         binding.btnScanServiceToken?.setOnClickListener {
             if (!productLineManager.isProEnabled()) {
                 binding.root.showProRequiredSnackbar(productLineManager)
                 return@setOnClickListener
             }
-            findNavController().navigate(
-                R.id.action_posFragment_to_barcodeScannerFragment,
-                bundleOf(
-                    BarcodeScannerFragment.ARG_SCAN_MODE to ScanMode.SCAN_TO_ADD.name,
-                    BarcodeScannerFragment.ARG_RETURN_BARCODE_TO_POS to true,
-                ),
-            )
+            navigateToScanner()
         }
     }
 
@@ -434,24 +456,26 @@ class PosFragment : BaseFragment() {
     }
 
     private fun applyCatalogVisibility(mode: PosCatalogMode) {
+        val b = _binding ?: return
         val showProducts = mode == PosCatalogMode.PRODUCTS || mode == PosCatalogMode.BOTH
         val showServices = mode == PosCatalogMode.SERVICES || mode == PosCatalogMode.BOTH
-        binding.recyclerProductGrid.visibility = if (showProducts) View.VISIBLE else View.GONE
-        binding.recyclerServiceGrid?.visibility = if (showServices) View.VISIBLE else View.GONE
+        b.recyclerProductGrid.visibility = if (showProducts) View.VISIBLE else View.GONE
+        b.recyclerServiceGrid?.visibility = if (showServices) View.VISIBLE else View.GONE
     }
 
     private fun setupTransactionHistoryButton() {
         binding.btnTransactionHistory.setOnClickListener {
-            findNavController().navigate(R.id.action_posFragment_to_transactionHistoryFragment)
+            navigateSafely { navigate(R.id.action_posFragment_to_transactionHistoryFragment) }
         }
     }
 
     private fun setupPosOverflowMenu() {
         binding.btnPosMenu.setOnClickListener { anchor ->
-            PopupMenu(requireContext(), anchor).apply {
+            val ctx = context ?: return@setOnClickListener
+            PopupMenu(ctx, anchor).apply {
                 menu.add(Menu.NONE, Menu.NONE, Menu.NONE, getString(R.string.pos_close_day))
                 setOnMenuItemClickListener {
-                    findNavController().navigate(R.id.action_posFragment_to_endOfDayFragment)
+                    navigateSafely { navigate(R.id.action_posFragment_to_endOfDayFragment) }
                     true
                 }
                 show()
@@ -464,8 +488,9 @@ class PosFragment : BaseFragment() {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
                     viewModel.searchResults.collect { list ->
+                        val b = _binding ?: return@collect
                         searchAdapter.submitList(list)
-                        binding.recyclerSearchResults.visibility =
+                        b.recyclerSearchResults.visibility =
                             if (list.isEmpty()) View.GONE else View.VISIBLE
                     }
                 }
@@ -476,14 +501,16 @@ class PosFragment : BaseFragment() {
                 }
                 launch {
                     viewModel.selectedCustomer.collect { customer ->
-                        val walkInColor = ContextCompat.getColor(requireContext(), R.color.biashara_forest_dark)
-                        val customerColor = ContextCompat.getColor(requireContext(), R.color.biashara_forest)
+                        val b = _binding ?: return@collect
+                        val ctx = context ?: return@collect
+                        val walkInColor = ContextCompat.getColor(ctx, R.color.biashara_forest_dark)
+                        val customerColor = ContextCompat.getColor(ctx, R.color.biashara_forest)
                         if (customer == null) {
-                            binding.chipCustomer.text = getString(R.string.pos_walk_in_customer)
-                            binding.chipCustomer.setTextColor(walkInColor)
+                            b.chipCustomer.text = getString(R.string.pos_walk_in_customer)
+                            b.chipCustomer.setTextColor(walkInColor)
                         } else {
                             val openBalance = transactionDao.sumOpenBalanceForCustomer(customer.id)
-                            binding.chipCustomer.text = if (openBalance > 0) {
+                            b.chipCustomer.text = if (openBalance > 0) {
                                 getString(
                                     R.string.pos_open_balance,
                                     moneyFormatter.format(openBalance),
@@ -491,13 +518,14 @@ class PosFragment : BaseFragment() {
                             } else {
                                 customer.name
                             }
-                            binding.chipCustomer.setTextColor(customerColor)
+                            b.chipCustomer.setTextColor(customerColor)
                         }
                     }
                 }
                 launch {
                     viewModel.priceWarning.collect { ev ->
-                        Snackbar.make(binding.root, ev.message, Snackbar.LENGTH_LONG)
+                        val root = _binding?.root ?: return@collect
+                        Snackbar.make(root, ev.message, Snackbar.LENGTH_LONG)
                             .setAction(R.string.pos_price_warning_undo) {
                                 viewModel.undoPriceOverride(ev.productId, ev.previousOverride)
                             }
@@ -506,8 +534,9 @@ class PosFragment : BaseFragment() {
                 }
                 launch {
                     viewModel.priceChangeDenied.collect { event ->
+                        val root = _binding?.root ?: return@collect
                         Snackbar.make(
-                            binding.root,
+                            root,
                             getString(
                                 R.string.settings_enterprise_permission_denied,
                                 event.operatorName,
@@ -519,13 +548,15 @@ class PosFragment : BaseFragment() {
                 }
                 launch {
                     viewModel.voucherAdded.collect {
-                        Snackbar.make(binding.root, R.string.voucher_added_to_cart, Snackbar.LENGTH_SHORT).show()
+                        val root = _binding?.root ?: return@collect
+                        Snackbar.make(root, R.string.voucher_added_to_cart, Snackbar.LENGTH_SHORT).show()
                     }
                 }
                 launch {
                     viewModel.unknownBarcode.collect { code ->
+                        val root = _binding?.root ?: return@collect
                         Snackbar.make(
-                            binding.root,
+                            root,
                             getString(R.string.pos_barcode_not_found, code),
                             Snackbar.LENGTH_SHORT,
                         ).show()
@@ -533,8 +564,9 @@ class PosFragment : BaseFragment() {
                 }
                 launch {
                     viewModel.serviceScanMessage.collect { name ->
+                        val root = _binding?.root ?: return@collect
                         Snackbar.make(
-                            binding.root,
+                            root,
                             getString(R.string.pos_service_added, name),
                             Snackbar.LENGTH_SHORT,
                         ).show()
@@ -560,8 +592,9 @@ class PosFragment : BaseFragment() {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
                     cartManager.unifiedLines().collect { lines ->
+                        val b = _binding ?: return@collect
                         val n = lines.sumOf { it.quantity }
-                        binding.textCartBadge.text = if (n == 1) {
+                        b.textCartBadge.text = if (n == 1) {
                             getString(R.string.pos_cart_items_count_one)
                         } else {
                             getString(R.string.pos_cart_items_count, n)
@@ -576,7 +609,7 @@ class PosFragment : BaseFragment() {
                         cartRepository.grandTotal,
                         cartRepository.activeSettings,
                     ) { total, _ -> total }.collect { total ->
-                        binding.textCartGrandTotal.text = moneyFormatter.format(total)
+                        _binding?.textCartGrandTotal?.text = moneyFormatter.format(total)
                     }
                 }
                 launch {
@@ -593,17 +626,18 @@ class PosFragment : BaseFragment() {
     }
 
     private fun showQuantityDialog(product: Product) {
-        val input = EditText(requireContext()).apply {
+        val ctx = context ?: return
+        val input = EditText(ctx).apply {
             inputType = android.text.InputType.TYPE_CLASS_NUMBER
             hint = getString(R.string.pos_qty_dialog_hint)
             setText("1")
         }
         val padding = resources.getDimensionPixelSize(R.dimen.pos_dialog_padding)
-        val container = android.widget.FrameLayout(requireContext()).apply {
+        val container = android.widget.FrameLayout(ctx).apply {
             setPadding(padding, padding, padding, 0)
             addView(input)
         }
-        MaterialAlertDialogBuilder(requireContext())
+        MaterialAlertDialogBuilder(ctx)
             .setTitle(getString(R.string.pos_qty_dialog_title))
             .setView(container)
             .setNegativeButton(android.R.string.cancel, null)
@@ -616,14 +650,19 @@ class PosFragment : BaseFragment() {
 
     private fun showVoucherIssueSheet(service: com.biasharaai.data.local.db.ServiceItem) {
         if (!productLineManager.isProEnabled()) {
-            binding.root.showProRequiredSnackbar(productLineManager)
+            _binding?.root?.showProRequiredSnackbar(productLineManager)
             return
         }
+        if (!isAdded || childFragmentManager.isStateSaved) return
         val sheet = VoucherIssueBottomSheet.newInstance(service)
         sheet.onConfirm = { params ->
             viewModel.addVoucherToCart(params)
         }
-        sheet.show(childFragmentManager, VoucherIssueBottomSheet.TAG)
+        runCatching {
+            sheet.show(childFragmentManager, VoucherIssueBottomSheet.TAG)
+        }.onFailure {
+            Log.w(TAG, "Voucher issue sheet display failed", it)
+        }
     }
 
     private fun roleLabel(role: String): String = when (role.uppercase(Locale.ROOT)) {
@@ -638,11 +677,16 @@ class PosFragment : BaseFragment() {
                 viewModel.pendingStaffPick.collect { service ->
                     val count = viewModel.activeStaffCount.value
                     if (count > 0) {
-                        StaffPickerBottomSheet.newInstance(service.name).apply {
-                            onSelected = { member ->
-                                viewModel.addServiceToCart(service, 1, member?.name)
-                            }
-                        }.show(childFragmentManager, StaffPickerBottomSheet.TAG)
+                        if (!isAdded || childFragmentManager.isStateSaved) return@collect
+                        runCatching {
+                            StaffPickerBottomSheet.newInstance(service.name).apply {
+                                onSelected = { member ->
+                                    viewModel.addServiceToCart(service, 1, member?.name)
+                                }
+                            }.show(childFragmentManager, StaffPickerBottomSheet.TAG)
+                        }.onFailure {
+                            Log.w(TAG, "Staff picker display failed", it)
+                        }
                     } else {
                         viewModel.addServiceToCart(service, 1, null)
                     }
@@ -658,7 +702,30 @@ class PosFragment : BaseFragment() {
         _binding = null
     }
 
+    private fun navigateToScanner() {
+        navigateSafely {
+            navigate(
+                R.id.action_posFragment_to_barcodeScannerFragment,
+                bundleOf(
+                    BarcodeScannerFragment.ARG_SCAN_MODE to ScanMode.SCAN_TO_ADD.name,
+                    BarcodeScannerFragment.ARG_RETURN_BARCODE_TO_POS to true,
+                ),
+            )
+        }
+    }
+
+    private fun navigateSafely(block: NavController.() -> Unit): Boolean {
+        return runCatching {
+            findNavController().block()
+            true
+        }.getOrElse {
+            Log.w(TAG, "POS navigation failed", it)
+            false
+        }
+    }
+
     companion object {
+        private const val TAG = "PosFragment"
         const val RESULT_KEY_SCANNED_BARCODE = "pos_scanned_barcode"
     }
 }

@@ -36,6 +36,7 @@ import kotlinx.coroutines.delay
 import dagger.hilt.android.HiltAndroidApp
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -67,7 +68,11 @@ class BiasharaApp : Application(), Configuration.Provider {
 
     @Inject lateinit var productLineManager: ProductLineManager
 
-    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val appExceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        Log.e(TAG, "Background startup task failed", throwable)
+    }
+
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default + appExceptionHandler)
 
     private val fraudReactiveDebouncer = WorkEnqueueDebouncer(minIntervalMs = 30_000L)
 

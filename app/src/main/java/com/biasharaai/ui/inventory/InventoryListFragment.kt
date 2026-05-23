@@ -2,6 +2,7 @@ package com.biasharaai.ui.inventory
 
 import android.os.Bundle
 import android.text.InputType
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -14,6 +15,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.NavController
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.biasharaai.R
@@ -32,6 +34,7 @@ import com.biasharaai.ui.negotiation.showNegotiationTierBlockedDialogIfNeeded
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -133,21 +136,26 @@ class InventoryListFragment : BaseFragment() {
         productAdapter = ProductAdapter(
             moneyFormatter = moneyFormatter,
             onItemClick = { product ->
-                findNavController().navigate(
-                    R.id.action_inventoryListFragment_to_addEditProductFragment,
-                    bundleOf(ARG_PRODUCT_ID to product.id),
-                )
+                navigateSafely {
+                    navigate(
+                        R.id.action_inventoryListFragment_to_addEditProductFragment,
+                        bundleOf(ARG_PRODUCT_ID to product.id),
+                    )
+                }
             },
-            onItemLongClick = { product, anchor ->
-                PopupMenu(requireContext(), anchor).apply {
+            onItemLongClick = onItemLongClick@{ product, anchor ->
+                val ctx = context ?: return@onItemLongClick false
+                PopupMenu(ctx, anchor).apply {
                     menuInflater.inflate(R.menu.menu_inventory_product_context, menu)
                     setOnMenuItemClickListener { item ->
                         when (item.itemId) {
                             R.id.action_edit_product -> {
-                                findNavController().navigate(
-                                    R.id.action_inventoryListFragment_to_addEditProductFragment,
-                                    bundleOf(ARG_PRODUCT_ID to product.id),
-                                )
+                                navigateSafely {
+                                    navigate(
+                                        R.id.action_inventoryListFragment_to_addEditProductFragment,
+                                        bundleOf(ARG_PRODUCT_ID to product.id),
+                                    )
+                                }
                                 true
                             }
                             R.id.action_remove_stock -> {
@@ -178,10 +186,12 @@ class InventoryListFragment : BaseFragment() {
         serviceAdapter = ServiceListAdapter(
             formatMoney = { moneyFormatter.format(it) },
             onItemClick = { service ->
-                findNavController().navigate(
-                    R.id.action_inventoryListFragment_to_addEditServiceFragment,
-                    bundleOf(AddEditServiceFragment.ARG_SERVICE_ID to service.id),
-                )
+                navigateSafely {
+                    navigate(
+                        R.id.action_inventoryListFragment_to_addEditServiceFragment,
+                        bundleOf(AddEditServiceFragment.ARG_SERVICE_ID to service.id),
+                    )
+                }
             },
         )
         binding.recyclerServices.adapter = serviceAdapter
@@ -190,16 +200,17 @@ class InventoryListFragment : BaseFragment() {
     }
 
     private fun showRemoveStockDialog(product: Product) {
-        val input = EditText(requireContext()).apply {
+        val ctx = context ?: return
+        val input = EditText(ctx).apply {
             inputType = InputType.TYPE_CLASS_NUMBER
             hint = getString(R.string.inventory_remove_stock_hint)
         }
         val pad = resources.getDimensionPixelSize(R.dimen.pos_dialog_padding)
-        val wrap = FrameLayout(requireContext()).apply {
+        val wrap = FrameLayout(ctx).apply {
             setPadding(pad, pad, pad, 0)
             addView(input)
         }
-        MaterialAlertDialogBuilder(requireContext())
+        MaterialAlertDialogBuilder(ctx)
             .setTitle(getString(R.string.inventory_remove_stock_title, product.name))
             .setView(wrap)
             .setNegativeButton(android.R.string.cancel, null)
@@ -208,15 +219,20 @@ class InventoryListFragment : BaseFragment() {
                 viewLifecycleOwner.lifecycleScope.launch {
                     try {
                         viewModel.removeStockUnits(product.id, qty)
+                        val root = _binding?.root ?: return@launch
                         Snackbar.make(
-                            binding.root,
+                            root,
                             R.string.inventory_removed_stock_snackbar,
                             Snackbar.LENGTH_SHORT,
                         ).show()
-                    } catch (e: Exception) {
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (t: Throwable) {
+                        Log.w(TAG, "Remove stock failed", t)
+                        val root = _binding?.root ?: return@launch
                         Snackbar.make(
-                            binding.root,
-                            getString(R.string.inventory_action_failed, e.message ?: ""),
+                            root,
+                            getString(R.string.inventory_action_failed, t.message ?: ""),
                             Snackbar.LENGTH_LONG,
                         ).show()
                     }
@@ -226,18 +242,32 @@ class InventoryListFragment : BaseFragment() {
     }
 
     private fun showDeleteProductDialog(product: Product) {
-        MaterialAlertDialogBuilder(requireContext())
+        val ctx = context ?: return
+        MaterialAlertDialogBuilder(ctx)
             .setTitle(R.string.inventory_delete_product_title)
             .setMessage(getString(R.string.inventory_delete_product_message, product.name))
             .setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(R.string.inventory_delete_confirm) { _, _ ->
                 viewLifecycleOwner.lifecycleScope.launch {
-                    viewModel.deleteProduct(product)
-                    Snackbar.make(
-                        binding.root,
-                        R.string.inventory_deleted_product_snackbar,
-                        Snackbar.LENGTH_SHORT,
-                    ).show()
+                    try {
+                        viewModel.deleteProduct(product)
+                        val root = _binding?.root ?: return@launch
+                        Snackbar.make(
+                            root,
+                            R.string.inventory_deleted_product_snackbar,
+                            Snackbar.LENGTH_SHORT,
+                        ).show()
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (t: Throwable) {
+                        Log.w(TAG, "Delete product failed", t)
+                        val root = _binding?.root ?: return@launch
+                        Snackbar.make(
+                            root,
+                            getString(R.string.inventory_action_failed, t.message ?: ""),
+                            Snackbar.LENGTH_LONG,
+                        ).show()
+                    }
                 }
             }
             .show()
@@ -248,12 +278,14 @@ class InventoryListFragment : BaseFragment() {
             when (menuItem.itemId) {
                 R.id.action_scan -> {
                     // Navigate to BarcodeScannerFragment in lookup mode (Prompt 4b)
-                    findNavController().navigate(
-                        R.id.action_inventoryListFragment_to_barcodeScannerFragment,
-                        bundleOf(
-                            "scan_mode" to "SCAN_FOR_LOOKUP",
-                        ),
-                    )
+                    navigateSafely {
+                        navigate(
+                            R.id.action_inventoryListFragment_to_barcodeScannerFragment,
+                            bundleOf(
+                                "scan_mode" to "SCAN_FOR_LOOKUP",
+                            ),
+                        )
+                    }
                     true
                 }
                 R.id.action_inventory_prepare_supplier_visit -> {
@@ -261,9 +293,9 @@ class InventoryListFragment : BaseFragment() {
                         true
                     } else {
                         negotiationViewModel.resetScriptOutput()
-                        findNavController().navigate(
-                            R.id.action_inventoryListFragment_to_supplierNegotiationFragment,
-                        )
+                        navigateSafely {
+                            navigate(R.id.action_inventoryListFragment_to_supplierNegotiationFragment)
+                        }
                         true
                     }
                 }
@@ -287,29 +319,35 @@ class InventoryListFragment : BaseFragment() {
                     binding.root.showProRequiredSnackbar(productLineManager)
                     return@setOnClickListener
                 }
-                findNavController().navigate(
-                    R.id.action_inventoryListFragment_to_addEditServiceFragment,
-                    bundleOf(AddEditServiceFragment.ARG_SERVICE_ID to 0L),
-                )
+                navigateSafely {
+                    navigate(
+                        R.id.action_inventoryListFragment_to_addEditServiceFragment,
+                        bundleOf(AddEditServiceFragment.ARG_SERVICE_ID to 0L),
+                    )
+                }
             } else {
-                findNavController().navigate(
-                    R.id.action_inventoryListFragment_to_addEditProductFragment,
-                    bundleOf(ARG_PRODUCT_ID to 0L),
-                )
+                navigateSafely {
+                    navigate(
+                        R.id.action_inventoryListFragment_to_addEditProductFragment,
+                        bundleOf(ARG_PRODUCT_ID to 0L),
+                    )
+                }
             }
         }
         binding.fabScanBarcode.setOnClickListener {
             closeSpeedDial()
-            findNavController().navigate(
-                R.id.action_inventoryListFragment_to_barcodeScannerFragment,
-                bundleOf("scan_mode" to "SCAN_FOR_LOOKUP"),
-            )
+            navigateSafely {
+                navigate(
+                    R.id.action_inventoryListFragment_to_barcodeScannerFragment,
+                    bundleOf("scan_mode" to "SCAN_FOR_LOOKUP"),
+                )
+            }
         }
         binding.fabScanReceipt.setOnClickListener {
             closeSpeedDial()
-            findNavController().navigate(
-                R.id.action_inventoryListFragment_to_receiptScanFragment,
-            )
+            navigateSafely {
+                navigate(R.id.action_inventoryListFragment_to_receiptScanFragment)
+            }
         }
     }
 
@@ -337,9 +375,10 @@ class InventoryListFragment : BaseFragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.services.collect { services ->
+                    val b = _binding ?: return@collect
                     serviceAdapter.submitList(services)
                     if (showingServices) {
-                        binding.textEmptyServices.visibility =
+                        b.textEmptyServices.visibility =
                             if (services.isEmpty()) View.VISIBLE else View.GONE
                     }
                 }
@@ -352,8 +391,9 @@ class InventoryListFragment : BaseFragment() {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
                     viewModel.products.collect { products ->
+                        val b = _binding ?: return@collect
                         productAdapter.submitList(products)
-                        binding.textEmpty.visibility = if (products.isEmpty()) {
+                        b.textEmpty.visibility = if (products.isEmpty()) {
                             View.VISIBLE
                         } else {
                             View.GONE
@@ -381,12 +421,24 @@ class InventoryListFragment : BaseFragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        binding.recyclerProducts.adapter = null
-        binding.recyclerServices.adapter = null
+        _binding?.recyclerProducts?.adapter = null
+        _binding?.recyclerServices?.adapter = null
         _binding = null
     }
 
+    private fun navigateSafely(block: NavController.() -> Unit): Boolean {
+        return runCatching {
+            findNavController().block()
+            true
+        }.getOrElse {
+            Log.w(TAG, "Inventory navigation failed", it)
+            false
+        }
+    }
+
     companion object {
+        private const val TAG = "InventoryListFragment"
+
         /** Bundle key for the product ID passed to AddEditProductFragment. */
         const val ARG_PRODUCT_ID = "product_id"
         const val ARG_INITIAL_TAB = "initial_tab"

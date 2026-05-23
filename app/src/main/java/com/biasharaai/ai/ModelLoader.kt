@@ -53,11 +53,28 @@ class ModelLoader @Inject constructor() {
             audioBackend = null,
             maxNumTokens = spec.engineMaxTokens,
         )
+        if (spec.userForcesCpu) {
+            return createInitializedEngine(engineConfig)
+        }
         return try {
-            Engine(engineConfig).also { it.initialize() }
-        } catch (ex: Exception) {
-            Log.w(TAG, "GPU/preferred backend failed, falling back to CPU", ex)
-            Engine(engineConfig.copy(backend = Backend.CPU())).also { it.initialize() }
+            createInitializedEngine(engineConfig)
+        } catch (ex: Throwable) {
+            Log.w(TAG, "GPU backend failed, falling back to CPU", ex)
+            createInitializedEngine(engineConfig.copy(backend = Backend.CPU()))
+        }
+    }
+
+    private fun createInitializedEngine(config: EngineConfig): Engine {
+        val created = Engine(config)
+        return try {
+            created.initialize()
+            created
+        } catch (t: Throwable) {
+            try {
+                created.close()
+            } catch (_: Throwable) {
+            }
+            throw t
         }
     }
 

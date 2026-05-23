@@ -4,6 +4,7 @@ import com.biasharaai.ai.ActiveModelStore
 import com.biasharaai.ai.FunctionGemmaRouter
 import com.biasharaai.skills.SkillToolFactory
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -26,16 +27,28 @@ class AgentLoopRunner @Inject constructor(
         userMessage: String,
         systemInstruction: String = DEFAULT_AGENT_SYSTEM,
     ): AgentLoopResult = agentMutex.mutex.withLock {
-        val route = functionGemmaRouter.routeForToolLoop()
-        val toolLog = mutableListOf<AgentToolCallRecord>()
-        val tools = skillToolFactory.buildToolProviders(toolLog)
-        activeModelStore.runAgentLoop(
-            userMessage = userMessage,
-            systemInstruction = systemInstructionForRoute(systemInstruction, route),
-            toolProviders = tools,
-            toolCallsExecuted = toolLog,
-            toolModelId = route.modelId,
-        )
+        try {
+            val route = functionGemmaRouter.routeForToolLoop()
+            val toolLog = mutableListOf<AgentToolCallRecord>()
+            val tools = skillToolFactory.buildToolProviders(toolLog)
+            activeModelStore.runAgentLoop(
+                userMessage = userMessage,
+                systemInstruction = systemInstructionForRoute(systemInstruction, route),
+                toolProviders = tools,
+                toolCallsExecuted = toolLog,
+                toolModelId = route.modelId,
+            )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (t: Throwable) {
+            Log.e(TAG, "Agent loop failed before model result", t)
+            AgentLoopResult(
+                finalText = "",
+                toolCalls = emptyList(),
+                success = false,
+                errorMessage = t.message ?: "Agent loop failed",
+            )
+        }
     }
 
     /**
@@ -48,24 +61,38 @@ class AgentLoopRunner @Inject constructor(
         legacyPrompt: String = userMessage,
     ): String = agentMutex.mutex.withLock {
         if (!activeModelStore.isAvailable) return@withLock ""
-        val route = functionGemmaRouter.routeForToolLoop()
-        val toolLog = mutableListOf<AgentToolCallRecord>()
-        val tools = skillToolFactory.buildToolProviders(toolLog)
-        val loop = activeModelStore.runAgentLoop(
-            userMessage = userMessage,
-            systemInstruction = systemInstructionForRoute(systemInstruction, route),
-            toolProviders = tools,
-            toolCallsExecuted = toolLog,
-            toolModelId = route.modelId,
-        )
-        if (loop.success && loop.finalText.isNotBlank()) {
-            return@withLock loop.finalText
+        try {
+            val route = functionGemmaRouter.routeForToolLoop()
+            val toolLog = mutableListOf<AgentToolCallRecord>()
+            val tools = skillToolFactory.buildToolProviders(toolLog)
+            val loop = activeModelStore.runAgentLoop(
+                userMessage = userMessage,
+                systemInstruction = systemInstructionForRoute(systemInstruction, route),
+                toolProviders = tools,
+                toolCallsExecuted = toolLog,
+                toolModelId = route.modelId,
+            )
+            if (loop.success && loop.finalText.isNotBlank()) {
+                return@withLock loop.finalText
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (t: Throwable) {
+            Log.e(TAG, "Tool loop failed; trying legacy prompt", t)
         }
-        runCatching { activeModelStore.sendPrompt(legacyPrompt).trim() }
-            .getOrElse { "" }
+        try {
+            activeModelStore.sendPrompt(legacyPrompt).trim()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (t: Throwable) {
+            Log.e(TAG, "Legacy agent prompt failed", t)
+            ""
+        }
     }
 
     companion object {
+        private const val TAG = "AgentLoopRunner"
+
         const val DEFAULT_AGENT_SYSTEM =
             "You are Biashara AI, an assistant for a small shop owner in Africa. " +
                 "You have tools to read and update shop data (sales, inventory, customers, receipts). " +

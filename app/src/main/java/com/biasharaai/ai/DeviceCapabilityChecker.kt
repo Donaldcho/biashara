@@ -20,11 +20,11 @@ object DeviceCapabilityChecker {
     /** Minimum free internal storage (bytes) for model download — 3.5 GB. */
     private const val MIN_FREE_STORAGE_BYTES = 3_500_000_000L
 
-    /** RAM threshold for full AI (4 GB in bytes). */
-    private const val FULL_AI_RAM_BYTES = 4L * 1024 * 1024 * 1024
+    /** RAM threshold for full AI (6 GB in bytes). */
+    private const val FULL_AI_RAM_BYTES = 6L * 1024 * 1024 * 1024
 
-    /** RAM threshold for partial AI (3 GB in bytes). */
-    private const val PARTIAL_AI_RAM_BYTES = 3L * 1024 * 1024 * 1024
+    /** RAM threshold for partial AI (4 GB in bytes). */
+    private const val PARTIAL_AI_RAM_BYTES = 4L * 1024 * 1024 * 1024
 
     /**
      * Evaluate the device and return the appropriate [CapabilityTier].
@@ -79,10 +79,10 @@ object DeviceCapabilityChecker {
  * AI capability tier determining what features are available.
  */
 enum class CapabilityTier {
-    /** 4GB+ RAM — full on-device LLM inference. */
+    /** 6GB+ RAM — full on-device LLM inference. */
     FULL_AI,
 
-    /** 3GB RAM — on-device LLM with reduced context window. */
+    /** 4GB+ RAM — on-device LLM with reduced context window. */
     PARTIAL_AI,
 
     /** Below threshold — fall back to rules-based logic only. */

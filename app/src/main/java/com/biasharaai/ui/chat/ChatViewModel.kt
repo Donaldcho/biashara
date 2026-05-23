@@ -136,11 +136,10 @@ class ChatViewModel @Inject constructor(
     val sessions: StateFlow<List<ChatSessionEntity>> = _sessions.asStateFlow()
 
     init {
-        gemmaService.warmUp()
-        viewModelScope.launch(Dispatchers.IO) {
+        launchSafe(Dispatchers.IO) {
             chatSessionRepository.observeSessions().collect { _sessions.value = it }
         }
-        viewModelScope.launch(Dispatchers.IO) {
+        launchSafe(Dispatchers.IO) {
             val sid = chatSessionRepository.ensureActiveSession(
                 appContext.getString(R.string.chat_session_default_title),
             )
@@ -152,7 +151,7 @@ class ChatViewModel @Inject constructor(
     fun getSavedSkillManifestUrl(): String = remoteSkillManifestStore.getManifestUrl()
 
     fun refreshSkillManifestFromUrl(url: String, onDone: (Boolean) -> Unit) {
-        viewModelScope.launch(Dispatchers.IO) {
+        launchSafe(Dispatchers.IO) {
             val ok = remoteSkillManifestStore.fetchFromUrl(url).isSuccess
             if (ok) {
                 _remoteSkillChips.value = remoteSkillManifestStore.getCachedChips()
@@ -164,7 +163,7 @@ class ChatViewModel @Inject constructor(
     /** Open a past session from [com.biasharaai.ui.chat.ChatHistoryFragment]. */
     fun openSession(sessionId: Long) {
         stopGeneration()
-        viewModelScope.launch(Dispatchers.IO) {
+        launchSafe(Dispatchers.IO) {
             chatSessionRepository.setActiveSession(sessionId)
             val rows = chatSessionRepository.loadMessagesForUi(sessionId)
             withContext(Dispatchers.Main) { _messages.value = rows }
@@ -174,7 +173,7 @@ class ChatViewModel @Inject constructor(
     }
 
     fun deleteSession(sessionId: Long, onDone: () -> Unit) {
-        viewModelScope.launch(Dispatchers.IO) {
+        launchSafe(Dispatchers.IO) {
             chatSessionRepository.deleteSession(sessionId)
             val active = chatSessionRepository.ensureActiveSession(
                 appContext.getString(R.string.chat_session_default_title),
@@ -254,7 +253,7 @@ class ChatViewModel @Inject constructor(
         )
         _messages.value = _messages.value + userMessage
 
-        generationJob = viewModelScope.launch(Dispatchers.IO) {
+        generationJob = launchSafe(Dispatchers.IO) {
             _isThinking.value = true
             _isGenerating.value = true
 
@@ -347,7 +346,7 @@ class ChatViewModel @Inject constructor(
                     replacePlaceholder(placeholderIndex, onlineProfileUpdate, metadata)
                     persistAssistantAndFixRow(sessionId, placeholderIndex, onlineProfileUpdate, metadata)
                     injectTranscriptIntoNextGemmaPrompt = false
-                    return@launch
+                    return@launchSafe
                 }
 
                 val appHelp = maybeAnswerAppHelp(structuredQ)
@@ -360,7 +359,7 @@ class ChatViewModel @Inject constructor(
                     replacePlaceholder(placeholderIndex, appHelp, metadata)
                     persistAssistantAndFixRow(sessionId, placeholderIndex, appHelp, metadata)
                     injectTranscriptIntoNextGemmaPrompt = false
-                    return@launch
+                    return@launchSafe
                 }
 
                 val structuredPrimary = conversationalQueryLayer.tryStructuredAnswer(structuredQ, langName)
@@ -379,7 +378,7 @@ class ChatViewModel @Inject constructor(
                     replacePlaceholder(placeholderIndex, structured, metadata)
                     persistAssistantAndFixRow(sessionId, placeholderIndex, structured, metadata)
                     injectTranscriptIntoNextGemmaPrompt = false
-                    return@launch
+                    return@launchSafe
                 }
 
                 if (!gemmaService.isAvailable) {
@@ -392,7 +391,7 @@ class ChatViewModel @Inject constructor(
                     replacePlaceholder(placeholderIndex, fb, metadata)
                     persistAssistantAndFixRow(sessionId, placeholderIndex, fb, metadata)
                     injectTranscriptIntoNextGemmaPrompt = false
-                    return@launch
+                    return@launchSafe
                 }
 
                 val memoryBlock = chatMemoryRepository.buildMemoryBlockForPrompt()
@@ -459,7 +458,7 @@ class ChatViewModel @Inject constructor(
                     replacePlaceholder(placeholderIndex, msg, metadata)
                     persistAssistantAndFixRow(sessionId, placeholderIndex, msg, metadata)
                     injectTranscriptIntoNextGemmaPrompt = false
-                    return@launch
+                    return@launchSafe
                 } catch (_: TimeoutCancellationException) {
                     Log.w(TAG, "AI generation timed out after ${CHAT_MODEL_TIMEOUT_MS}ms")
                     val partial = streamed.toString().trim()
@@ -478,7 +477,7 @@ class ChatViewModel @Inject constructor(
                         persistAssistantAndFixRow(sessionId, placeholderIndex, msg, metadata)
                     }
                     injectTranscriptIntoNextGemmaPrompt = false
-                    return@launch
+                    return@launchSafe
                 } catch (cancelled: CancellationException) {
                     Log.d(TAG, "AI generation cancelled by user")
                     val partial = streamed.toString().trim()
@@ -492,7 +491,7 @@ class ChatViewModel @Inject constructor(
                     persistAssistantAndFixRow(sessionId, placeholderIndex, finalText, modelMetadata)
                     injectTranscriptIntoNextGemmaPrompt = false
                     throw cancelled
-                } catch (aiError: Exception) {
+                } catch (aiError: Throwable) {
                     Log.w(TAG, "AI inference failed, falling back to rules", aiError)
                     val fb = generateFallbackResponse(fallbackQ)
                     val metadata = ChatAnswerQuality.metadataFor(
@@ -503,7 +502,7 @@ class ChatViewModel @Inject constructor(
                     replacePlaceholder(placeholderIndex, fb, metadata)
                     persistAssistantAndFixRow(sessionId, placeholderIndex, fb, metadata)
                     injectTranscriptIntoNextGemmaPrompt = false
-                    return@launch
+                    return@launchSafe
                 }
 
                 val modelText = streamed.toString().trim()
@@ -523,8 +522,8 @@ class ChatViewModel @Inject constructor(
                 injectTranscriptIntoNextGemmaPrompt = false
             } catch (cancelled: CancellationException) {
                 throw cancelled
-            } catch (e: Exception) {
-                Log.e(TAG, "Chat response failed completely", e)
+            } catch (t: Throwable) {
+                Log.e(TAG, "Chat response failed completely", t)
                 val err = localizedContext().getString(R.string.chat_error_generic)
                 val metadata = ChatAnswerQuality.metadataFor(
                     question = fallbackQuestionForError,
@@ -583,7 +582,7 @@ class ChatViewModel @Inject constructor(
             -1 -> -1
             else -> return
         }
-        viewModelScope.launch(Dispatchers.IO) {
+        launchSafe(Dispatchers.IO) {
             chatSessionRepository.setMessageFeedback(messageId, normalized)
             val sid = chatSessionRepository.getActiveSessionIdFromStore()
             if (sid != ChatActiveSessionStore.NO_SESSION) {
@@ -598,7 +597,7 @@ class ChatViewModel @Inject constructor(
         if (messageId <= 0L || text.isBlank()) return
         if (_isGenerating.value) stopGeneration()
         val before = _messages.value.firstOrNull { it.stableId == messageId }
-        viewModelScope.launch(Dispatchers.IO) {
+        launchSafe(Dispatchers.IO) {
             chatSessionRepository.updateMessageText(messageId, text)
             enterpriseAuditRepository.record(
                 action = "CHAT_MESSAGE_EDITED",
@@ -618,7 +617,7 @@ class ChatViewModel @Inject constructor(
         if (messageId <= 0L) return
         if (_isGenerating.value) stopGeneration()
         val before = _messages.value.firstOrNull { it.stableId == messageId }
-        viewModelScope.launch(Dispatchers.IO) {
+        launchSafe(Dispatchers.IO) {
             chatSessionRepository.deleteMessage(messageId)
             enterpriseAuditRepository.record(
                 action = "CHAT_MESSAGE_DELETED",
@@ -651,7 +650,7 @@ class ChatViewModel @Inject constructor(
     /** Starts a new chat **session** (Gallery-style thread); previous sessions stay in history. */
     fun startNewChat() {
         stopGeneration()
-        viewModelScope.launch(Dispatchers.IO) {
+        launchSafe(Dispatchers.IO) {
             val title = localizedContext().getString(R.string.chat_new_session_title)
             chatSessionRepository.createSession(title)
             withContext(Dispatchers.Main.immediate) {
@@ -1441,8 +1440,8 @@ class ChatViewModel @Inject constructor(
                 // Default: useful overview instead of "try one of these"
                 else -> buildBusinessOverview(products, transactions, totalIncome, totalExpenses)
             }
-        } catch (e: Exception) {
-            Log.w(TAG, "generateFallbackResponse failed", e)
+        } catch (t: Throwable) {
+            Log.w(TAG, "generateFallbackResponse failed", t)
             localizedContext().getString(R.string.chat_fallback_generic)
         }
     }

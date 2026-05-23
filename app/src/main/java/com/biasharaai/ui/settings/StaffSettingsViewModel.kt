@@ -1,6 +1,5 @@
 package com.biasharaai.ui.settings
 
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.biasharaai.data.local.db.StaffMember
 import com.biasharaai.data.local.db.StaffMemberDao
@@ -8,6 +7,7 @@ import com.biasharaai.enterprise.EnterpriseAuditRepository
 import com.biasharaai.enterprise.EnterpriseOperatorStore
 import com.biasharaai.enterprise.EnterprisePinHasher
 import com.biasharaai.enterprise.EnterpriseRolePermissions
+import com.biasharaai.ui.base.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -18,7 +18,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
@@ -27,7 +26,7 @@ class StaffSettingsViewModel @Inject constructor(
     private val staffMemberDao: StaffMemberDao,
     private val enterpriseAuditRepository: EnterpriseAuditRepository,
     private val enterpriseOperatorStore: EnterpriseOperatorStore,
-) : ViewModel() {
+) : BaseViewModel() {
 
     val staff = staffMemberDao.getActive()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
@@ -43,11 +42,11 @@ class StaffSettingsViewModel @Inject constructor(
     }
 
     fun addStaff(name: String, role: String) {
-        viewModelScope.launch {
+        launchSafe {
             val cleanName = name.trim()
             if (cleanName.isBlank()) {
                 _events.emit(Event.InvalidName)
-                return@launch
+                return@launchSafe
             }
             val normalizedRole = EnterpriseRolePermissions.normalizeRole(role)
             val id = staffMemberDao.insert(
@@ -68,12 +67,12 @@ class StaffSettingsViewModel @Inject constructor(
     }
 
     fun setStaffPin(member: StaffMember, pin: String, selectAfterSave: Boolean) {
-        viewModelScope.launch {
+        launchSafe {
             if (!EnterprisePinHasher.isValidPin(pin)) {
                 _events.emit(Event.InvalidPinFormat)
-                return@launch
+                return@launchSafe
             }
-            val fresh = staffMemberDao.getById(member.id)?.takeIf { it.isActive } ?: return@launch
+            val fresh = staffMemberDao.getById(member.id)?.takeIf { it.isActive } ?: return@launchSafe
             val salt = EnterprisePinHasher.newSalt()
             val hash = withContext(Dispatchers.Default) { EnterprisePinHasher.hash(pin, salt) }
             val updated = fresh.copy(
@@ -97,11 +96,11 @@ class StaffSettingsViewModel @Inject constructor(
     }
 
     fun selectDeviceOperator(member: StaffMember, pin: String) {
-        viewModelScope.launch {
-            val fresh = staffMemberDao.getById(member.id)?.takeIf { it.isActive } ?: return@launch
+        launchSafe {
+            val fresh = staffMemberDao.getById(member.id)?.takeIf { it.isActive } ?: return@launchSafe
             if (fresh.pinHash.isNullOrBlank() || fresh.pinSalt.isNullOrBlank()) {
                 _events.emit(Event.PinRequired)
-                return@launch
+                return@launchSafe
             }
             val valid = withContext(Dispatchers.Default) {
                 EnterprisePinHasher.verify(pin, fresh.pinSalt, fresh.pinHash)
@@ -117,14 +116,14 @@ class StaffSettingsViewModel @Inject constructor(
                     actorRole = fresh.role,
                 )
                 _events.emit(Event.InvalidPin)
-                return@launch
+                return@launchSafe
             }
             selectDeviceOperatorInternal(fresh)
         }
     }
 
     fun clearDeviceOperator() {
-        viewModelScope.launch {
+        launchSafe {
             val previous = _selectedOperator.value
             enterpriseOperatorStore.clear()
             _selectedOperator.value = null
@@ -157,9 +156,9 @@ class StaffSettingsViewModel @Inject constructor(
     }
 
     fun updateRole(member: StaffMember, role: String) {
-        viewModelScope.launch {
+        launchSafe {
             val normalizedRole = EnterpriseRolePermissions.normalizeRole(role)
-            if (member.role == normalizedRole) return@launch
+            if (member.role == normalizedRole) return@launchSafe
             staffMemberDao.update(member.copy(role = normalizedRole))
             enterpriseAuditRepository.record(
                 action = "STAFF_ROLE_CHANGED",
@@ -173,7 +172,7 @@ class StaffSettingsViewModel @Inject constructor(
     }
 
     fun deactivate(member: StaffMember) {
-        viewModelScope.launch {
+        launchSafe {
             staffMemberDao.update(member.copy(isActive = false))
             if (_selectedOperator.value?.id == member.id) {
                 enterpriseOperatorStore.clear()
@@ -191,7 +190,7 @@ class StaffSettingsViewModel @Inject constructor(
     }
 
     private fun refreshSelectedOperator() {
-        viewModelScope.launch {
+        launchSafe {
             val selectedId = enterpriseOperatorStore.selectedStaffId()
             val member = selectedId?.let { staffMemberDao.getById(it) }?.takeIf { it.isActive }
             if (selectedId != null && member == null) {

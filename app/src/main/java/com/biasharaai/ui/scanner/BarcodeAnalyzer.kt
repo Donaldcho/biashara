@@ -80,4 +80,8 @@ class BarcodeAnalyzer(
     fun reset() {
         detected = false
     }
+
+    fun close() {
+        scanner.close()
+    }
 }

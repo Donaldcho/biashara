@@ -4,10 +4,12 @@ import android.content.Context
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.util.Log
 import androidx.core.content.ContextCompat
 import com.biasharaai.data.local.db.AppSettings
 import com.biasharaai.data.local.db.AppSettingsDao
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,6 +25,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val WARMUP_UTTERANCE_ID = "warmup"
+private const val TAG = "BiasharaTtsEngine"
 
 /**
  * On-device TTS using Android [TextToSpeech], driven by [AppSettings] voice/TTS prefs.
@@ -62,33 +65,44 @@ class BiasharaTtsEngine @Inject constructor(
 
     @Synchronized
     private fun startEngine() {
-        val engine = TextToSpeech(context) { status ->
-            _isReady.value = status == TextToSpeech.SUCCESS
-            if (_isReady.value) applySettingsWarmup()
+        val engine = try {
+            TextToSpeech(context) { status ->
+                _isReady.value = status == TextToSpeech.SUCCESS
+                if (_isReady.value) applySettingsWarmup()
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "TextToSpeech engine creation failed", t)
+            tts = null
+            _isReady.value = false
+            return
         }
-        engine.setOnUtteranceProgressListener(
-            object : UtteranceProgressListener() {
-                override fun onStart(utteranceId: String?) {
-                    if (utteranceId != WARMUP_UTTERANCE_ID) {
-                        _isSpeaking.value = true
+        runCatching {
+            engine.setOnUtteranceProgressListener(
+                object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {
+                        if (utteranceId != WARMUP_UTTERANCE_ID) {
+                            _isSpeaking.value = true
+                        }
                     }
-                }
 
-                override fun onDone(utteranceId: String?) {
-                    if (utteranceId != WARMUP_UTTERANCE_ID) {
-                        _isSpeaking.value = false
+                    override fun onDone(utteranceId: String?) {
+                        if (utteranceId != WARMUP_UTTERANCE_ID) {
+                            _isSpeaking.value = false
+                        }
                     }
-                }
 
-                @Suppress("DEPRECATION")
-                @Deprecated("Implement only until minSdk reaches the non-deprecated path exclusively")
-                override fun onError(utteranceId: String?) {
-                    if (utteranceId != WARMUP_UTTERANCE_ID) {
-                        _isSpeaking.value = false
+                    @Suppress("DEPRECATION")
+                    @Deprecated("Implement only until minSdk reaches the non-deprecated path exclusively")
+                    override fun onError(utteranceId: String?) {
+                        if (utteranceId != WARMUP_UTTERANCE_ID) {
+                            _isSpeaking.value = false
+                        }
                     }
-                }
-            },
-        )
+                },
+            )
+        }.onFailure {
+            Log.w(TAG, "TextToSpeech progress listener setup failed", it)
+        }
         tts = engine
     }
 
@@ -98,7 +112,13 @@ class BiasharaTtsEngine @Inject constructor(
         queueMode: Int = TextToSpeech.QUEUE_FLUSH,
     ) = mutex.withLock {
         val settings = withContext(Dispatchers.IO) {
-            settingsDao.getSettingsSync()
+            runCatching {
+                settingsDao.getSettingsSync()
+            }.getOrElse {
+                if (it is CancellationException) throw it
+                Log.w(TAG, "TextToSpeech settings read failed", it)
+                null
+            }
         } ?: AppSettings()
         if (!settings.ttsEnabled) return@withLock
 
@@ -111,26 +131,37 @@ class BiasharaTtsEngine @Inject constructor(
             val engine = tts
             if (!isReady || engine == null) return@withContext
 
-            val lang = languageCode ?: settings.voiceLanguageMode.let { mode ->
-                if (mode == "AUTO") "sw" else mode
+            runCatching {
+                val lang = languageCode ?: settings.voiceLanguageMode.let { mode ->
+                    if (mode == "AUTO") "sw" else mode
+                }
+                val locale = TtsLanguageMapper.toLocale(lang)
+                val available = TtsLanguageMapper.isAvailable(engine, lang)
+                engine.language = if (available) locale else Locale.ENGLISH
+                engine.setSpeechRate(settings.ttsSpeechRate.toFloat())
+                engine.setPitch(settings.ttsPitch.toFloat())
+
+                val clean = sanitiseForSpeech(text.trim(), lang)
+                if (clean.isBlank()) return@runCatching
+
+                val utteranceId = System.currentTimeMillis().toString()
+                engine.speak(clean, queueMode, Bundle.EMPTY, utteranceId)
+            }.onFailure {
+                if (it is CancellationException) throw it
+                Log.w(TAG, "TextToSpeech speak failed", it)
+                _isSpeaking.value = false
             }
-            val locale = TtsLanguageMapper.toLocale(lang)
-            val available = TtsLanguageMapper.isAvailable(engine, lang)
-            engine.language = if (available) locale else Locale.ENGLISH
-            engine.setSpeechRate(settings.ttsSpeechRate.toFloat())
-            engine.setPitch(settings.ttsPitch.toFloat())
-
-            val clean = sanitiseForSpeech(text.trim(), lang)
-            if (clean.isBlank()) return@withContext
-
-            val utteranceId = System.currentTimeMillis().toString()
-            engine.speak(clean, queueMode, Bundle.EMPTY, utteranceId)
         }
     }
 
     suspend fun stop() = mutex.withLock {
         withContext(Dispatchers.Main) {
-            tts?.stop()
+            runCatching {
+                tts?.stop()
+            }.onFailure {
+                if (it is CancellationException) throw it
+                Log.w(TAG, "TextToSpeech stop failed", it)
+            }
             _isSpeaking.value = false
         }
     }
@@ -138,21 +169,37 @@ class BiasharaTtsEngine @Inject constructor(
     @Synchronized
     fun release() {
         warmupExecutor.shutdownNow()
-        tts?.shutdown()
+        runCatching {
+            tts?.shutdown()
+        }.onFailure {
+            Log.w(TAG, "TextToSpeech shutdown failed", it)
+        }
         tts = null
         _isReady.value = false
         _isSpeaking.value = false
     }
 
     private fun applySettingsWarmup() {
-        warmupExecutor.execute {
-            val settings = runCatching { settingsDao.getSettingsSync() }.getOrNull() ?: AppSettings()
-            ContextCompat.getMainExecutor(context).execute {
-                val engine = tts ?: return@execute
-                engine.setSpeechRate(settings.ttsSpeechRate.toFloat())
-                engine.setPitch(settings.ttsPitch.toFloat())
-                engine.speak("", TextToSpeech.QUEUE_FLUSH, Bundle.EMPTY, WARMUP_UTTERANCE_ID)
+        runCatching {
+            warmupExecutor.execute {
+                val settings = runCatching { settingsDao.getSettingsSync() }.getOrNull() ?: AppSettings()
+                runCatching {
+                    ContextCompat.getMainExecutor(context).execute {
+                        val engine = tts ?: return@execute
+                        runCatching {
+                            engine.setSpeechRate(settings.ttsSpeechRate.toFloat())
+                            engine.setPitch(settings.ttsPitch.toFloat())
+                            engine.speak("", TextToSpeech.QUEUE_FLUSH, Bundle.EMPTY, WARMUP_UTTERANCE_ID)
+                        }.onFailure {
+                            Log.w(TAG, "TextToSpeech warmup failed", it)
+                        }
+                    }
+                }.onFailure {
+                    Log.w(TAG, "TextToSpeech warmup dispatch failed", it)
+                }
             }
+        }.onFailure {
+            Log.w(TAG, "TextToSpeech warmup enqueue failed", it)
         }
     }
 

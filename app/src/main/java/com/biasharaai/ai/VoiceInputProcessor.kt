@@ -8,11 +8,14 @@ import com.biasharaai.voice.TranscriptionEngine
 import com.biasharaai.voice.TranscriptionResult
 import com.biasharaai.voice.WhisperTranscriber
 import dagger.Lazy
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -34,6 +37,7 @@ class VoiceInputProcessor @Inject constructor(
 ) {
     companion object {
         private const val TAG = "VoiceInputProcessor"
+        private const val VOICE_INIT_TIMEOUT_MS = 8_000L
     }
 
     /**
@@ -41,7 +45,13 @@ class VoiceInputProcessor @Inject constructor(
      * Lazily prepares WhisperKit when voice is enabled (Gallery-style on-demand init).
      */
     suspend fun shouldUseOnDeviceAi(): Boolean = withContext(Dispatchers.IO) {
-        selectEngine(Locale.getDefault(), resolveLanguageHint(null)) != VoiceSttEngine.SPEECH_RECOGNIZER
+        runCatching {
+            selectEngine(Locale.getDefault(), resolveLanguageHint(null)) != VoiceSttEngine.SPEECH_RECOGNIZER
+        }.getOrElse {
+            if (it is CancellationException) throw it
+            Log.w(TAG, "Voice engine selection failed", it)
+            false
+        }
     }
 
     /**
@@ -49,11 +59,16 @@ class VoiceInputProcessor @Inject constructor(
      * [RecognizerIntent]).
      */
     suspend fun ensureWhisperReady(): Boolean = withContext(Dispatchers.IO) {
-        val whisper = whisperTranscriber.get()
+        val whisper = runCatching { whisperTranscriber.get() }.getOrElse {
+            if (it is CancellationException) throw it
+            Log.w(TAG, "WhisperKit creation failed", it)
+            return@withContext false
+        }
         if (whisper.isAvailable()) return@withContext true
         runCatching {
             whisper.initialize()
         }.onFailure {
+            if (it is CancellationException) throw it
             Log.w(TAG, "WhisperKit initialize failed", it)
         }.isSuccess && whisper.isAvailable()
     }
@@ -66,8 +81,16 @@ class VoiceInputProcessor @Inject constructor(
         languageHint: String? = null,
     ): Flow<VoiceInputEvent> = channelFlow {
         send(VoiceInputEvent.Listening)
-        val hint = resolveLanguageHint(languageHint)
-        val engine = selectEngine(locale, hint)
+        val hint = runCatching { resolveLanguageHint(languageHint) }.getOrElse {
+            if (it is CancellationException) throw it
+            Log.w(TAG, "Voice language selection failed", it)
+            languageHint
+        }
+        val engine = runCatching { selectEngine(locale, hint) }.getOrElse {
+            if (it is CancellationException) throw it
+            Log.w(TAG, "Voice engine selection failed", it)
+            VoiceSttEngine.SPEECH_RECOGNIZER
+        }
         send(VoiceInputEvent.EngineSelected(engine))
         when (engine) {
             VoiceSttEngine.SPEECH_RECOGNIZER -> {
@@ -75,42 +98,65 @@ class VoiceInputProcessor @Inject constructor(
                 return@channelFlow
             }
             VoiceSttEngine.WHISPER -> {
-                val audioFlow = audioCaptureHelper.startRecording()
-                whisperTranscriber.get().transcribeStream(audioFlow, hint).collect { r ->
-                    send(
-                        if (r.isPartial) {
-                            VoiceInputEvent.PartialTranscription(r.text)
-                        } else {
-                            VoiceInputEvent.FinalTranscription(r)
-                        },
-                    )
+                val ready = runCatching { ensureWhisperReady() }.getOrElse {
+                    if (it is CancellationException) throw it
+                    Log.w(TAG, "Whisper readiness failed", it)
+                    false
+                }
+                if (!ready) {
+                    send(VoiceInputEvent.UseSpeechRecognizerFallback)
+                    return@channelFlow
+                }
+                try {
+                    val audioFlow = audioCaptureHelper.startRecording()
+                    whisperTranscriber.get().transcribeStream(audioFlow, hint).collect { r ->
+                        send(
+                            if (r.isPartial) {
+                                VoiceInputEvent.PartialTranscription(r.text)
+                            } else {
+                                VoiceInputEvent.FinalTranscription(r)
+                            },
+                        )
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (t: Throwable) {
+                    Log.w(TAG, "Whisper streaming failed", t)
+                    send(VoiceInputEvent.UseSpeechRecognizerFallback)
                 }
             }
             VoiceSttEngine.GEMMA_3N -> {
-                val all = ArrayList<Short>(64_000)
-                audioCaptureHelper.startRecording().collect { chunk ->
-                    val data = chunk.pcmData
-                    for (i in data.indices) all.add(data[i])
-                }
-                val text = transcribePcmWithGemma(all.toShortArray(), locale, hint)
-                if (!text.isNullOrBlank()) {
-                    send(
-                        VoiceInputEvent.FinalTranscription(
-                            TranscriptionResult(
-                                text = text,
-                                language = hint ?: locale.language,
-                                confidence = 1f,
-                                isPartial = false,
-                                engine = TranscriptionEngine.GEMMA_3N,
+                try {
+                    val all = ArrayList<Short>(64_000)
+                    audioCaptureHelper.startRecording().collect { chunk ->
+                        val data = chunk.pcmData
+                        for (i in data.indices) all.add(data[i])
+                    }
+                    val text = transcribePcmWithGemma(all.toShortArray(), locale, hint)
+                    if (!text.isNullOrBlank()) {
+                        send(
+                            VoiceInputEvent.FinalTranscription(
+                                TranscriptionResult(
+                                    text = text,
+                                    language = hint ?: locale.language,
+                                    confidence = 1f,
+                                    isPartial = false,
+                                    engine = TranscriptionEngine.GEMMA_3N,
+                                ),
                             ),
-                        ),
-                    )
-                } else {
-                    send(
-                        VoiceInputEvent.Error(
-                            "Gemma audio transcription is not available in this build (text-only LiteRT).",
-                        ),
-                    )
+                        )
+                    } else {
+                        send(
+                            VoiceInputEvent.Error(
+                                "Gemma audio transcription is not available in this build (text-only LiteRT).",
+                            ),
+                        )
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (t: Throwable) {
+                    Log.w(TAG, "Gemma audio streaming failed", t)
+                    send(VoiceInputEvent.Error("Audio transcription failed. Please try again."))
                 }
             }
         }
@@ -124,8 +170,17 @@ class VoiceInputProcessor @Inject constructor(
         locale: Locale = Locale.getDefault(),
         durationMs: Long = AudioCaptureHelper.DEFAULT_DURATION_MS,
     ): String? = withContext(Dispatchers.IO) {
-        val hint = resolveLanguageHint(null)
-        when (val engine = selectEngine(locale, hint)) {
+        val hint = runCatching { resolveLanguageHint(null) }.getOrElse {
+            if (it is CancellationException) throw it
+            Log.w(TAG, "Voice language selection failed", it)
+            null
+        }
+        val engine = runCatching { selectEngine(locale, hint) }.getOrElse {
+            if (it is CancellationException) throw it
+            Log.w(TAG, "Voice engine selection failed", it)
+            VoiceSttEngine.SPEECH_RECOGNIZER
+        }
+        when (engine) {
             VoiceSttEngine.SPEECH_RECOGNIZER -> null
             VoiceSttEngine.GEMMA_3N -> transcribeWithGemmaPath(locale, durationMs, hint)
             VoiceSttEngine.WHISPER -> transcribeWithWhisperPath(locale, durationMs, hint)
@@ -137,7 +192,16 @@ class VoiceInputProcessor @Inject constructor(
         durationMs: Long,
         hint: String?,
     ): String? {
-        if (!ensureWhisperReady()) return null
+        val ready = runCatching {
+            withTimeout(VOICE_INIT_TIMEOUT_MS) {
+                ensureWhisperReady()
+            }
+        }.getOrElse {
+            if (it is CancellationException && it !is TimeoutCancellationException) throw it
+            Log.w(TAG, "Whisper readiness timed out or failed", it)
+            false
+        }
+        if (!ready) return null
         var latest = ""
         runCatching {
             val cap = durationMs.coerceIn(1_000L, AudioCaptureHelper.MAX_STREAM_DURATION_MS)
@@ -147,7 +211,10 @@ class VoiceInputProcessor @Inject constructor(
             ).collect { r ->
                 if (r.text.isNotBlank()) latest = r.text.trim()
             }
-        }.onFailure { Log.w(TAG, "Whisper transcription failed", it) }
+        }.onFailure {
+            if (it is CancellationException) throw it
+            Log.w(TAG, "Whisper transcription failed", it)
+        }
         return latest.takeIf { it.isNotEmpty() }
     }
 
@@ -166,6 +233,7 @@ class VoiceInputProcessor @Inject constructor(
             }
             transcribePcmWithGemma(all.toShortArray(), locale, hint)?.trim()?.takeIf { it.isNotEmpty() }
         }.getOrElse {
+            if (it is CancellationException) throw it
             Log.w(TAG, "Gemma audio path failed", it)
             null
         }

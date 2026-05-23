@@ -1,7 +1,7 @@
 package com.biasharaai.ui.agent
 
 import android.content.Context
-import androidx.lifecycle.ViewModel
+import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.biasharaai.R
 import com.biasharaai.agent.AgentActionExecutor
@@ -14,9 +14,11 @@ import com.biasharaai.data.local.db.AgentAdviceFeedbackDao
 import com.biasharaai.data.local.db.AppSettingsDao
 import com.biasharaai.data.local.db.BusinessKpiSnapshot
 import com.biasharaai.data.local.db.BusinessKpiSnapshotDao
+import com.biasharaai.ui.base.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -65,7 +67,7 @@ class AgentFeedViewModel @Inject constructor(
     private val businessKpiSnapshotDao: BusinessKpiSnapshotDao,
     private val agentOrchestrator: AgentOrchestrator,
     private val agentActionExecutor: AgentActionExecutor,
-) : ViewModel() {
+) : BaseViewModel() {
 
     private val executingId = MutableStateFlow<Long?>(null)
     private val refreshInProgress = MutableStateFlow(false)
@@ -153,7 +155,7 @@ class AgentFeedViewModel @Inject constructor(
     fun refreshAgents() {
         if (refreshInProgress.value) return
         refreshInProgress.value = true
-        viewModelScope.launch {
+        launchSafe {
             try {
                 val now = System.currentTimeMillis()
                 withContext(Dispatchers.IO) {
@@ -162,6 +164,10 @@ class AgentFeedViewModel @Inject constructor(
                 }
                 agentOrchestrator.runAllNow()
                 delay(MIN_REFRESH_INTERVAL_MS)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Throwable) {
+                Log.w(TAG, "Agent refresh failed", t)
             } finally {
                 refreshInProgress.value = false
             }
@@ -169,13 +175,16 @@ class AgentFeedViewModel @Inject constructor(
     }
 
     fun approve(action: AgentAction) {
-        viewModelScope.launch {
+        launchSafe {
             executingId.value = action.id
             val result = try {
                 withContext(Dispatchers.IO) {
                     agentActionExecutor.execute(action)
                 }
-            } catch (e: Exception) {
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (e: Throwable) {
+                Log.w(TAG, "Agent action approval failed", e)
                 ExecutionResult.Error(e.localizedMessage)
             }
             executingId.value = null
@@ -203,19 +212,19 @@ class AgentFeedViewModel @Inject constructor(
     }
 
     fun markExecutedAfterNavigation(actionId: Long) {
-        viewModelScope.launch(Dispatchers.IO) {
+        launchSafe(Dispatchers.IO) {
             agentActionDao.updateStatus(actionId, "EXECUTED")
         }
     }
 
     fun reject(action: AgentAction) {
-        viewModelScope.launch(Dispatchers.IO) {
+        launchSafe(Dispatchers.IO) {
             agentActionDao.updateStatus(action.id, "DISMISSED")
         }
     }
 
     fun submitFeedback(action: AgentAction, helpful: Boolean) {
-        viewModelScope.launch(Dispatchers.IO) {
+        launchSafe(Dispatchers.IO) {
             val now = System.currentTimeMillis()
             agentAdviceFeedbackDao.upsert(
                 AgentAdviceFeedback(
@@ -237,13 +246,13 @@ class AgentFeedViewModel @Inject constructor(
     }
 
     fun dismiss(action: AgentAction) {
-        viewModelScope.launch(Dispatchers.IO) {
+        launchSafe(Dispatchers.IO) {
             agentActionDao.updateStatus(action.id, "DISMISSED")
         }
     }
 
     fun snooze(action: AgentAction) {
-        viewModelScope.launch(Dispatchers.IO) {
+        launchSafe(Dispatchers.IO) {
             val until = System.currentTimeMillis() + 24L * 60 * 60 * 1000
             agentActionDao.updateExpiresAt(action.id, until)
         }
@@ -359,6 +368,7 @@ class AgentFeedViewModel @Inject constructor(
     }
 
     companion object {
+        private const val TAG = "AgentFeedViewModel"
         private const val MAX_FEED_ROWS = 20
         private const val BRIEF_KPI_WEEKS = 4
         private const val MIN_REFRESH_INTERVAL_MS = 3_000L

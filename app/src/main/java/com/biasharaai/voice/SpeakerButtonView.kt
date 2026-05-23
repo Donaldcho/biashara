@@ -6,6 +6,7 @@ import android.content.ContextWrapper
 import android.content.res.ColorStateList
 import android.speech.tts.TextToSpeech
 import android.util.AttributeSet
+import android.util.Log
 import android.view.LayoutInflater
 import android.widget.FrameLayout
 import androidx.core.content.withStyledAttributes
@@ -16,6 +17,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.biasharaai.R
 import com.google.android.material.button.MaterialButton
 import dagger.hilt.android.EntryPointAccessors
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collectLatest
@@ -41,6 +44,9 @@ class SpeakerButtonView @JvmOverloads constructor(
     private var boundLanguageCode: String? = null
     private var boundQueueMode: Int = TextToSpeech.QUEUE_FLUSH
     private var speakingCollectJob: Job? = null
+    private val ttsCrashHandler = CoroutineExceptionHandler { _, throwable ->
+        Log.w(TAG, "Speaker button coroutine failed", throwable)
+    }
 
     init {
         LayoutInflater.from(context).inflate(R.layout.view_speaker_button, this, true)
@@ -79,7 +85,8 @@ class SpeakerButtonView @JvmOverloads constructor(
         super.onAttachedToWindow()
         val owner = findViewTreeLifecycleOwner() ?: return
         val engine = resolveTts() ?: return
-        speakingCollectJob = owner.lifecycleScope.launch {
+        speakingCollectJob?.cancel()
+        speakingCollectJob = owner.lifecycleScope.launch(ttsCrashHandler) {
             owner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 engine.isSpeaking.collectLatest { speaking ->
                     button.contentDescription = if (speaking) {
@@ -111,14 +118,24 @@ class SpeakerButtonView @JvmOverloads constructor(
         val owner = findViewTreeLifecycleOwner() ?: return
         val text = boundText.trim()
         if (text.isEmpty()) return
-        owner.lifecycleScope.launch {
-            when {
-                boundQueueMode == TextToSpeech.QUEUE_ADD -> {
-                    engine.speak(text, boundLanguageCode, TextToSpeech.QUEUE_ADD)
+        owner.lifecycleScope.launch(ttsCrashHandler) {
+            try {
+                when {
+                    boundQueueMode == TextToSpeech.QUEUE_ADD -> {
+                        engine.speak(text, boundLanguageCode, TextToSpeech.QUEUE_ADD)
+                    }
+                    engine.isSpeaking.value -> engine.stop()
+                    else -> engine.speak(text, boundLanguageCode, boundQueueMode)
                 }
-                engine.isSpeaking.value -> engine.stop()
-                else -> engine.speak(text, boundLanguageCode, boundQueueMode)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Throwable) {
+                Log.w(TAG, "Speaker button action failed", t)
             }
         }
+    }
+
+    companion object {
+        private const val TAG = "SpeakerButtonView"
     }
 }
