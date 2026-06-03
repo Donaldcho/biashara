@@ -69,16 +69,34 @@
 
     </LinearLayout>
 
-    <!-- Row 3: QR card generator -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_print_qr"
-        style="@style/Widget.Material3.Button.TextButton"
+    <!-- Row 3: assisted capture actions -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
-        android:text="@string/cash_quick_print_qr"
-        android:textSize="12sp"
-        app:icon="@drawable/ic_barcode"
-        app:iconSize="16dp" />
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_paste_sms"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="4dp"
+            android:layout_weight="1"
+            android:text="@string/cash_quick_paste_sms"
+            android:textSize="12sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_print_qr"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:layout_weight="1"
+            android:text="@string/cash_quick_print_qr"
+            android:textSize="12sp"
+            app:icon="@drawable/ic_barcode"
+            app:iconSize="16dp" />
+    </LinearLayout>
 
 </merge>

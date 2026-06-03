@@ -12,6 +12,7 @@ import com.biasharaai.chat.query.ConversationalQueryLayer
 import com.biasharaai.chat.skills.RemoteSkillManifestStore
 import com.biasharaai.chat.skills.WikipediaSkillClient
 import com.biasharaai.chat.vision.ImageChatAnalyzer
+import com.biasharaai.cloud.CloudAiAugmentationCoordinator
 import com.biasharaai.data.ChatActiveSessionStore
 import com.biasharaai.data.ChatQueryHistoryStore
 import com.biasharaai.data.local.db.ChatMemoryRepository
@@ -75,6 +76,7 @@ class ChatViewModel @Inject constructor(
     private val inferenceSettingsStore: InferenceSettingsStore,
     private val chatQueryHistoryStore: ChatQueryHistoryStore,
     private val enterpriseAuditRepository: EnterpriseAuditRepository,
+    private val cloudAiAugmentationCoordinator: CloudAiAugmentationCoordinator,
 ) : BaseViewModel() {
 
     /**
@@ -381,6 +383,27 @@ class ChatViewModel @Inject constructor(
                     return@launchSafe
                 }
 
+                val cloudAnswer = cloudAiAugmentationCoordinator.maybeAnswer(
+                    userQuestion = structuredQ,
+                    languageName = langName,
+                    visualSummary = visualSummary,
+                    localModelAvailable = gemmaService.isAvailable,
+                ) {
+                    buildBusinessContext(catalogQuery, visualSummary)
+                }
+                if (cloudAnswer != null) {
+                    val body = cloudAnswer.toChatText()
+                    val metadata = ChatAnswerQuality.metadataFor(
+                        question = fallbackQ,
+                        source = ChatAnswerSource.CLOUD_AI,
+                        hasImage = !imageAbsolutePath.isNullOrBlank(),
+                    )
+                    replacePlaceholder(placeholderIndex, body, metadata)
+                    persistAssistantAndFixRow(sessionId, placeholderIndex, body, metadata)
+                    injectTranscriptIntoNextGemmaPrompt = false
+                    return@launchSafe
+                }
+
                 if (!gemmaService.isAvailable) {
                     val fb = generateFallbackResponse(fallbackQ)
                     val metadata = ChatAnswerQuality.metadataFor(
@@ -582,12 +605,16 @@ class ChatViewModel @Inject constructor(
             -1 -> -1
             else -> return
         }
+        val index = _messages.value.indexOfFirst { it.stableId == messageId }
+        if (index < 0) return
+        val list = _messages.value.toMutableList()
+        list[index] = list[index].copy(feedbackVote = normalized)
+        _messages.value = list
         launchSafe(Dispatchers.IO) {
-            chatSessionRepository.setMessageFeedback(messageId, normalized)
-            val sid = chatSessionRepository.getActiveSessionIdFromStore()
-            if (sid != ChatActiveSessionStore.NO_SESSION) {
-                val rows = chatSessionRepository.loadMessagesForUi(sid)
-                withContext(Dispatchers.Main.immediate) { _messages.value = rows }
+            runCatching {
+                chatSessionRepository.setMessageFeedback(messageId, normalized)
+            }.onFailure {
+                Log.e(TAG, "Failed to persist chat feedback for message $messageId", it)
             }
         }
     }

@@ -30,9 +30,10 @@ The AI understands Swahili queries:
 
 ## How Responses Work
 
-- Answers are generated on-device using the downloaded AI model. No internet is needed.
+- Answers are generated on-device using the downloaded AI model. No internet is needed by default.
 - For data queries, the AI pulls figures directly from your local database — answers are accurate.
 - For general business advice, the AI uses its built-in knowledge. Always verify important decisions.
+- If optional cloud AI is enabled in Settings, Chat can ask your configured gateway for Claude-style reasoning or internet research. Business context is sent only when that separate setting is enabled.
 
 ## Conversation History
 
@@ -44,6 +45,6 @@ Tap the **microphone** icon next to the text field to dictate your question inst
 
 ## Limitations
 
-- The AI cannot make purchases, send money, or access the internet.
+- The AI cannot make purchases or send money. Internet access is available only through the optional cloud AI gateway setting.
 - Very complex multi-step calculations may take a few seconds — the on-device model needs processing time.
 - If the AI is unsure of an answer, it will say so rather than guess.

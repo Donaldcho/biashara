@@ -3,6 +3,7 @@
     <!-- Secrets -->
     <exclude domain="sharedpref" path="huggingface_auth.xml" />
     <exclude domain="sharedpref" path="cloud_analysis_prefs.xml" />
+    <exclude domain="sharedpref" path="cloud_ai_augmentation_prefs.xml" />
     <exclude domain="sharedpref" path="inference_edge_gallery_prefs.xml" />
 
     <!-- Business PII / operational data (restore via in-app export if needed) -->

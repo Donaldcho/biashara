@@ -68,7 +68,8 @@ class ManualEntryFragment : BaseFragment() {
             refreshCategories(direction)
         }
 
-        binding.btnSave.setOnClickListener { doSave() }
+        binding.btnSave.setOnClickListener { doSave(saveAsDraft = false) }
+        binding.btnSaveDraft.setOnClickListener { doSave(saveAsDraft = true) }
 
         viewLifecycleOwner.lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -84,8 +85,10 @@ class ManualEntryFragment : BaseFragment() {
                     val b = _binding ?: return@collect
                     b.progressSaving.isVisible = state is ConfirmationUiState.Saving
                     b.btnSave.isEnabled = state !is ConfirmationUiState.Saving
+                    b.btnSaveDraft.isEnabled = state !is ConfirmationUiState.Saving
                     when (state) {
                         is ConfirmationUiState.Saved -> findNavController().navigateUp()
+                        is ConfirmationUiState.DraftSaved -> findNavController().navigateUp()
                         is ConfirmationUiState.Error ->
                             Snackbar.make(b.root, state.message, Snackbar.LENGTH_LONG).show()
                         else -> Unit
@@ -110,7 +113,7 @@ class ManualEntryFragment : BaseFragment() {
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun doSave() {
+    private fun doSave(saveAsDraft: Boolean) {
         val b = _binding ?: return
         val amount = b.etAmount.text?.toString()?.toDoubleOrNull()
         if (amount == null || amount <= 0) {
@@ -129,21 +132,41 @@ class ManualEntryFragment : BaseFragment() {
         val items = b.actvCategory.tag as? List<Pair<String, LedgerEntryType>>
         val type = items?.firstOrNull { it.first == categoryLabel }?.second ?: LedgerEntryType.OTHER_INCOME
 
-        viewModel.save(
-            direction = direction,
-            type = type,
-            amount = amount,
-            description = categoryLabel,
-            notes = b.etNotes.text?.toString()?.takeIf { it.isNotBlank() },
-            captureMethod = CaptureMethod.MANUAL,
-            proofType = ProofType.UNKNOWN,
-            rawText = null,
-            parsedReference = ref,
-            parsedCounterparty = b.etCounterparty.text?.toString()?.trim()?.takeIf { it.isNotBlank() },
-            parsedDate = null,
-            parserConfidence = 0f,
-            parserEngine = ParserEngine.MANUAL,
-        )
+        val notes = b.etNotes.text?.toString()?.takeIf { it.isNotBlank() }
+        val parsedCounterparty = b.etCounterparty.text?.toString()?.trim()?.takeIf { it.isNotBlank() }
+        if (saveAsDraft) {
+            viewModel.saveDraft(
+                direction = direction,
+                type = type,
+                amount = amount,
+                description = categoryLabel,
+                notes = notes,
+                captureMethod = CaptureMethod.MANUAL,
+                proofType = ProofType.UNKNOWN,
+                rawText = null,
+                parsedReference = ref,
+                parsedCounterparty = parsedCounterparty,
+                parsedDate = null,
+                parserConfidence = 0f,
+                parserEngine = ParserEngine.MANUAL,
+            )
+        } else {
+            viewModel.save(
+                direction = direction,
+                type = type,
+                amount = amount,
+                description = categoryLabel,
+                notes = notes,
+                captureMethod = CaptureMethod.MANUAL,
+                proofType = ProofType.UNKNOWN,
+                rawText = null,
+                parsedReference = ref,
+                parsedCounterparty = parsedCounterparty,
+                parsedDate = null,
+                parserConfidence = 0f,
+                parserEngine = ParserEngine.MANUAL,
+            )
+        }
     }
 
     private fun buildInItems() = buildList {

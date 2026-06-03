@@ -24,6 +24,7 @@ sealed interface ConfirmationUiState {
     data object Idle : ConfirmationUiState
     data object Saving : ConfirmationUiState
     data class Saved(val ledgerEntryId: Long) : ConfirmationUiState
+    data class DraftSaved(val draftId: Long) : ConfirmationUiState
     data class Error(val message: String) : ConfirmationUiState
 }
 
@@ -78,6 +79,49 @@ class ConfirmationViewModel @Inject constructor(
                 )
             }.fold(
                 onSuccess = { result -> _uiState.value = ConfirmationUiState.Saved(result.ledgerEntryId) },
+                onFailure = { e -> _uiState.value = ConfirmationUiState.Error(e.localizedMessage ?: "Save failed") },
+            )
+        }
+    }
+
+    fun saveDraft(
+        direction: LedgerDirection,
+        type: LedgerEntryType,
+        amount: Double,
+        description: String,
+        notes: String?,
+        captureMethod: CaptureMethod,
+        proofType: ProofType,
+        rawText: String?,
+        parsedReference: String?,
+        parsedCounterparty: String?,
+        parsedDate: Long?,
+        parserConfidence: Float,
+        parserEngine: ParserEngine,
+    ) {
+        if (_uiState.value is ConfirmationUiState.Saving) return
+        _uiState.value = ConfirmationUiState.Saving
+        viewModelScope.launch {
+            runCatching {
+                repository.saveDraft(
+                    CashMovementRequest(
+                        direction = direction,
+                        type = type,
+                        amount = amount,
+                        description = description,
+                        notes = notes,
+                        captureMethod = captureMethod,
+                        proofType = proofType,
+                        rawText = rawText,
+                        parsedReference = parsedReference,
+                        parsedCounterparty = parsedCounterparty,
+                        parsedDate = parsedDate,
+                        parserConfidence = parserConfidence,
+                        parserEngine = parserEngine,
+                    ),
+                )
+            }.fold(
+                onSuccess = { result -> _uiState.value = ConfirmationUiState.DraftSaved(result.draftId) },
                 onFailure = { e -> _uiState.value = ConfirmationUiState.Error(e.localizedMessage ?: "Save failed") },
             )
         }

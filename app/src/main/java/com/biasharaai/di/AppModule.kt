@@ -18,6 +18,7 @@ import com.biasharaai.data.local.db.AgentActionDao
 import com.biasharaai.data.local.db.AgentAdviceFeedbackDao
 import com.biasharaai.data.local.db.AgentRunLogDao
 import com.biasharaai.data.local.db.ModelDescriptorDao
+import com.biasharaai.data.local.db.MoneyDraftDao
 import com.biasharaai.data.local.db.PendingNotificationDao
 import com.biasharaai.data.local.db.SkillDescriptorDao
 import com.biasharaai.data.local.db.SkillPackRecordDao
@@ -188,6 +189,9 @@ object AppModule {
 
     @Provides
     fun provideCashMovementEvidenceDao(database: AppDatabase): com.biasharaai.data.local.db.CashMovementEvidenceDao = database.cashMovementEvidenceDao()
+
+    @Provides
+    fun provideMoneyDraftDao(database: AppDatabase): MoneyDraftDao = database.moneyDraftDao()
 
     @Provides
     fun provideServiceItemDao(database: AppDatabase): ServiceItemDao = database.serviceItemDao()

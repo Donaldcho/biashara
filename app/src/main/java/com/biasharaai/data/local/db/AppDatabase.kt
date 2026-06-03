@@ -45,8 +45,9 @@ import androidx.room.RoomDatabase
         EnterpriseBranch::class,
         EnterpriseSyncOutboxItem::class,
         EnterpriseStockMovement::class,
+        MoneyDraft::class,
     ],
-    version = 40,
+    version = 41,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -94,6 +95,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun featureMasteryDao(): FeatureMasteryDao
 
     abstract fun cashMovementEvidenceDao(): CashMovementEvidenceDao
+
+    abstract fun moneyDraftDao(): MoneyDraftDao
 
     abstract fun serviceItemDao(): ServiceItemDao
 

@@ -9,6 +9,9 @@ import com.biasharaai.ai.GemmaService
 import com.biasharaai.ai.InferenceSettingsStore
 import com.biasharaai.ai.ModelDownloadManager
 import com.biasharaai.cloud.BusinessAnalyticsJsonExporter
+import com.biasharaai.cloud.CloudAiAugmentationSettings
+import com.biasharaai.cloud.CloudAiAugmentationSettingsStore
+import com.biasharaai.cloud.CloudAiGatewayPolicy
 import com.biasharaai.cloud.CloudAnalysisHttpClient
 import com.biasharaai.cloud.CloudAnalysisSettings
 import com.biasharaai.cloud.CloudAnalysisSettingsStore
@@ -59,6 +62,7 @@ class SettingsViewModel @Inject constructor(
     private val gemmaService: GemmaService,
     val inferenceSettingsStore: InferenceSettingsStore,
     private val appSettingsDao: AppSettingsDao,
+    private val cloudAiAugmentationSettingsStore: CloudAiAugmentationSettingsStore,
     private val cloudAnalysisSettingsStore: CloudAnalysisSettingsStore,
     private val businessAnalyticsJsonExporter: BusinessAnalyticsJsonExporter,
     private val cloudAnalysisHttpClient: CloudAnalysisHttpClient,
@@ -211,6 +215,9 @@ class SettingsViewModel @Inject constructor(
     private val _cloudSettings = MutableStateFlow(cloudAnalysisSettingsStore.load())
     val cloudSettings: StateFlow<CloudAnalysisSettings> = _cloudSettings.asStateFlow()
 
+    private val _cloudAiSettings = MutableStateFlow(cloudAiAugmentationSettingsStore.load())
+    val cloudAiSettings: StateFlow<CloudAiAugmentationSettings> = _cloudAiSettings.asStateFlow()
+
     val enterpriseDevices = enterpriseAuditRepository.observeRegisteredDevices()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -231,6 +238,53 @@ class SettingsViewModel @Inject constructor(
 
     private val _isEnterpriseDiscovering = MutableStateFlow(false)
     val isEnterpriseDiscovering: StateFlow<Boolean> = _isEnterpriseDiscovering.asStateFlow()
+
+    fun saveCloudAiAugmentation(
+        enabled: Boolean,
+        internetResearchEnabled: Boolean,
+        sendBusinessContext: Boolean,
+        useForGeneralChat: Boolean,
+        gatewayUrl: String,
+        newGatewayTokenIfNonBlank: String?,
+    ) {
+        launchSafe(Dispatchers.IO) {
+            val trimmedUrl = gatewayUrl.trim()
+            if (enabled && trimmedUrl.isBlank()) {
+                _events.emit(Event.CloudAiSettingsFailed(CLOUD_AI_ERR_MISSING_GATEWAY))
+                return@launchSafe
+            }
+            if (enabled && !CloudAiGatewayPolicy.isAllowed(trimmedUrl)) {
+                _events.emit(Event.CloudAiSettingsFailed(CLOUD_AI_ERR_INVALID_GATEWAY))
+                return@launchSafe
+            }
+            val effectiveInternetResearch = enabled && internetResearchEnabled
+            val effectiveBusinessContext = enabled && sendBusinessContext
+            val effectiveGeneralChat = enabled && useForGeneralChat
+            cloudAiAugmentationSettingsStore.save(
+                enabled = enabled,
+                internetResearchEnabled = effectiveInternetResearch,
+                sendBusinessContext = effectiveBusinessContext,
+                useForGeneralChat = effectiveGeneralChat,
+                gatewayUrl = trimmedUrl,
+                newGatewayTokenIfNonBlank = newGatewayTokenIfNonBlank,
+            )
+            _cloudAiSettings.value = cloudAiAugmentationSettingsStore.load()
+            runCatching {
+                enterpriseAuditRepository.record(
+                    action = "CLOUD_AI_AUGMENTATION_SAVED",
+                    entityType = "AI_SETTINGS",
+                    entityId = "optional_cloud_ai",
+                    summary = "Optional cloud AI augmentation settings saved",
+                    metadata = "enabled=$enabled; internet=$effectiveInternetResearch; " +
+                        "businessContext=$effectiveBusinessContext; general=$effectiveGeneralChat; " +
+                        "gatewayConfigured=${trimmedUrl.isNotBlank()}",
+                )
+            }.onFailure {
+                Log.w(TAG, "Cloud AI settings audit record failed", it)
+            }
+            _events.emit(Event.CloudAiSettingsSaved)
+        }
+    }
 
     fun saveCloudAnalysis(enabled: Boolean, endpointUrl: String, newApiKeyIfNonBlank: String?) {
         saveCloudAnalysis(
@@ -635,6 +689,8 @@ class SettingsViewModel @Inject constructor(
             val tokensPerSecond: Double,
         ) : Event()
         data class BenchmarkFailed(val message: String) : Event()
+        data object CloudAiSettingsSaved : Event()
+        data class CloudAiSettingsFailed(val message: String) : Event()
         data object CloudSettingsSaved : Event()
         data object CloudUploadSucceeded : Event()
         data class CloudUploadFailed(val message: String) : Event()
@@ -678,6 +734,8 @@ class SettingsViewModel @Inject constructor(
 
     companion object {
         private const val TAG = "SettingsViewModel"
+        const val CLOUD_AI_ERR_MISSING_GATEWAY = "__cloud_ai_missing_gateway__"
+        const val CLOUD_AI_ERR_INVALID_GATEWAY = "__cloud_ai_invalid_gateway__"
         const val CLOUD_ERR_NOT_ENABLED = "__cloud_not_enabled__"
         const val CLOUD_ERR_MISSING_URL = "__cloud_missing_url__"
         const val CLOUD_ERR_MISSING_KEY = "__cloud_missing_key__"

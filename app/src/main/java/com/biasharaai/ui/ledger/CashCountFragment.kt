@@ -66,6 +66,7 @@ class CashCountFragment : BaseFragment() {
                                     Snackbar.LENGTH_LONG,
                                 ).show()
                             }
+                            else -> Unit
                         }
                     }
                 }

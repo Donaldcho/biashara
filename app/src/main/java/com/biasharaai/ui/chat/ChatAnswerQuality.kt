@@ -15,6 +15,7 @@ enum class ChatAnswerSource {
     IMAGE_PLUS_AI,
     APP_KNOWLEDGE,
     ONLINE_SOURCE,
+    CLOUD_AI,
 }
 
 object ChatAnswerQuality {
@@ -60,6 +61,10 @@ object ChatAnswerQuality {
                 tags += "Online source"
                 tags += "Profile update"
             }
+            ChatAnswerSource.CLOUD_AI -> {
+                tags += "Optional cloud AI"
+                tags += "Gateway"
+            }
         }
 
         if (hasImage) tags += "Photo"
@@ -75,6 +80,7 @@ object ChatAnswerQuality {
             ChatAnswerSource.IMAGE_PLUS_AI -> "Review extracted image details"
             ChatAnswerSource.APP_KNOWLEDGE -> "App guide"
             ChatAnswerSource.ONLINE_SOURCE -> "Review saved fields"
+            ChatAnswerSource.CLOUD_AI -> "Check sources before acting"
         }
 
         return ChatAnswerMetadata(

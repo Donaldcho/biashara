@@ -2,7 +2,7 @@
 feature_id: model_settings
 language: en
 
-BiasharaAI uses on-device AI models for chat, voice transcription, and agent analysis. All processing happens on your phone — your business data is never sent to a cloud server.
+BiasharaAI uses on-device AI models for chat, voice transcription, and agent analysis. All processing happens on your phone by default. Optional cloud AI can be enabled separately in Settings, and business context is sent only when the owner allows it.
 
 ## Viewing Your Current Model
 

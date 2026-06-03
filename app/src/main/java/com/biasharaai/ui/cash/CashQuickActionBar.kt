@@ -19,6 +19,7 @@ class CashQuickActionBar @JvmOverloads constructor(
     var onScanOut: (() -> Unit)? = null
     var onAddIn: (() -> Unit)? = null
     var onAddOut: (() -> Unit)? = null
+    var onPasteSms: (() -> Unit)? = null
     var onPrintQr: (() -> Unit)? = null
 
     init {
@@ -26,6 +27,7 @@ class CashQuickActionBar @JvmOverloads constructor(
         binding.btnScanOut.setOnClickListener { onScanOut?.invoke() }
         binding.btnAddIn.setOnClickListener { onAddIn?.invoke() }
         binding.btnAddOut.setOnClickListener { onAddOut?.invoke() }
+        binding.btnPasteSms.setOnClickListener { onPasteSms?.invoke() }
         binding.btnPrintQr.setOnClickListener { onPrintQr?.invoke() }
     }
 
@@ -34,12 +36,14 @@ class CashQuickActionBar @JvmOverloads constructor(
         onScanOut = { navigate(CashDestination.Scan(LedgerDirection.MONEY_OUT)) }
         onAddIn = { navigate(CashDestination.Manual(LedgerDirection.MONEY_IN)) }
         onAddOut = { navigate(CashDestination.Manual(LedgerDirection.MONEY_OUT)) }
+        onPasteSms = { navigate(CashDestination.SmsImport) }
         onPrintQr = { navigate(CashDestination.QrGenerator) }
     }
 
     sealed interface CashDestination {
         data class Scan(val direction: LedgerDirection) : CashDestination
         data class Manual(val direction: LedgerDirection) : CashDestination
+        data object SmsImport : CashDestination
         data object QrGenerator : CashDestination
     }
 }

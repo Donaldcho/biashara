@@ -80,6 +80,7 @@ class ManualLedgerEntryFragment : BaseFragment() {
                                 Snackbar.LENGTH_LONG,
                             ).show()
                         }
+                        else -> Unit
                     }
                 }
             }

@@ -149,7 +149,8 @@ class ConfirmationFragment : BaseFragment() {
             rawTextVisible = !rawTextVisible
             binding.cardRawText.isVisible = rawTextVisible
         }
-        binding.btnSave.setOnClickListener { doSave() }
+        binding.btnSave.setOnClickListener { doSave(saveAsDraft = false) }
+        binding.btnSaveDraft.setOnClickListener { doSave(saveAsDraft = true) }
     }
 
     private fun observeCurrencySymbol() {
@@ -169,8 +170,10 @@ class ConfirmationFragment : BaseFragment() {
                     val b = _binding ?: return@collect
                     b.progressSaving.isVisible = state is ConfirmationUiState.Saving
                     b.btnSave.isEnabled = state !is ConfirmationUiState.Saving
+                    b.btnSaveDraft.isEnabled = state !is ConfirmationUiState.Saving
                     when (state) {
                         is ConfirmationUiState.Saved -> findNavController().navigateUp()
+                        is ConfirmationUiState.DraftSaved -> findNavController().navigateUp()
                         is ConfirmationUiState.Error ->
                             Snackbar.make(b.root, state.message, Snackbar.LENGTH_LONG).show()
                         else -> Unit
@@ -181,7 +184,7 @@ class ConfirmationFragment : BaseFragment() {
     }
 
     @Suppress("UNCHECKED_CAST")
-    private fun doSave() {
+    private fun doSave(saveAsDraft: Boolean) {
         val b = _binding ?: return
         val amountStr = b.etAmount.text?.toString() ?: ""
         val amount = amountStr.toDoubleOrNull()
@@ -213,21 +216,42 @@ class ConfirmationFragment : BaseFragment() {
             ?.let { runCatching { ParserEngine.valueOf(it) }.getOrDefault(ParserEngine.MANUAL) }
             ?: ParserEngine.MANUAL
 
-        viewModel.save(
-            direction = direction,
-            type = type,
-            amount = amount,
-            description = categoryLabel,
-            notes = b.etNotes.text?.toString()?.takeIf { it.isNotBlank() },
-            captureMethod = captureMethod,
-            proofType = proofType,
-            rawText = rawText,
-            parsedReference = b.etReference.text?.toString()?.trim()?.uppercase()?.takeIf { it.isNotBlank() },
-            parsedCounterparty = b.etCounterparty.text?.toString()?.trim()?.takeIf { it.isNotBlank() },
-            parsedDate = null,
-            parserConfidence = confidence,
-            parserEngine = parserEngine,
-        )
+        val notes = b.etNotes.text?.toString()?.takeIf { it.isNotBlank() }
+        val parsedReference = b.etReference.text?.toString()?.trim()?.uppercase()?.takeIf { it.isNotBlank() }
+        val parsedCounterparty = b.etCounterparty.text?.toString()?.trim()?.takeIf { it.isNotBlank() }
+        if (saveAsDraft) {
+            viewModel.saveDraft(
+                direction = direction,
+                type = type,
+                amount = amount,
+                description = categoryLabel,
+                notes = notes,
+                captureMethod = captureMethod,
+                proofType = proofType,
+                rawText = rawText,
+                parsedReference = parsedReference,
+                parsedCounterparty = parsedCounterparty,
+                parsedDate = null,
+                parserConfidence = confidence,
+                parserEngine = parserEngine,
+            )
+        } else {
+            viewModel.save(
+                direction = direction,
+                type = type,
+                amount = amount,
+                description = categoryLabel,
+                notes = notes,
+                captureMethod = captureMethod,
+                proofType = proofType,
+                rawText = rawText,
+                parsedReference = parsedReference,
+                parsedCounterparty = parsedCounterparty,
+                parsedDate = null,
+                parserConfidence = confidence,
+                parserEngine = parserEngine,
+            )
+        }
     }
 
     companion object {

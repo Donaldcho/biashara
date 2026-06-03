@@ -1,11 +1,16 @@
 package com.biasharaai.ui.ledger
 
 import androidx.lifecycle.viewModelScope
+import com.biasharaai.cash.CashMovementRepository
 import com.biasharaai.data.local.db.AppSettingsDao
+import com.biasharaai.data.local.db.CashCount
+import com.biasharaai.data.local.db.CashCountDao
 import com.biasharaai.data.local.db.LedgerDirection
 import com.biasharaai.data.local.db.LedgerEntry
 import com.biasharaai.data.local.db.LedgerEntryDao
 import com.biasharaai.data.local.db.LedgerRepository
+import com.biasharaai.data.local.db.MoneyDraft
+import com.biasharaai.data.local.db.MoneyDraftDao
 import com.biasharaai.enterprise.EnterprisePermissionRepository
 import com.biasharaai.enterprise.EnterpriseRolePermissions
 import com.biasharaai.ledger.LedgerReportExporter
@@ -19,6 +24,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -32,6 +38,9 @@ import javax.inject.Inject
 class LedgerViewModel @Inject constructor(
     private val ledgerEntryDao: LedgerEntryDao,
     private val ledgerRepository: LedgerRepository,
+    private val cashMovementRepository: CashMovementRepository,
+    private val moneyDraftDao: MoneyDraftDao,
+    private val cashCountDao: CashCountDao,
     private val appSettingsDao: AppSettingsDao,
     private val reportExporter: LedgerReportExporter,
     private val enterprisePermissionRepository: EnterprisePermissionRepository,
@@ -44,6 +53,8 @@ class LedgerViewModel @Inject constructor(
         val moneyOut: Double = 0.0,
         val pendingCredit: Double = 0.0,
         val entries: List<LedgerEntry> = emptyList(),
+        val pendingDrafts: List<MoneyDraft> = emptyList(),
+        val latestCashCount: CashCount? = null,
         val searchQuery: String = "",
     )
 
@@ -52,7 +63,7 @@ class LedgerViewModel @Inject constructor(
     private val _events = MutableSharedFlow<Event>()
     val events: SharedFlow<Event> = _events.asSharedFlow()
 
-    val uiState: StateFlow<UiState> = kotlinx.coroutines.flow.combine(
+    private val entriesForPeriod = combine(
         periodRange,
         searchQuery,
     ) { range, query -> range to query }
@@ -63,26 +74,37 @@ class LedgerViewModel @Inject constructor(
             } else {
                 ledgerEntryDao.search(query)
             }
-            entriesFlow.mapLatest { entries ->
-                UiState(
-                    periodLabel = label,
-                    runningBalance = ledgerEntryDao.getCurrentBalance() ?: 0.0,
-                    moneyIn = ledgerEntryDao.getTotalForDirection(
-                        LedgerDirection.MONEY_IN.name,
-                        from,
-                        to,
-                    ) ?: 0.0,
-                    moneyOut = ledgerEntryDao.getTotalForDirection(
-                        LedgerDirection.MONEY_OUT.name,
-                        from,
-                        to,
-                    ) ?: 0.0,
-                    pendingCredit = ledgerEntryDao.getPendingCreditTotal() ?: 0.0,
-                    entries = entries,
-                    searchQuery = query,
-                )
-            }
+            entriesFlow
         }
+
+    val uiState: StateFlow<UiState> = combine(
+        periodRange,
+        searchQuery,
+        entriesForPeriod,
+        moneyDraftDao.observePendingReview(),
+        cashCountDao.getAllOrderByCountedAtDesc(),
+    ) { range, query, entries, drafts, cashCounts ->
+        val (from, to, label) = range
+        UiState(
+            periodLabel = label,
+            runningBalance = ledgerEntryDao.getCurrentBalance() ?: 0.0,
+            moneyIn = ledgerEntryDao.getTotalForDirection(
+                LedgerDirection.MONEY_IN.name,
+                from,
+                to,
+            ) ?: 0.0,
+            moneyOut = ledgerEntryDao.getTotalForDirection(
+                LedgerDirection.MONEY_OUT.name,
+                from,
+                to,
+            ) ?: 0.0,
+            pendingCredit = ledgerEntryDao.getPendingCreditTotal() ?: 0.0,
+            entries = entries,
+            pendingDrafts = drafts,
+            latestCashCount = cashCounts.firstOrNull(),
+            searchQuery = query,
+        )
+    }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UiState())
 
     fun setSearchQuery(query: String) {
@@ -152,6 +174,56 @@ class LedgerViewModel @Inject constructor(
         }
     }
 
+    fun approveDraft(
+        draftId: Long,
+        amount: Double? = null,
+        description: String? = null,
+        notes: String? = null,
+    ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val permissionCheck = enterprisePermissionRepository.requirePermission(
+                permission = EnterpriseRolePermissions.PERMISSION_EDIT_LEDGER,
+                action = "MONEY_DRAFT_APPROVE",
+                entityType = "MONEY_DRAFT",
+                entityId = draftId.toString(),
+                summary = "Money draft approval blocked",
+                metadata = "draftId=$draftId",
+            )
+            if (!permissionCheck.allowed) {
+                val operator = permissionCheck.operator
+                _events.emit(
+                    Event.PermissionDenied(
+                        operatorName = operator?.name.orEmpty(),
+                        operatorRole = operator?.role.orEmpty(),
+                    ),
+                )
+                return@launch
+            }
+            runCatching {
+                cashMovementRepository.approveDraft(
+                    draftId = draftId,
+                    amount = amount,
+                    description = description,
+                    notes = notes,
+                )
+            }.fold(
+                onSuccess = { _events.emit(Event.DraftApproved) },
+                onFailure = { e -> _events.emit(Event.Error(e.localizedMessage ?: "Could not approve draft")) },
+            )
+        }
+    }
+
+    fun rejectDraft(draftId: Long) {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                cashMovementRepository.rejectDraft(draftId)
+            }.fold(
+                onSuccess = { _events.emit(Event.DraftRejected) },
+                onFailure = { e -> _events.emit(Event.Error(e.localizedMessage ?: "Could not dismiss draft")) },
+            )
+        }
+    }
+
     suspend fun exportCsv(): String? = withContext(Dispatchers.IO) {
         val permissionCheck = enterprisePermissionRepository.requirePermission(
             permission = EnterpriseRolePermissions.PERMISSION_EXPORT_DATA,
@@ -191,5 +263,8 @@ class LedgerViewModel @Inject constructor(
 
     sealed class Event {
         data class PermissionDenied(val operatorName: String, val operatorRole: String) : Event()
+        data object DraftApproved : Event()
+        data object DraftRejected : Event()
+        data class Error(val message: String) : Event()
     }
 }

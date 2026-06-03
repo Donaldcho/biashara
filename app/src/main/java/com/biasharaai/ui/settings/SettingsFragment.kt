@@ -87,6 +87,7 @@ class SettingsFragment : BaseFragment() {
         displayAppVersion()
         setupButtons()
         setupInferenceConfigurations()
+        setupCloudAiAugmentation()
         setupCloudAnalysis()
         setupOrderParserFromClipboard()
         setupWhatsappIntegration()
@@ -361,6 +362,20 @@ class SettingsFragment : BaseFragment() {
         b.inputCloudApiKey.text?.clear()
     }
 
+    private fun saveCloudAiSettingsFromFields() {
+        val b = _binding ?: return
+        val tokenText = b.inputCloudAiGatewayKey.text?.toString()?.trim().orEmpty()
+        viewModel.saveCloudAiAugmentation(
+            enabled = b.switchCloudAiEnabled.isChecked,
+            internetResearchEnabled = b.switchCloudAiInternet.isChecked,
+            sendBusinessContext = b.switchCloudAiBusinessContext.isChecked,
+            useForGeneralChat = b.switchCloudAiGeneral.isChecked,
+            gatewayUrl = b.inputCloudAiGateway.text?.toString().orEmpty(),
+            newGatewayTokenIfNonBlank = tokenText.ifBlank { null },
+        )
+        b.inputCloudAiGatewayKey.text?.clear()
+    }
+
     private fun confirmCloudJsonUpload() {
         val ctx = context ?: return
         MaterialAlertDialogBuilder(ctx)
@@ -560,6 +575,25 @@ class SettingsFragment : BaseFragment() {
                                 getString(R.string.settings_benchmark_failed, event.message),
                                 Snackbar.LENGTH_LONG,
                             ).show()
+                        }
+
+                        is SettingsViewModel.Event.CloudAiSettingsSaved -> {
+                            Snackbar.make(
+                                root,
+                                R.string.settings_cloud_ai_saved,
+                                Snackbar.LENGTH_SHORT,
+                            ).show()
+                        }
+
+                        is SettingsViewModel.Event.CloudAiSettingsFailed -> {
+                            val msg = when (event.message) {
+                                SettingsViewModel.CLOUD_AI_ERR_MISSING_GATEWAY ->
+                                    getString(R.string.settings_cloud_ai_missing_gateway)
+                                SettingsViewModel.CLOUD_AI_ERR_INVALID_GATEWAY ->
+                                    getString(R.string.settings_cloud_ai_invalid_gateway)
+                                else -> event.message
+                            }
+                            Snackbar.make(root, msg, Snackbar.LENGTH_LONG).show()
                         }
 
                         is SettingsViewModel.Event.CloudSettingsSaved -> {
@@ -885,6 +919,50 @@ class SettingsFragment : BaseFragment() {
             showInferenceConfigurationsDialog()
         }
         updateInferenceSectionVisibility()
+    }
+
+    private fun setupCloudAiAugmentation() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.cloudAiSettings.collect { s ->
+                    val b = _binding ?: return@collect
+                    if (b.switchCloudAiEnabled.isChecked != s.enabled) {
+                        b.switchCloudAiEnabled.isChecked = s.enabled
+                    }
+                    if (b.switchCloudAiInternet.isChecked != s.internetResearchEnabled) {
+                        b.switchCloudAiInternet.isChecked = s.internetResearchEnabled
+                    }
+                    if (b.switchCloudAiBusinessContext.isChecked != s.sendBusinessContext) {
+                        b.switchCloudAiBusinessContext.isChecked = s.sendBusinessContext
+                    }
+                    if (b.switchCloudAiGeneral.isChecked != s.useForGeneralChat) {
+                        b.switchCloudAiGeneral.isChecked = s.useForGeneralChat
+                    }
+                    if (b.inputCloudAiGateway.text?.toString() != s.gatewayUrl) {
+                        b.inputCloudAiGateway.setText(s.gatewayUrl)
+                    }
+                    b.textCloudAiGatewayKeySaved.visibility =
+                        if (s.hasGatewayToken) View.VISIBLE else View.GONE
+                    applyCloudAiControlState(s.enabled)
+                }
+            }
+        }
+        binding.switchCloudAiEnabled.setOnCheckedChangeListener { _, checked ->
+            applyCloudAiControlState(checked)
+        }
+        binding.btnCloudAiSave.setOnClickListener {
+            saveCloudAiSettingsFromFields()
+        }
+    }
+
+    private fun applyCloudAiControlState(enabled: Boolean) {
+        val b = _binding ?: return
+        b.switchCloudAiInternet.isEnabled = enabled
+        b.switchCloudAiBusinessContext.isEnabled = enabled
+        b.switchCloudAiGeneral.isEnabled = enabled
+        b.switchCloudAiInternet.alpha = if (enabled) 1f else 0.5f
+        b.switchCloudAiBusinessContext.alpha = if (enabled) 1f else 0.5f
+        b.switchCloudAiGeneral.alpha = if (enabled) 1f else 0.5f
     }
 
     private fun setupCloudAnalysis() {

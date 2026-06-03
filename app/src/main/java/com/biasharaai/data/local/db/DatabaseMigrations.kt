@@ -1393,6 +1393,55 @@ object DatabaseMigrations {
         }
     }
 
+    val MIGRATION_40_41 = object : Migration(40, 41) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS money_drafts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                    direction TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    amount REAL NOT NULL,
+                    description TEXT NOT NULL,
+                    notes TEXT,
+                    capture_method TEXT NOT NULL DEFAULT 'MANUAL',
+                    proof_type TEXT NOT NULL DEFAULT 'UNKNOWN',
+                    raw_text TEXT,
+                    parsed_reference TEXT,
+                    parsed_counterparty TEXT,
+                    parsed_date INTEGER,
+                    parser_confidence REAL NOT NULL DEFAULT 0.0,
+                    parser_engine TEXT NOT NULL DEFAULT 'MANUAL',
+                    status TEXT NOT NULL DEFAULT 'NEEDS_REVIEW',
+                    thumbnail_bytes BLOB,
+                    thumbnail_size_bytes INTEGER NOT NULL DEFAULT 0,
+                    occurred_at INTEGER NOT NULL,
+                    created_at INTEGER NOT NULL,
+                    approved_at INTEGER,
+                    ledger_entry_id INTEGER,
+                    device_id TEXT NOT NULL DEFAULT 'device'
+                )
+                """.trimIndent(),
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_money_drafts_status_created_at " +
+                    "ON money_drafts(status, created_at)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_money_drafts_direction " +
+                    "ON money_drafts(direction)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_money_drafts_ledger_entry_id " +
+                    "ON money_drafts(ledger_entry_id)",
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_money_drafts_parsed_reference " +
+                    "ON money_drafts(parsed_reference)",
+            )
+        }
+    }
+
     val ALL: Array<Migration> = arrayOf(
         MIGRATION_3_5,
         MIGRATION_5_6,
@@ -1430,6 +1479,7 @@ object DatabaseMigrations {
         MIGRATION_37_38,
         MIGRATION_38_39,
         MIGRATION_39_40,
+        MIGRATION_40_41,
     )
 
     private fun addColumnIfMissing(
