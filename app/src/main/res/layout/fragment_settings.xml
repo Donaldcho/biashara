@@ -958,6 +958,36 @@
                     android:textColor="?android:attr/textColorSecondary"
                     tools:text="Version 1.0" />
 
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/settings_play_readiness_summary"
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textColor="?android:attr/textColorSecondary" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_privacy_summary"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="@string/settings_privacy_summary" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_open_privacy_policy"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settings_open_privacy_policy" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_report_ai_issue"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settings_report_ai_issue" />
+
             </LinearLayout>
 
         </com.google.android.material.card.MaterialCardView>

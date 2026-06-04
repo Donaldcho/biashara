@@ -32,6 +32,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.biasharaai.BuildConfig
 import com.biasharaai.R
 import com.biasharaai.ai.AudioCaptureHelper
 import com.biasharaai.ai.VoiceInputPreferences
@@ -225,6 +226,9 @@ class ChatFragment : BaseFragment() {
             actions += getString(R.string.chat_message_edit) to { showEditMessageDialog(message) }
             actions += getString(R.string.chat_message_delete) to { showDeleteMessageDialog(message) }
         }
+        if (!message.isUser && message.stableId > 0L) {
+            actions += getString(R.string.chat_report_ai_issue) to { reportAiIssue(message) }
+        }
         if (actions.isEmpty()) return
         MaterialAlertDialogBuilder(requireContext())
             .setTitle(R.string.chat_message_actions)
@@ -232,6 +236,27 @@ class ChatFragment : BaseFragment() {
                 actions.getOrNull(which)?.second?.invoke()
             }
             .show()
+    }
+
+    private fun reportAiIssue(message: ChatMessage) {
+        val body = getString(
+            R.string.chat_report_ai_issue_body,
+            BuildConfig.VERSION_NAME,
+            BuildConfig.VERSION_CODE,
+            message.stableId,
+            message.text.take(CHAT_REPORT_SNIPPET_LIMIT),
+        )
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "message/rfc822"
+            putExtra(Intent.EXTRA_EMAIL, arrayOf(getString(R.string.support_email)))
+            putExtra(Intent.EXTRA_SUBJECT, getString(R.string.chat_report_ai_issue_subject))
+            putExtra(Intent.EXTRA_TEXT, body)
+        }
+        runCatching {
+            startActivity(Intent.createChooser(send, getString(R.string.chat_report_ai_issue)))
+        }.onFailure {
+            Snackbar.make(binding.root, R.string.chat_report_ai_issue_failed, Snackbar.LENGTH_LONG).show()
+        }
     }
 
     private fun copyMessage(message: ChatMessage) {
@@ -752,5 +777,6 @@ class ChatFragment : BaseFragment() {
 
     private companion object {
         private const val TAG = "ChatFragment"
+        private const val CHAT_REPORT_SNIPPET_LIMIT = 1200
     }
 }

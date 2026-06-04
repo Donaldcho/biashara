@@ -307,6 +307,17 @@
     <string name="settings_currency_dialog_title">Choose currency</string>
     <string name="settings_currency_saved">Currency updated</string>
     <string name="settings_app_version">Version %1$s</string>
+    <string name="support_email" translatable="false">support@deviceterra.com</string>
+    <string name="settings_privacy_policy_url" translatable="false">https://deviceterra.com/biasharaai/privacy</string>
+    <string name="settings_play_readiness_summary">Offline-first by default. Cloud AI, remote uploads, camera, microphone, Bluetooth, and notifications are optional controls.</string>
+    <string name="settings_privacy_summary">Privacy and data</string>
+    <string name="settings_privacy_summary_body">BiasharaAI stores sales, stock, customers, debts, ledger records, chat history, and model settings on this device by default. Camera and microphone are used only when you choose scan, image, or voice features. Optional cloud AI and enterprise uploads stay off until you configure and enable them. Business data is excluded from Android cloud backup. Export or clear local data from Android app settings before transferring ownership of the device.</string>
+    <string name="settings_open_privacy_policy">Open privacy policy</string>
+    <string name="settings_privacy_policy_open_failed">Could not open the privacy policy link.</string>
+    <string name="settings_report_ai_issue">Report AI issue</string>
+    <string name="settings_report_ai_issue_subject">BiasharaAI AI issue report</string>
+    <string name="settings_report_ai_issue_body">BiasharaAI AI issue report\n\nApp version: %1$s (%2$d)\nScreen: Settings\n\nDescribe the problem:\n\nExpected result:\n\nBusiness impact:</string>
+    <string name="settings_report_ai_issue_failed">No app is available to send the report.</string>
 
     <!-- Demand Forecasting (Prompt 7) -->
     <string name="inventory_forecast_badge">📈 %1$s</string>
@@ -401,6 +412,10 @@
     <string name="chat_message_delete_body">Remove this message from the chat history?</string>
     <string name="chat_message_empty_error">Message cannot be empty.</string>
     <string name="chat_message_action_unavailable">That message is not ready yet.</string>
+    <string name="chat_report_ai_issue">Report AI issue</string>
+    <string name="chat_report_ai_issue_subject">BiasharaAI AI answer report</string>
+    <string name="chat_report_ai_issue_body">BiasharaAI AI answer report\n\nApp version: %1$s (%2$d)\nMessage ID: %3$d\n\nWhat was wrong with this answer?\n\nExpected answer:\n\nAnswer excerpt:\n%4$s</string>
+    <string name="chat_report_ai_issue_failed">No app is available to send the report.</string>
     <string name="chat_answer_based_on">Based on: %1$s</string>
     <string name="chat_answer_meta_join">%1$s · %2$s</string>
     <string name="chat_error_generic">Sorry, something went wrong. Please try again.</string>

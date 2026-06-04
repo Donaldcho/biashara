@@ -3,6 +3,7 @@ package com.biasharaai.ui.settings
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.text.InputType
 import android.util.Log
@@ -93,6 +94,7 @@ class SettingsFragment : BaseFragment() {
         setupWhatsappIntegration()
         setupVoiceSettingsNav()
         setupLedgerNav()
+        setupPlayReadinessControls()
         setupLicence()
         setupCurrency()
         setupAgentRunHistoryNav()
@@ -485,6 +487,48 @@ class SettingsFragment : BaseFragment() {
 
         binding.btnRunBenchmark.setOnClickListener {
             viewModel.runBenchmark()
+        }
+    }
+
+    private fun setupPlayReadinessControls() {
+        binding.btnPrivacySummary.setOnClickListener { showPrivacySummaryDialog() }
+        binding.btnOpenPrivacyPolicy.setOnClickListener { openPrivacyPolicy() }
+        binding.btnReportAiIssue.setOnClickListener { reportAiIssueFromSettings() }
+    }
+
+    private fun showPrivacySummaryDialog() {
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.settings_privacy_summary)
+            .setMessage(R.string.settings_privacy_summary_body)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
+    }
+
+    private fun openPrivacyPolicy() {
+        val url = getString(R.string.settings_privacy_policy_url)
+        runCatching {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        }.onFailure {
+            Snackbar.make(binding.root, R.string.settings_privacy_policy_open_failed, Snackbar.LENGTH_LONG).show()
+        }
+    }
+
+    private fun reportAiIssueFromSettings() {
+        val body = getString(
+            R.string.settings_report_ai_issue_body,
+            BuildConfig.VERSION_NAME,
+            BuildConfig.VERSION_CODE,
+        )
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "message/rfc822"
+            putExtra(Intent.EXTRA_EMAIL, arrayOf(getString(R.string.support_email)))
+            putExtra(Intent.EXTRA_SUBJECT, getString(R.string.settings_report_ai_issue_subject))
+            putExtra(Intent.EXTRA_TEXT, body)
+        }
+        runCatching {
+            startActivity(Intent.createChooser(send, getString(R.string.settings_report_ai_issue)))
+        }.onFailure {
+            Snackbar.make(binding.root, R.string.settings_report_ai_issue_failed, Snackbar.LENGTH_LONG).show()
         }
     }
 
