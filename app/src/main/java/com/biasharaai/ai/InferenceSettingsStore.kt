@@ -29,7 +29,7 @@ class InferenceSettingsStore @Inject constructor(
 
         /** Edge Gallery defaults when sliders are at maximum (screenshots reference). */
         val DEFAULTS = InferenceUiConfig(
-            maxTokens = 1024,
+            maxTokens = 4000,
             topK = 64,
             topP = 0.95f,
             temperature = 1.0f,

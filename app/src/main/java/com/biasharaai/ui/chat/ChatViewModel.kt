@@ -6,7 +6,9 @@ import android.util.Log
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.viewModelScope
 import com.biasharaai.R
+import com.biasharaai.ai.AiRuntimeState
 import com.biasharaai.ai.GemmaService
+import com.biasharaai.ai.GemmaOutputSanitizer
 import com.biasharaai.ai.InferenceSettingsStore
 import com.biasharaai.chat.query.ConversationalQueryLayer
 import com.biasharaai.chat.skills.RemoteSkillManifestStore
@@ -33,19 +35,23 @@ import com.biasharaai.ui.base.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.Locale
-import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 
@@ -88,6 +94,7 @@ class ChatViewModel @Inject constructor(
 
     companion object {
         private const val TAG = "ChatViewModel"
+        private const val CHAT_FIRST_TOKEN_TIMEOUT_MS = 18_000L
         private const val CHAT_MODEL_TIMEOUT_MS = 75_000L
         private val TEMP_MESSAGE_ID = AtomicLong(-1L)
 
@@ -127,6 +134,7 @@ class ChatViewModel @Inject constructor(
     val isGenerating: StateFlow<Boolean> = _isGenerating.asStateFlow()
 
     private var generationJob: Job? = null
+    private val generationRunId = AtomicLong(0L)
 
     private val _recentQueries = MutableStateFlow(chatQueryHistoryStore.getRecent())
     val recentQueries: StateFlow<List<String>> = _recentQueries.asStateFlow()
@@ -255,6 +263,7 @@ class ChatViewModel @Inject constructor(
         )
         _messages.value = _messages.value + userMessage
 
+        val runId = generationRunId.incrementAndGet()
         generationJob = launchSafe(Dispatchers.IO) {
             _isThinking.value = true
             _isGenerating.value = true
@@ -263,7 +272,7 @@ class ChatViewModel @Inject constructor(
             withContext(Dispatchers.Main.immediate) {
                 _messages.value = _messages.value + placeholder
             }
-            val placeholderIndex = _messages.value.lastIndex
+            val placeholderId = tempAsstId
             val streamed = StringBuilder()
             var sessionId = -1L
             var fallbackQuestionForError = bodyForDb
@@ -345,8 +354,8 @@ class ChatViewModel @Inject constructor(
                         source = ChatAnswerSource.ONLINE_SOURCE,
                         hasImage = !imageAbsolutePath.isNullOrBlank(),
                     )
-                    replacePlaceholder(placeholderIndex, onlineProfileUpdate, metadata)
-                    persistAssistantAndFixRow(sessionId, placeholderIndex, onlineProfileUpdate, metadata)
+                    replacePlaceholder(placeholderId, onlineProfileUpdate, metadata)
+                    persistAssistantAndFixRow(sessionId, placeholderId, onlineProfileUpdate, metadata)
                     injectTranscriptIntoNextGemmaPrompt = false
                     return@launchSafe
                 }
@@ -358,8 +367,8 @@ class ChatViewModel @Inject constructor(
                         source = ChatAnswerSource.APP_KNOWLEDGE,
                         hasImage = !imageAbsolutePath.isNullOrBlank(),
                     )
-                    replacePlaceholder(placeholderIndex, appHelp, metadata)
-                    persistAssistantAndFixRow(sessionId, placeholderIndex, appHelp, metadata)
+                    replacePlaceholder(placeholderId, appHelp, metadata)
+                    persistAssistantAndFixRow(sessionId, placeholderId, appHelp, metadata)
                     injectTranscriptIntoNextGemmaPrompt = false
                     return@launchSafe
                 }
@@ -377,8 +386,8 @@ class ChatViewModel @Inject constructor(
                         source = ChatAnswerSource.STRUCTURED_LOCAL_DATA,
                         hasImage = !imageAbsolutePath.isNullOrBlank(),
                     )
-                    replacePlaceholder(placeholderIndex, structured, metadata)
-                    persistAssistantAndFixRow(sessionId, placeholderIndex, structured, metadata)
+                    replacePlaceholder(placeholderId, structured, metadata)
+                    persistAssistantAndFixRow(sessionId, placeholderId, structured, metadata)
                     injectTranscriptIntoNextGemmaPrompt = false
                     return@launchSafe
                 }
@@ -398,21 +407,21 @@ class ChatViewModel @Inject constructor(
                         source = ChatAnswerSource.CLOUD_AI,
                         hasImage = !imageAbsolutePath.isNullOrBlank(),
                     )
-                    replacePlaceholder(placeholderIndex, body, metadata)
-                    persistAssistantAndFixRow(sessionId, placeholderIndex, body, metadata)
+                    replacePlaceholder(placeholderId, body, metadata)
+                    persistAssistantAndFixRow(sessionId, placeholderId, body, metadata)
                     injectTranscriptIntoNextGemmaPrompt = false
                     return@launchSafe
                 }
 
                 if (!gemmaService.isAvailable) {
-                    val fb = generateFallbackResponse(fallbackQ)
+                    val fb = generateFallbackResponseWithRuntimeStatus(fallbackQ)
                     val metadata = ChatAnswerQuality.metadataFor(
                         question = fallbackQ,
                         source = ChatAnswerSource.LOCAL_RULES,
                         hasImage = !imageAbsolutePath.isNullOrBlank(),
                     )
-                    replacePlaceholder(placeholderIndex, fb, metadata)
-                    persistAssistantAndFixRow(sessionId, placeholderIndex, fb, metadata)
+                    replacePlaceholder(placeholderId, fb, metadata)
+                    persistAssistantAndFixRow(sessionId, placeholderId, fb, metadata)
                     injectTranscriptIntoNextGemmaPrompt = false
                     return@launchSafe
                 }
@@ -439,22 +448,13 @@ class ChatViewModel @Inject constructor(
                 var firstTokenMs = 0L
 
                 try {
-                    withTimeout(CHAT_MODEL_TIMEOUT_MS) {
-                        gemmaService.generateStreaming(prompt) { delta, done ->
-                            if (delta.isNotEmpty()) {
-                                if (firstTokenMs == 0L) {
-                                    firstTokenMs = System.currentTimeMillis()
-                                    Log.d(TAG, "First token after ${firstTokenMs - startMs}ms (prompt=${prompt.length} chars)")
-                                }
-                                streamed.append(delta)
-                                updatePlaceholder(placeholderIndex, streamed.toString(), modelMetadata)
-                                if (_isThinking.value) _isThinking.value = false
-                            }
-                            if (done) {
-                                _isThinking.value = false
-                            }
-                        }
-                    }
+                    firstTokenMs = generateModelIntoPlaceholder(
+                        prompt = prompt,
+                        streamed = streamed,
+                        placeholderId = placeholderId,
+                        metadata = modelMetadata,
+                        startMs = startMs,
+                    )
                     val totalMs = System.currentTimeMillis() - startMs
                     val decodeMs = if (firstTokenMs > 0L) {
                         System.currentTimeMillis() - firstTokenMs
@@ -469,7 +469,7 @@ class ChatViewModel @Inject constructor(
                             "first=${if (firstTokenMs > 0L) firstTokenMs - startMs else -1}ms, " +
                             "decode=${decodeMs}ms, ${"%.1f".format(tps)} tok/s",
                     )
-                } catch (_: TimeoutException) {
+                } catch (_: FirstTokenTimeoutException) {
                     Log.w(TAG, "AI first-token timed out — showing offline summary")
                     val fb = generateFallbackResponse(fallbackQ)
                     val msg = localizedContext().getString(R.string.chat_ai_timeout_with_summary, fb)
@@ -478,16 +478,16 @@ class ChatViewModel @Inject constructor(
                         source = ChatAnswerSource.LOCAL_RULES,
                         hasImage = !imageAbsolutePath.isNullOrBlank(),
                     )
-                    replacePlaceholder(placeholderIndex, msg, metadata)
-                    persistAssistantAndFixRow(sessionId, placeholderIndex, msg, metadata)
+                    replacePlaceholder(placeholderId, msg, metadata)
+                    persistAssistantAndFixRow(sessionId, placeholderId, msg, metadata)
                     injectTranscriptIntoNextGemmaPrompt = false
                     return@launchSafe
                 } catch (_: TimeoutCancellationException) {
                     Log.w(TAG, "AI generation timed out after ${CHAT_MODEL_TIMEOUT_MS}ms")
-                    val partial = streamed.toString().trim()
+                    val partial = GemmaOutputSanitizer.finalAnswer(streamed.toString())
                     if (partial.isNotBlank()) {
-                        updatePlaceholder(placeholderIndex, partial, modelMetadata)
-                        persistAssistantAndFixRow(sessionId, placeholderIndex, partial, modelMetadata)
+                        updatePlaceholder(placeholderId, partial, modelMetadata)
+                        persistAssistantAndFixRow(sessionId, placeholderId, partial, modelMetadata)
                     } else {
                         val fb = generateFallbackResponse(fallbackQ)
                         val msg = localizedContext().getString(R.string.chat_ai_timeout_with_summary, fb)
@@ -496,41 +496,41 @@ class ChatViewModel @Inject constructor(
                             source = ChatAnswerSource.LOCAL_RULES,
                             hasImage = !imageAbsolutePath.isNullOrBlank(),
                         )
-                        replacePlaceholder(placeholderIndex, msg, metadata)
-                        persistAssistantAndFixRow(sessionId, placeholderIndex, msg, metadata)
+                        replacePlaceholder(placeholderId, msg, metadata)
+                        persistAssistantAndFixRow(sessionId, placeholderId, msg, metadata)
                     }
                     injectTranscriptIntoNextGemmaPrompt = false
                     return@launchSafe
                 } catch (cancelled: CancellationException) {
                     Log.d(TAG, "AI generation cancelled by user")
-                    val partial = streamed.toString().trim()
+                    val partial = GemmaOutputSanitizer.finalAnswer(streamed.toString())
                     val suffix = "\n\n" + localizedContext().getString(R.string.chat_stopped_marker)
                     val finalText = if (partial.isEmpty()) {
                         localizedContext().getString(R.string.chat_stopped_marker)
                     } else {
                         partial + suffix
                     }
-                    updatePlaceholder(placeholderIndex, finalText, modelMetadata)
-                    persistAssistantAndFixRow(sessionId, placeholderIndex, finalText, modelMetadata)
+                    updatePlaceholder(placeholderId, finalText, modelMetadata)
+                    persistAssistantAndFixRow(sessionId, placeholderId, finalText, modelMetadata)
                     injectTranscriptIntoNextGemmaPrompt = false
                     throw cancelled
                 } catch (aiError: Throwable) {
                     Log.w(TAG, "AI inference failed, falling back to rules", aiError)
-                    val fb = generateFallbackResponse(fallbackQ)
+                    val fb = generateFallbackResponseWithRuntimeStatus(fallbackQ)
                     val metadata = ChatAnswerQuality.metadataFor(
                         question = fallbackQ,
                         source = ChatAnswerSource.LOCAL_RULES,
                         hasImage = !imageAbsolutePath.isNullOrBlank(),
                     )
-                    replacePlaceholder(placeholderIndex, fb, metadata)
-                    persistAssistantAndFixRow(sessionId, placeholderIndex, fb, metadata)
+                    replacePlaceholder(placeholderId, fb, metadata)
+                    persistAssistantAndFixRow(sessionId, placeholderId, fb, metadata)
                     injectTranscriptIntoNextGemmaPrompt = false
                     return@launchSafe
                 }
 
-                val modelText = streamed.toString().trim()
+                val modelText = GemmaOutputSanitizer.finalAnswer(streamed.toString())
                 if (modelText.isNotBlank()) {
-                    persistAssistantAndFixRow(sessionId, placeholderIndex, modelText, modelMetadata)
+                    persistAssistantAndFixRow(sessionId, placeholderId, modelText, modelMetadata)
                 } else {
                     Log.w(TAG, "AI returned blank, falling back to rules")
                     val fb = generateFallbackResponse(fallbackQ)
@@ -539,8 +539,8 @@ class ChatViewModel @Inject constructor(
                         source = ChatAnswerSource.LOCAL_RULES,
                         hasImage = !imageAbsolutePath.isNullOrBlank(),
                     )
-                    replacePlaceholder(placeholderIndex, fb, metadata)
-                    persistAssistantAndFixRow(sessionId, placeholderIndex, fb, metadata)
+                    replacePlaceholder(placeholderId, fb, metadata)
+                    persistAssistantAndFixRow(sessionId, placeholderId, fb, metadata)
                 }
                 injectTranscriptIntoNextGemmaPrompt = false
             } catch (cancelled: CancellationException) {
@@ -553,21 +553,107 @@ class ChatViewModel @Inject constructor(
                     source = ChatAnswerSource.LOCAL_RULES,
                     hasImage = !imageAbsolutePath.isNullOrBlank(),
                 )
-                replacePlaceholder(placeholderIndex, err, metadata)
+                replacePlaceholder(placeholderId, err, metadata)
                 if (sessionId > 0L) {
-                    persistAssistantAndFixRow(sessionId, placeholderIndex, err, metadata)
+                    persistAssistantAndFixRow(sessionId, placeholderId, err, metadata)
                 }
                 injectTranscriptIntoNextGemmaPrompt = false
             } finally {
-                _isThinking.value = false
-                _isGenerating.value = false
+                if (generationRunId.get() == runId) {
+                    _isThinking.value = false
+                    _isGenerating.value = false
+                }
             }
+        }
+    }
+
+    private suspend fun generateFallbackResponseWithRuntimeStatus(
+        question: String,
+        errorDetail: String? = null,
+    ): String {
+        val fallback = generateFallbackResponse(question)
+        val reason = errorDetail?.takeIf { it.isNotBlank() } ?: onDeviceUnavailableReason()
+        return localizedContext().getString(
+            R.string.chat_ai_unavailable_with_summary,
+            reason,
+            fallback,
+        )
+    }
+
+    private fun onDeviceUnavailableReason(): String {
+        val status = gemmaService.runtimeStatus
+        return when (status.state) {
+            AiRuntimeState.READY -> "runtime error"
+            AiRuntimeState.MODEL_NOT_DOWNLOADED -> "model is not downloaded"
+            AiRuntimeState.DEVICE_UNSUPPORTED -> "this device is in rules-only mode"
+            AiRuntimeState.RUNTIME_COOLING_DOWN -> {
+                val retrySeconds = ((status.retryAfterMs + 999L) / 1000L).coerceAtLeast(1L)
+                val detail = status.detail?.takeIf { it.isNotBlank() } ?: "recent model failure"
+                "$detail; retry in about $retrySeconds sec"
+            }
+        }
+    }
+
+    private suspend fun generateModelIntoPlaceholder(
+        prompt: String,
+        streamed: StringBuilder,
+        placeholderId: Long,
+        metadata: ChatAnswerMetadata,
+        startMs: Long,
+    ): Long = coroutineScope {
+        var firstTokenMs = 0L
+        val firstVisibleToken = CompletableDeferred<Unit>()
+        val generation = async(Dispatchers.IO) {
+            gemmaService.generateStreaming(prompt) { delta, done ->
+                if (delta.isNotEmpty()) {
+                    streamed.append(delta)
+                    val displayText = GemmaOutputSanitizer.streamingPreview(streamed.toString())
+                    if (displayText.isNotBlank() && firstTokenMs == 0L) {
+                        firstTokenMs = System.currentTimeMillis()
+                        Log.d(
+                            TAG,
+                            "First token after ${firstTokenMs - startMs}ms (prompt=${prompt.length} chars)",
+                        )
+                        firstVisibleToken.completeIfActive()
+                    }
+                    if (displayText.isNotBlank()) {
+                        updatePlaceholder(placeholderId, displayText, metadata)
+                        if (_isThinking.value) _isThinking.value = false
+                    }
+                }
+                if (done) {
+                    firstVisibleToken.completeIfActive()
+                    _isThinking.value = false
+                }
+            }
+        }
+
+        val firstTokenArrived = withTimeoutOrNull(CHAT_FIRST_TOKEN_TIMEOUT_MS) {
+            firstVisibleToken.await()
+            true
+        } == true
+        if (!firstTokenArrived && streamed.isEmpty()) {
+            generation.cancel()
+            gemmaService.cancelGeneration()
+            generation.cancelAndJoin()
+            throw FirstTokenTimeoutException()
+        }
+
+        withTimeout(CHAT_MODEL_TIMEOUT_MS) {
+            generation.await()
+        }
+        firstTokenMs
+    }
+
+    private fun CompletableDeferred<Unit>.completeIfActive() {
+        if (!isCompleted) {
+            complete(Unit)
         }
     }
 
     private suspend fun persistAssistantAndFixRow(
         sessionId: Long,
-        placeholderIndex: Int,
+        placeholderId: Long,
         body: String,
         metadata: ChatAnswerMetadata? = null,
     ) {
@@ -584,12 +670,13 @@ class ChatViewModel @Inject constructor(
         if (aid > 0L) {
             withContext(Dispatchers.Main.immediate) {
                 val list = _messages.value.toMutableList()
-                if (placeholderIndex in list.indices) {
-                    list[placeholderIndex] = list[placeholderIndex].copy(
+                val index = list.indexOfFirst { it.stableId == placeholderId }
+                if (index >= 0) {
+                    list[index] = list[index].copy(
                         stableId = aid,
-                        sourceTags = metadata?.sourceTags ?: list[placeholderIndex].sourceTags,
-                        confidenceLabel = metadata?.confidenceLabel ?: list[placeholderIndex].confidenceLabel,
-                        actionHint = metadata?.actionHint ?: list[placeholderIndex].actionHint,
+                        sourceTags = metadata?.sourceTags ?: list[index].sourceTags,
+                        confidenceLabel = metadata?.confidenceLabel ?: list[index].confidenceLabel,
+                        actionHint = metadata?.actionHint ?: list[index].actionHint,
                     )
                     _messages.value = list
                 }
@@ -669,9 +756,13 @@ class ChatViewModel @Inject constructor(
 
     /** Stop generation in flight. The bubble keeps whatever text was already streamed. */
     fun stopGeneration() {
-        if (!_isGenerating.value) return
+        if (!_isGenerating.value && !_isThinking.value) return
+        generationRunId.incrementAndGet()
         gemmaService.cancelGeneration()
         generationJob?.cancel()
+        generationJob = null
+        _isThinking.value = false
+        _isGenerating.value = false
     }
 
     /** Starts a new chat **session** (Gallery-style thread); previous sessions stay in history. */
@@ -706,9 +797,10 @@ class ChatViewModel @Inject constructor(
         generationJob?.cancel()
     }
 
-    private fun updatePlaceholder(index: Int, text: String, metadata: ChatAnswerMetadata? = null) {
+    private fun updatePlaceholder(placeholderId: Long, text: String, metadata: ChatAnswerMetadata? = null) {
         val list = _messages.value.toMutableList()
-        if (index in list.indices) {
+        val index = list.indexOfFirst { it.stableId == placeholderId }
+        if (index >= 0) {
             list[index] = list[index].copy(
                 text = text,
                 sourceTags = metadata?.sourceTags ?: list[index].sourceTags,
@@ -719,11 +811,11 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    private fun replacePlaceholder(index: Int, text: String, metadata: ChatAnswerMetadata? = null) {
+    private fun replacePlaceholder(placeholderId: Long, text: String, metadata: ChatAnswerMetadata? = null) {
         val safeText = text.ifBlank {
             localizedContext().getString(R.string.chat_fallback_generic)
         }
-        updatePlaceholder(index, safeText, metadata)
+        updatePlaceholder(placeholderId, safeText, metadata)
     }
 
     private suspend fun maybeAnswerAppHelp(question: String): String? {
@@ -1535,3 +1627,5 @@ class ChatViewModel @Inject constructor(
         return String.format(loc, "%,.0f", amount)
     }
 }
+
+private class FirstTokenTimeoutException : Exception()

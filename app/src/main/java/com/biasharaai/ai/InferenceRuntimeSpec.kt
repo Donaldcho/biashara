@@ -60,10 +60,10 @@ object InferenceRuntimeSpec {
     private const val MIN_TEMPERATURE = 0f
     private const val MAX_TEMPERATURE = 1f
 
-    private const val FULL_MIN_TOKENS = 512
-    private const val FULL_MAX_TOKENS = 2048
+    private const val FULL_MIN_TOKENS = 2000
+    private const val FULL_MAX_TOKENS = 4000
     private const val PARTIAL_MIN_TOKENS = 512
-    private const val PARTIAL_MAX_TOKENS = 1024
+    private const val PARTIAL_MAX_TOKENS = 2048
     private const val RULES_FALLBACK_TOKENS = 512
 
     /** FunctionGemma 270M tool loops — keep context small (Gallery mobile-actions pattern). */

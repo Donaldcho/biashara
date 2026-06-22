@@ -875,7 +875,10 @@ class SettingsFragment : BaseFragment() {
                         if (progress.totalBytes > 0) {
                             b.progressDownload.setProgressCompat(progress.percent, true)
                             b.textDownloadProgress.visibility = View.VISIBLE
-                            b.textDownloadProgress.text = formatProgress(progress)
+                            b.textDownloadProgress.text = formatProfessionalProgress(progress)
+                            if (progress.isResuming) {
+                                b.textModelStatus.text = getString(R.string.settings_model_resuming)
+                            }
                         }
                     }
                 }
@@ -896,6 +899,55 @@ class SettingsFragment : BaseFragment() {
         }
 
         return "$downloadedStr / $totalStr • ${progress.percent}%"
+    }
+
+    private fun formatProfessionalProgress(progress: ModelDownloadManager.DownloadProgress): String {
+        val downloadedStr = formatDownloadBytes(progress.bytesDownloaded)
+        val totalStr = formatDownloadBytes(progress.totalBytes)
+        val base = if (progress.isResuming) {
+            getString(
+                R.string.settings_download_progress_resuming,
+                formatDownloadBytes(progress.resumedFromBytes),
+                downloadedStr,
+                totalStr,
+                progress.percent,
+            )
+        } else {
+            "$downloadedStr / $totalStr - ${progress.percent}%"
+        }
+        val details = buildList {
+            if (progress.bytesPerSecond > 0L) add("${formatDownloadSpeed(progress.bytesPerSecond)}/s")
+            progress.estimatedSecondsRemaining?.let { add("about ${formatDuration(it)} left") }
+        }
+        return if (details.isEmpty()) base else "$base - ${details.joinToString(" - ")}"
+    }
+
+    private fun formatDownloadBytes(bytes: Long): String {
+        val mb = bytes / (1024.0 * 1024.0)
+        return if (mb >= 1024) {
+            String.format(Locale.getDefault(), "%.1f GB", mb / 1024)
+        } else {
+            String.format(Locale.getDefault(), "%.0f MB", mb)
+        }
+    }
+
+    private fun formatDownloadSpeed(bytesPerSecond: Long): String {
+        val mb = bytesPerSecond / (1024.0 * 1024.0)
+        return if (mb >= 1.0) {
+            String.format(Locale.getDefault(), "%.1f MB", mb)
+        } else {
+            val kb = bytesPerSecond / 1024.0
+            String.format(Locale.getDefault(), "%.0f KB", kb.coerceAtLeast(1.0))
+        }
+    }
+
+    private fun formatDuration(seconds: Long): String {
+        if (seconds < 60L) return "${seconds.coerceAtLeast(1L)} sec"
+        val minutes = (seconds + 59L) / 60L
+        if (minutes < 60L) return "$minutes min"
+        val hours = minutes / 60L
+        val remainingMinutes = minutes % 60L
+        return if (remainingMinutes == 0L) "$hours hr" else "$hours hr $remainingMinutes min"
     }
 
     private fun updateModelStatusUi(state: DownloadState) {

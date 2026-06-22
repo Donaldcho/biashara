@@ -125,6 +125,7 @@
     <string name="settings_model_status">Model status</string>
     <string name="settings_model_not_downloaded">Not downloaded</string>
     <string name="settings_model_downloading">Downloading…</string>
+    <string name="settings_model_resuming">Resuming download...</string>
     <string name="settings_model_downloaded">Downloaded (%1$d MB)</string>
     <string name="settings_model_failed">Download failed</string>
     <string name="settings_model_not_supported">Device does not meet AI requirements.</string>
@@ -152,6 +153,8 @@
     <string name="model_settings_benchmark_failed">Benchmark failed — model may not be loaded</string>
     <string name="model_settings_primary_changed">Primary model updated</string>
     <string name="model_settings_progress_detail">%1$d MB / %2$d MB · %3$d%%</string>
+    <string name="model_settings_progress_resuming">Resumed from %1$d MB. %2$d MB / %3$d MB - %4$d%%</string>
+    <string name="settings_download_progress_resuming">Resumed from %1$s. %2$s / %3$s - %4$d%%</string>
     <string name="model_settings_hf_access_btn">Hugging Face access</string>
     <string name="model_settings_hf_access_title">Hugging Face access token</string>
     <string name="model_settings_hf_access_message">FunctionGemma is gated on Hugging Face. While logged in, open litert-community/functiongemma-270m-ft-mobile-actions and accept the Gemma license (required even with a read token). Then create a classic read token at huggingface.co/settings/tokens and paste it here.</string>
@@ -420,6 +423,7 @@
     <string name="chat_answer_meta_join">%1$s · %2$s</string>
     <string name="chat_error_generic">Sorry, something went wrong. Please try again.</string>
     <string name="chat_ai_timeout_with_summary">The on-device model took too long. Here is a quick answer from your records:\n\n%1$s</string>
+    <string name="chat_ai_unavailable_with_summary">On-device AI is not ready (%1$s). Here is a quick answer from your records:\n\n%2$s</string>
 
     <!-- Chat: Edge-Gallery-style toolbar, suggestions, mic -->
     <string name="chat_title">Biashara AI</string>

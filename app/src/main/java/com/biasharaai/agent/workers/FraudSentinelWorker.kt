@@ -48,13 +48,9 @@ class FraudSentinelWorker(
             val txId = action.relatedEntityId
             if (txId != null) {
                 if (txId in seenTransactionIds) continue
-                if (agentDecisionEngine.isDuplicateAction(AgentTypes.FRAUD_SENTINEL, txId)) continue
                 seenTransactionIds.add(txId)
-            } else {
-                if (agentDecisionEngine.isDuplicatePendingHeadline(AgentTypes.FRAUD_SENTINEL, action.headline)) {
-                    continue
-                }
             }
+            if (agentDecisionEngine.shouldSkipInserting(action)) continue
             agentActionDao.insertAction(action)
             actionsGenerated++
         }
@@ -63,22 +59,20 @@ class FraudSentinelWorker(
         val cashSignals = runCatching { cashEvidenceAnomalyDetector?.detectAll() ?: emptyList() }.getOrDefault(emptyList())
         for (signal in cashSignals) {
             val headline = "[Cash] ${signal.rule}: ${signal.detail.take(120)}"
-            if (!agentDecisionEngine.isDuplicatePendingHeadline(AgentTypes.FRAUD_SENTINEL, headline)) {
-                agentActionDao.insertAction(
-                    AgentAction(
-                        agentType = AgentTypes.FRAUD_SENTINEL,
-                        urgency = when (signal.severity) {
-                            CashAnomalySignal.Severity.HIGH -> "CRITICAL"
-                            CashAnomalySignal.Severity.MEDIUM -> "WARNING"
-                            CashAnomalySignal.Severity.LOW -> "INFO"
-                        },
-                        headline = headline,
-                        detail = signal.detail,
-                        createdAt = System.currentTimeMillis(),
-                    ),
-                )
-                actionsGenerated++
-            }
+            val action = AgentAction(
+                agentType = AgentTypes.FRAUD_SENTINEL,
+                urgency = when (signal.severity) {
+                    CashAnomalySignal.Severity.HIGH -> "CRITICAL"
+                    CashAnomalySignal.Severity.MEDIUM -> "WARNING"
+                    CashAnomalySignal.Severity.LOW -> "INFO"
+                },
+                headline = headline,
+                detail = signal.detail,
+                createdAt = System.currentTimeMillis(),
+            )
+            if (agentDecisionEngine.shouldSkipInserting(action)) continue
+            agentActionDao.insertAction(action)
+            actionsGenerated++
         }
 
         agentDecisionEngine.buildRunLog(

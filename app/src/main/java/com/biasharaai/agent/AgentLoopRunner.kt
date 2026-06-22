@@ -2,6 +2,7 @@ package com.biasharaai.agent
 
 import com.biasharaai.ai.ActiveModelStore
 import com.biasharaai.ai.FunctionGemmaRouter
+import com.biasharaai.ai.GemmaOutputSanitizer
 import com.biasharaai.skills.SkillToolFactory
 import android.util.Log
 import kotlinx.coroutines.CancellationException
@@ -37,11 +38,17 @@ class AgentLoopRunner @Inject constructor(
                 toolProviders = tools,
                 toolCallsExecuted = toolLog,
                 toolModelId = route.modelId,
-            )
+            ).let { result ->
+                if (result.success && result.finalText.isNotBlank()) {
+                    result.copy(finalText = GemmaOutputSanitizer.finalAnswer(result.finalText))
+                } else {
+                    result
+                }
+            }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            Log.e(TAG, "Agent loop failed before model result", t)
+            logError("Agent loop failed before model result", t)
             AgentLoopResult(
                 finalText = "",
                 toolCalls = emptyList(),
@@ -73,19 +80,19 @@ class AgentLoopRunner @Inject constructor(
                 toolModelId = route.modelId,
             )
             if (loop.success && loop.finalText.isNotBlank()) {
-                return@withLock loop.finalText
+                return@withLock GemmaOutputSanitizer.finalAnswer(loop.finalText)
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            Log.e(TAG, "Tool loop failed; trying legacy prompt", t)
+            logError("Tool loop failed; trying legacy prompt", t)
         }
         try {
-            activeModelStore.sendPrompt(legacyPrompt).trim()
+            GemmaOutputSanitizer.finalAnswer(activeModelStore.sendPrompt(legacyPrompt).trim())
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Throwable) {
-            Log.e(TAG, "Legacy agent prompt failed", t)
+            logError("Legacy agent prompt failed", t)
             ""
         }
     }
@@ -115,4 +122,10 @@ class AgentLoopRunner @Inject constructor(
         } else {
             base
         }
+
+    private fun logError(message: String, throwable: Throwable) {
+        runCatching {
+            Log.e(TAG, message, throwable)
+        }
+    }
 }

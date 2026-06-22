@@ -123,7 +123,9 @@ class ModelSettingsFragment : BaseFragment() {
         // Download status label
         val isThisDownloading = downloadState == DownloadState.DOWNLOADING &&
             viewModel.downloadProgress.value.modelId == entry.modelId
+        val isThisResuming = isThisDownloading && viewModel.downloadProgress.value.isResuming
         card.textDownloadStatus.text = when {
+            isThisResuming -> getString(R.string.settings_model_resuming)
             isThisDownloading -> getString(R.string.settings_model_downloading)
             row.isDownloaded -> getString(
                 R.string.settings_model_downloaded,
@@ -172,12 +174,12 @@ class ModelSettingsFragment : BaseFragment() {
                     val cardView = b.containerModels.getChildAt(idx) ?: return@collect
                     val card = ItemModelCardBinding.bind(cardView)
                     card.progressDownload.progress = progress.percent
-                    card.textDownloadDetail.text = getString(
-                        R.string.model_settings_progress_detail,
-                        formatSizeMb(progress.bytesDownloaded),
-                        formatSizeMb(progress.totalBytes),
-                        progress.percent,
-                    )
+                    card.textDownloadStatus.text = if (progress.isResuming) {
+                        getString(R.string.settings_model_resuming)
+                    } else {
+                        getString(R.string.settings_model_downloading)
+                    }
+                    card.textDownloadDetail.text = formatDownloadProgress(progress)
                 }
             }
         }
@@ -294,4 +296,50 @@ class ModelSettingsFragment : BaseFragment() {
     }
 
     private fun formatSizeMb(bytes: Long): Int = (bytes / (1024 * 1024)).toInt()
+
+    private fun formatDownloadProgress(progress: ModelDownloadManager.DownloadProgress): String {
+        val base = if (progress.isResuming) {
+            getString(
+                R.string.model_settings_progress_resuming,
+                formatSizeMb(progress.resumedFromBytes),
+                formatSizeMb(progress.bytesDownloaded),
+                formatSizeMb(progress.totalBytes),
+                progress.percent,
+            )
+        } else {
+            getString(
+                R.string.model_settings_progress_detail,
+                formatSizeMb(progress.bytesDownloaded),
+                formatSizeMb(progress.totalBytes),
+                progress.percent,
+            )
+        }
+        val details = mutableListOf<String>()
+        if (progress.bytesPerSecond > 0L) {
+            details += "${formatDownloadSpeed(progress.bytesPerSecond)}/s"
+        }
+        progress.estimatedSecondsRemaining?.let {
+            details += "about ${formatDuration(it)} left"
+        }
+        return if (details.isEmpty()) base else "$base - ${details.joinToString(" - ")}"
+    }
+
+    private fun formatDownloadSpeed(bytesPerSecond: Long): String {
+        val mb = bytesPerSecond / (1024.0 * 1024.0)
+        return if (mb >= 1.0) {
+            "%.1f MB".format(mb)
+        } else {
+            val kb = bytesPerSecond / 1024.0
+            "%.0f KB".format(kb.coerceAtLeast(1.0))
+        }
+    }
+
+    private fun formatDuration(seconds: Long): String {
+        if (seconds < 60L) return "${seconds.coerceAtLeast(1L)} sec"
+        val minutes = (seconds + 59L) / 60L
+        if (minutes < 60L) return "$minutes min"
+        val hours = minutes / 60L
+        val remainingMinutes = minutes % 60L
+        return if (remainingMinutes == 0L) "$hours hr" else "$hours hr $remainingMinutes min"
+    }
 }

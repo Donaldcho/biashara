@@ -32,10 +32,10 @@
             android:id="@+id/slider_max_tokens"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:stepSize="128"
-            android:value="1024"
+            android:stepSize="16"
+            android:value="4000"
             android:valueFrom="512"
-            android:valueTo="2048"
+            android:valueTo="4000"
             app:tickVisible="false" />
 
         <TextView
@@ -43,7 +43,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textAppearance="?attr/textAppearanceBodyMedium"
-            tools:text="1024" />
+            tools:text="4000" />
 
         <TextView
             android:layout_width="match_parent"

@@ -12,8 +12,10 @@ import androidx.core.os.bundleOf
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import androidx.navigation.NavController
+import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.fragment.NavHostFragment
-import androidx.navigation.ui.setupWithNavController
+import androidx.navigation.ui.NavigationUI
 import com.biasharaai.databinding.ActivityMainBinding
 import com.biasharaai.locale.LanguagePreferences
 import com.biasharaai.ui.pos.ReceiptViewModel
@@ -28,6 +30,7 @@ import javax.inject.Inject
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+    private var bottomNavNavigationInFlight = false
 
     /** Posted from the startup splash; must be removed in [onDestroy] to avoid touches / crashes after finish. */
     private val splashFadeOutRunnable = Runnable {
@@ -71,7 +74,7 @@ class MainActivity : AppCompatActivity() {
             navController.graph = graph
         }
 
-        binding.bottomNav.setupWithNavController(navController)
+        setupBottomNavigation(navController)
         navController.addOnDestinationChangedListener { _, destination, _ ->
             binding.bottomNav.visibility = when (destination.id) {
                 R.id.languageSelectionFragment,
@@ -82,9 +85,18 @@ class MainActivity : AppCompatActivity() {
                 R.id.addEditProductFragment,
                 R.id.paymentDialogFragment,
                 R.id.supplierNegotiationFragment,
-                R.id.negotiationGuideFragment -> View.GONE
+                R.id.negotiationGuideFragment,
+                R.id.cashScanFragment,
+                R.id.confirmationFragment,
+                R.id.manualEntryFragment,
+                R.id.smsImportFragment,
+                R.id.qrCardGeneratorFragment,
+                R.id.chatFragment,
+                R.id.chatHistoryFragment,
+                R.id.lessonFragment -> View.GONE
                 else -> View.VISIBLE
             }
+            binding.bottomNav.menu.findItem(destination.id)?.isChecked = true
             applyRootLayoutDirectionFromLocale()
         }
 
@@ -95,6 +107,31 @@ class MainActivity : AppCompatActivity() {
         runStartupSplashIfNeeded(savedInstanceState)
 
         handleOpenReceiptIntent(intent)
+    }
+
+    private fun setupBottomNavigation(navController: NavController) {
+        binding.bottomNav.setOnItemSelectedListener { item ->
+            val currentDestination = navController.currentDestination
+            if (currentDestination?.hierarchy?.any { it.id == item.itemId } == true) {
+                return@setOnItemSelectedListener true
+            }
+            if (bottomNavNavigationInFlight) {
+                return@setOnItemSelectedListener false
+            }
+
+            bottomNavNavigationInFlight = true
+            val handled = runCatching {
+                NavigationUI.onNavDestinationSelected(item, navController)
+            }.onFailure { e ->
+                Log.w(TAG, "Bottom navigation failed for ${item.itemId}", e)
+            }.getOrDefault(false)
+
+            binding.bottomNav.post { bottomNavNavigationInFlight = false }
+            handled
+        }
+        binding.bottomNav.setOnItemReselectedListener { item ->
+            Log.d(TAG, "Bottom navigation reselected ${item.itemId}")
+        }
     }
 
     override fun onResume() {

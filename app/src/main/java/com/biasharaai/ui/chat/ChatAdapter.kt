@@ -10,6 +10,7 @@ import com.biasharaai.R
 import coil.load
 import com.biasharaai.databinding.ItemChatMessageBinding
 import com.biasharaai.locale.LanguagePreferences
+import com.google.android.material.button.MaterialButton
 import java.io.File
 import java.util.Locale
 
@@ -110,19 +111,35 @@ class ChatAdapter(
                 } else {
                     binding.buttonAssistantSpeak.bindSpeakTarget("")
                 }
-                val showFeedback = message.stableId > 0L && onAssistantFeedback != null
+                val feedbackHandler = onAssistantFeedback
+                val showFeedback = message.stableId > 0L && feedbackHandler != null
                 binding.rowAiFeedback.visibility = if (showFeedback) View.VISIBLE else View.GONE
                 if (showFeedback) {
-                    binding.btnFeedbackUp.isSelected = message.feedbackVote == 1
-                    binding.btnFeedbackDown.isSelected = message.feedbackVote == -1
-                    binding.btnFeedbackUp.setOnClickListener {
-                        onAssistantFeedback.invoke(message.stableId, 1)
+                    bindFeedbackButton(
+                        binding.btnFeedbackUp,
+                        selected = message.feedbackVote == 1,
+                    ) {
+                        feedbackHandler.invoke(message.stableId, 1)
                     }
-                    binding.btnFeedbackDown.setOnClickListener {
-                        onAssistantFeedback.invoke(message.stableId, -1)
+                    bindFeedbackButton(
+                        binding.btnFeedbackDown,
+                        selected = message.feedbackVote == -1,
+                    ) {
+                        feedbackHandler.invoke(message.stableId, -1)
                     }
                 }
             }
+        }
+
+        private fun bindFeedbackButton(
+            button: MaterialButton,
+            selected: Boolean,
+            onClick: () -> Unit,
+        ) {
+            button.isCheckable = true
+            button.isChecked = selected
+            button.alpha = if (selected) 1f else 0.72f
+            button.setOnClickListener { onClick() }
         }
 
         private fun bindMessageMenu(menu: View, bubble: View, message: ChatMessage) {

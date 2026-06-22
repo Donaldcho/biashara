@@ -67,8 +67,9 @@ class ChatHistoryFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 chatViewModel.sessions.collect { list ->
+                    val b = _binding ?: return@collect
                     adapter.submitList(list)
-                    binding.textEmpty.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+                    b.textEmpty.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
                 }
             }
         }

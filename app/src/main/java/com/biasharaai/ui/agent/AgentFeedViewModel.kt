@@ -4,6 +4,8 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.viewModelScope
 import com.biasharaai.R
+import com.biasharaai.agent.AgentActionHasher
+import com.biasharaai.agent.AgentDecisionEngine
 import com.biasharaai.agent.AgentActionExecutor
 import com.biasharaai.agent.AgentOrchestrator
 import com.biasharaai.agent.ExecutionResult
@@ -29,7 +31,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.security.MessageDigest
 import java.text.DateFormat
 import java.util.Calendar
 import java.util.Date
@@ -67,6 +68,7 @@ class AgentFeedViewModel @Inject constructor(
     private val businessKpiSnapshotDao: BusinessKpiSnapshotDao,
     private val agentOrchestrator: AgentOrchestrator,
     private val agentActionExecutor: AgentActionExecutor,
+    private val agentDecisionEngine: AgentDecisionEngine,
 ) : BaseViewModel() {
 
     private val executingId = MutableStateFlow<Long?>(null)
@@ -86,7 +88,6 @@ class AgentFeedViewModel @Inject constructor(
         val feedbackByActionId = feedback.associateBy { it.agentActionId }
         val rejectedHashes = feedback
             .asSequence()
-            .filter { it.vote < 0 }
             .map { it.contentHash }
             .toSet()
         val visibleActions = collapseRepeatedActions(sorted)
@@ -189,8 +190,12 @@ class AgentFeedViewModel @Inject constructor(
             }
             executingId.value = null
             when (result) {
-                ExecutionResult.Success ->
+                ExecutionResult.Success -> {
+                    withContext(Dispatchers.IO) {
+                        agentDecisionEngine.recordOwnerReview(action, vote = 1)
+                    }
                     _events.emit(AgentFeedEvent.ApproveSuccess(action.id))
+                }
                 ExecutionResult.RequiresNavigation ->
                     _events.emit(AgentFeedEvent.ApproveNeedsNavigation(action))
                 ExecutionResult.UnknownVerb ->
@@ -211,15 +216,17 @@ class AgentFeedViewModel @Inject constructor(
         }
     }
 
-    fun markExecutedAfterNavigation(actionId: Long) {
+    fun markExecutedAfterNavigation(action: AgentAction) {
         launchSafe(Dispatchers.IO) {
-            agentActionDao.updateStatus(actionId, "EXECUTED")
+            agentActionDao.updateStatus(action.id, "EXECUTED")
+            agentDecisionEngine.recordOwnerReview(action, vote = 1)
         }
     }
 
     fun reject(action: AgentAction) {
         launchSafe(Dispatchers.IO) {
             agentActionDao.updateStatus(action.id, "DISMISSED")
+            agentDecisionEngine.recordOwnerReview(action, vote = -1)
         }
     }
 
@@ -241,13 +248,14 @@ class AgentFeedViewModel @Inject constructor(
             if (!helpful) {
                 agentActionDao.updateStatus(action.id, "DISMISSED")
             }
-            _events.emit(AgentFeedEvent.FeedbackSaved(hidesSimilarReports = !helpful))
+            _events.emit(AgentFeedEvent.FeedbackSaved(hidesSimilarReports = true))
         }
     }
 
     fun dismiss(action: AgentAction) {
         launchSafe(Dispatchers.IO) {
             agentActionDao.updateStatus(action.id, "DISMISSED")
+            agentDecisionEngine.recordOwnerReview(action, vote = -1)
         }
     }
 
@@ -287,24 +295,7 @@ class AgentFeedViewModel @Inject constructor(
             contentHashFor(action),
         ).joinToString("|")
 
-    private fun contentHashFor(action: AgentAction): String {
-        val raw = buildString {
-            append(action.agentType).append('|')
-            append(action.actionVerb.orEmpty()).append('|')
-            append(action.relatedEntityType.orEmpty()).append('|')
-            append(action.relatedEntityId?.toString().orEmpty()).append('|')
-            append(action.headline).append('|')
-            append(action.detail.take(CONTENT_HASH_DETAIL_LIMIT))
-        }
-        val normalized = NORMALIZE_WHITESPACE.replace(
-            NORMALIZE_DIGITS.replace(raw.lowercase(Locale.US), "#"),
-            " ",
-        ).trim()
-        val digest = MessageDigest.getInstance("SHA-256").digest(normalized.toByteArray(Charsets.UTF_8))
-        return digest.take(CONTENT_HASH_BYTES).joinToString("") { byte ->
-            String.format(Locale.US, "%02x", byte.toInt() and 0xff)
-        }
-    }
+    private fun contentHashFor(action: AgentAction): String = AgentActionHasher.contentHash(action)
 
     private fun buildTodayBrief(
         actions: List<AgentAction>,
@@ -372,11 +363,7 @@ class AgentFeedViewModel @Inject constructor(
         private const val MAX_FEED_ROWS = 20
         private const val BRIEF_KPI_WEEKS = 4
         private const val MIN_REFRESH_INTERVAL_MS = 3_000L
-        private const val FEEDBACK_SUPPRESSION_WINDOW_MS = 21L * 24 * 60 * 60 * 1000
+        private const val FEEDBACK_SUPPRESSION_WINDOW_MS = AgentDecisionEngine.REVIEW_SUPPRESSION_WINDOW_MS
         private const val FEEDBACK_RETENTION_MS = 180L * 24 * 60 * 60 * 1000
-        private const val CONTENT_HASH_DETAIL_LIMIT = 360
-        private const val CONTENT_HASH_BYTES = 12
-        private val NORMALIZE_DIGITS = Regex("\\d+")
-        private val NORMALIZE_WHITESPACE = Regex("[^a-z0-9#]+")
     }
 }

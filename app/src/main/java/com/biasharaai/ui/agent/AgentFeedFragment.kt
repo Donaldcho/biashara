@@ -137,7 +137,7 @@ class AgentFeedFragment : BaseFragment() {
                             }
                             is AgentFeedEvent.ApproveNeedsNavigation -> {
                                 if (navigateReviewIfPossible(event.action)) {
-                                    viewModel.markExecutedAfterNavigation(event.action.id)
+                                    viewModel.markExecutedAfterNavigation(event.action)
                                     flashApproveSuccessCard(event.action.id)
                                 }
                             }

@@ -2,6 +2,7 @@ package com.biasharaai.ai
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import com.biasharaai.data.local.db.ModelDescriptor
 import com.biasharaai.data.local.db.ModelDescriptorDao
 import com.google.gson.Gson
@@ -10,6 +11,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.Properties
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -56,7 +58,7 @@ class ModelRegistry @Inject constructor(
 
     fun isDownloaded(modelId: String): Boolean {
         val file = modelFile(modelId)
-        return file.exists() && file.length() > 0
+        return isUsableDownloadedFile(modelId, file)
     }
 
     fun isPrimaryDownloaded(): Boolean = isDownloaded(primaryModelId())
@@ -94,7 +96,7 @@ class ModelRegistry @Inject constructor(
         val all = modelDescriptorDao.getAll()
         for (descriptor in all) {
             val file = fileForDescriptor(descriptor)
-            val onDisk = file.exists() && file.length() > 0
+            val onDisk = isUsableDownloadedFile(descriptor.modelId, file)
             val path = if (onDisk) file.absolutePath else null
             val downloadedAt = if (onDisk) descriptor.downloadedAt ?: System.currentTimeMillis() else null
             if (descriptor.isDownloaded != onDisk || descriptor.filePath != path) {
@@ -108,7 +110,7 @@ class ModelRegistry @Inject constructor(
         }
         // Legacy install: file on disk before registry existed
         val legacyFile = File(modelsDir, ModelDownloadManager.LEGACY_MODEL_FILENAME)
-        if (legacyFile.exists() && legacyFile.length() > 0) {
+        if (isUsableDownloadedFile(primaryModelId(), legacyFile)) {
             val primary = primaryModelId()
             val row = modelDescriptorDao.getById(primary)
             if (row != null && !row.isDownloaded) {
@@ -206,6 +208,54 @@ class ModelRegistry @Inject constructor(
         return File(modelsDir, descriptor.fileName)
     }
 
+    private fun isUsableDownloadedFile(modelId: String, file: File): Boolean {
+        if (!file.exists() || file.length() <= 0L) return false
+        if (hasMatchingDownloadMetadata(modelId, file)) return true
+        val expectedBytes = catalogue().models
+            .firstOrNull { it.modelId == modelId }
+            ?.sizeBytes
+            ?.takeIf { it > 0L }
+            ?: return true
+        if (file.length() == expectedBytes) return true
+        if (isPlausibleLegacyModelFile(file, expectedBytes)) {
+            Log.w(
+                TAG,
+                "Accepting existing model without sidecar metadata: modelId=$modelId, " +
+                    "bytes=${file.length()}, catalogueBytes=$expectedBytes",
+            )
+            return true
+        }
+        return false
+    }
+
+    private fun isPlausibleLegacyModelFile(file: File, expectedBytes: Long): Boolean {
+        if (!file.name.endsWith(".litertlm", ignoreCase = true)) return false
+        val length = file.length()
+        val minBytes = (expectedBytes * 85) / 100
+        val maxBytes = (expectedBytes * 115) / 100
+        return length in minBytes..maxBytes
+    }
+
+    private fun hasMatchingDownloadMetadata(modelId: String, file: File): Boolean {
+        val metadata = metadataFileFor(file)
+        if (!metadata.exists()) return false
+        val props = runCatching {
+            Properties().apply {
+                metadata.inputStream().use(::load)
+            }
+        }.getOrNull() ?: return false
+
+        val metadataModelId = props.getProperty("modelId") ?: return false
+        val metadataFileName = props.getProperty("fileName") ?: return false
+        val metadataBytes = props.getProperty("sizeBytes")?.toLongOrNull() ?: return false
+        return metadataModelId == modelId &&
+            metadataFileName == file.name &&
+            metadataBytes == file.length()
+    }
+
+    private fun metadataFileFor(file: File): File =
+        File(file.parentFile, "${file.name}.download.properties")
+
     private fun ModelCatalogueEntry.toDescriptor(existing: ModelDescriptor?): ModelDescriptor =
         ModelDescriptor(
             modelId = modelId,
@@ -225,6 +275,7 @@ class ModelRegistry @Inject constructor(
 
     companion object {
         private const val PREFS_NAME = "model_registry_prefs"
+        private const val TAG = "ModelRegistry"
         private const val KEY_PRIMARY_MODEL_ID = "primary_model_id"
         private const val KEY_CAPABILITY_PREFIX = "capability_model_"
     }

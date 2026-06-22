@@ -42,10 +42,7 @@ class StockGuardianWorker(
             currencySymbol = appSettings.currencySymbol,
         )
         for (action in candidates) {
-            val productId = action.relatedEntityId ?: continue
-            if (agentDecisionEngine.isDuplicateAction(AgentTypes.STOCK_GUARDIAN, productId)) {
-                continue
-            }
+            if (agentDecisionEngine.shouldSkipInserting(action)) continue
             agentActionDao.insertAction(action)
             actionsGenerated++
         }

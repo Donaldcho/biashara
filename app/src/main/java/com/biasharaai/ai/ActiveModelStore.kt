@@ -53,7 +53,7 @@ class ActiveModelStore @Inject constructor(
 
         private const val INIT_TIMEOUT_MS = 30_000L
         private const val GENERATION_TIMEOUT_MS = 90_000L
-        private const val MIN_EXPECTED_MODEL_SIZE_PERCENT = 90L
+        private const val RUNTIME_FAILURE_COOLDOWN_MS = 30_000L
 
         private const val SYSTEM_PROMPT =
             "You are Biashara AI, a helpful, friendly assistant for small business owners in " +
@@ -79,6 +79,9 @@ class ActiveModelStore @Inject constructor(
     @Volatile
     private var runtimeDisabledReason: String? = null
 
+    @Volatile
+    private var runtimeDisabledUntilMs: Long = 0L
+
     private val generationMutex = Mutex()
 
     private fun effectiveTier(): CapabilityTier =
@@ -88,9 +91,24 @@ class ActiveModelStore @Inject constructor(
         ).tier
 
     val isAvailable: Boolean
-        get() = runtimeDisabledReason == null &&
-            hasUsablePrimaryModel() &&
-            effectiveTier() != CapabilityTier.RULES_BASED
+        get() = runtimeStatus().isReady
+
+    fun runtimeStatus(): AiRuntimeStatus {
+        runtimeCooldownReasonOrNull()?.let { reason ->
+            return AiRuntimeStatus(
+                state = AiRuntimeState.RUNTIME_COOLING_DOWN,
+                detail = reason,
+                retryAfterMs = (runtimeDisabledUntilMs - System.currentTimeMillis()).coerceAtLeast(0L),
+            )
+        }
+        if (!hasUsablePrimaryModel()) {
+            return AiRuntimeStatus(AiRuntimeState.MODEL_NOT_DOWNLOADED)
+        }
+        if (effectiveTier() == CapabilityTier.RULES_BASED) {
+            return AiRuntimeStatus(AiRuntimeState.DEVICE_UNSUPPORTED)
+        }
+        return AiRuntimeStatus(AiRuntimeState.READY)
+    }
 
     /** Returns true if the current inference config forces CPU backend. */
     fun isForcedCpu(): Boolean = inferenceSettingsStore.load().preferCpu
@@ -100,15 +118,14 @@ class ActiveModelStore @Inject constructor(
     private fun hasUsableModel(modelId: String): Boolean {
         val file = modelRegistry.modelFile(modelId)
         if (!file.exists() || file.length() <= 0L) return false
-        val expectedBytes = modelRegistry.catalogue().models
-            .firstOrNull { it.modelId == modelId }
-            ?.sizeBytes
-            ?: return true
-        val minimumBytes = (expectedBytes * MIN_EXPECTED_MODEL_SIZE_PERCENT) / 100L
-        if (file.length() < minimumBytes) {
+        if (!modelRegistry.isDownloaded(modelId)) {
+            val expectedBytes = modelRegistry.catalogue().models
+                .firstOrNull { it.modelId == modelId }
+                ?.sizeBytes
+            val expectedLabel = expectedBytes?.toString() ?: "unknown"
             Log.w(
                 TAG,
-                "Model is incomplete: modelId=$modelId, bytes=${file.length()}, expected=$expectedBytes",
+                "Model is incomplete: modelId=$modelId, bytes=${file.length()}, expected=$expectedLabel",
             )
             return false
         }
@@ -117,8 +134,8 @@ class ActiveModelStore @Inject constructor(
 
     private fun ensureEngineOnGateThread(): Engine {
         engine?.let { return it }
-        runtimeDisabledReason?.let { reason ->
-            error("On-device AI disabled after runtime failure: $reason")
+        runtimeCooldownReasonOrNull()?.let { reason ->
+            error("On-device AI is cooling down after runtime failure: $reason")
         }
         check(isAvailable) {
             "ActiveModelStore is not available (tier=${effectiveTier()}, " +
@@ -137,9 +154,21 @@ class ActiveModelStore @Inject constructor(
         val e = ensureEngineOnGateThread()
         val tier = effectiveTier()
         val cfg = inferenceSettingsStore.load()
-        val convo = modelLoader.createConversation(e, tier, cfg, SYSTEM_PROMPT)
+        val convo = modelLoader.createConversation(e, tier, cfg, systemPromptFor(cfg))
         conversation = convo
         return convo
+    }
+
+    private fun systemPromptFor(cfg: InferenceUiConfig): String {
+        val answerOnly =
+            "Return only the final user-facing answer. Do not include thought channels, " +
+                "reasoning traces, or control tokens in the answer."
+        val base = "$SYSTEM_PROMPT $answerOnly"
+        return if (cfg.enableThinking) {
+            "<|think|>\n$base"
+        } else {
+            base
+        }
     }
 
     /**
@@ -173,8 +202,8 @@ class ActiveModelStore @Inject constructor(
                     suspendCancellableCoroutine<Unit> { cont ->
                         val callback = object : MessageCallback {
                             override fun onMessage(message: Message) {
-                                val delta = message.toString()
-                                if (delta.startsWith("<ctrl")) return
+                                val delta = extractText(message)
+                                if (delta.isBlank() || delta.startsWith("<ctrl")) return
                                 try {
                                     onPartial(delta, false)
                                 } catch (t: Throwable) {
@@ -242,7 +271,7 @@ class ActiveModelStore @Inject constructor(
     suspend fun generateResponse(prompt: String): String {
         val sb = StringBuilder()
         generateStreaming(prompt) { delta, _ -> sb.append(delta) }
-        return sb.toString()
+        return GemmaOutputSanitizer.finalAnswer(sb.toString())
     }
 
     private fun handleRuntimeFailure(operation: String, throwable: Throwable) {
@@ -251,7 +280,8 @@ class ActiveModelStore @Inject constructor(
         if (root is FutureCancellationException) return
         val reason = root.message?.take(240) ?: root.javaClass.simpleName
         runtimeDisabledReason = reason
-        Log.e(TAG, "$operation failed; disabling on-device AI for this process", root)
+        runtimeDisabledUntilMs = System.currentTimeMillis() + RUNTIME_FAILURE_COOLDOWN_MS
+        Log.e(TAG, "$operation failed; cooling down on-device AI before retry", root)
         val staleConversation = conversation
         val staleEngine = engine
         conversation = null
@@ -281,6 +311,21 @@ class ActiveModelStore @Inject constructor(
         }
     }
 
+    private fun isRuntimeCoolingDown(): Boolean = runtimeCooldownReasonOrNull() != null
+
+    private fun runtimeCooldownReasonOrNull(): String? {
+        val reason = runtimeDisabledReason ?: return null
+        if (runtimeDisabledUntilMs > System.currentTimeMillis()) return reason
+        runtimeDisabledReason = null
+        runtimeDisabledUntilMs = 0L
+        return null
+    }
+
+    private fun extractText(message: Message): String =
+        message.contents.contents
+            .mapNotNull { content -> (content as? Content.Text)?.text }
+            .joinToString(separator = "")
+
     /**
      * X8 — Ephemeral tool-enabled conversation for agent workers.
      * Does not mutate the singleton chat [conversation]; opens and closes a dedicated session.
@@ -292,7 +337,7 @@ class ActiveModelStore @Inject constructor(
         toolCallsExecuted: List<AgentToolCallRecord>,
         toolModelId: String? = null,
     ): AgentLoopResult = withContext(Dispatchers.IO) {
-        runtimeDisabledReason?.let { reason ->
+        runtimeCooldownReasonOrNull()?.let { reason ->
             return@withContext AgentLoopResult(
                 finalText = "",
                 toolCalls = toolCallsExecuted,
@@ -369,8 +414,8 @@ class ActiveModelStore @Inject constructor(
                                 suspendCancellableCoroutine { cont ->
                                     val callback = object : MessageCallback {
                                         override fun onMessage(message: Message) {
-                                            val chunk = message.toString()
-                                            if (chunk.isNotEmpty() && !chunk.startsWith("<ctrl")) {
+                                            val chunk = extractText(message)
+                                            if (chunk.isNotBlank() && !chunk.startsWith("<ctrl")) {
                                                 sb.append(chunk)
                                             }
                                         }
@@ -500,64 +545,66 @@ class ActiveModelStore @Inject constructor(
     }
 
     fun resetSession() {
+        val staleConversation = conversation
+        conversation = null
         try {
-            inferenceExecutor.submit {
+            inferenceExecutor.execute {
                 try {
-                    conversation?.close()
+                    staleConversation?.close()
                 } catch (_: Throwable) {
                 }
-                conversation = null
                 Log.d(TAG, "Conversation reset (new chat)")
-            }.get(30, TimeUnit.SECONDS)
+            }
         } catch (e: Throwable) {
-            Log.w(TAG, "resetSession interrupted", e)
-            conversation = null
+            Log.w(TAG, "resetSession could not schedule cleanup", e)
         }
     }
 
     fun resetEngine() {
         runtimeDisabledReason = null
+        runtimeDisabledUntilMs = 0L
+        val staleConversation = conversation
+        val staleEngine = engine
+        conversation = null
+        engine = null
         try {
-            inferenceExecutor.submit {
+            inferenceExecutor.execute {
                 try {
-                    conversation?.close()
+                    staleConversation?.close()
                 } catch (_: Throwable) {
                 }
-                conversation = null
                 try {
-                    engine?.close()
+                    staleEngine?.close()
                 } catch (_: Throwable) {
                 }
-                engine = null
                 Log.d(TAG, "Engine + conversation reset (settings changed)")
-            }.get(60, TimeUnit.SECONDS)
+            }
         } catch (e: Throwable) {
-            Log.w(TAG, "resetEngine interrupted", e)
-            conversation = null
-            engine = null
+            Log.w(TAG, "resetEngine could not schedule cleanup", e)
         }
     }
 
     fun close() {
         runtimeDisabledReason = null
+        runtimeDisabledUntilMs = 0L
+        val staleConversation = conversation
+        val staleEngine = engine
+        conversation = null
+        engine = null
         try {
-            inferenceExecutor.submit {
+            inferenceExecutor.execute {
                 try {
-                    conversation?.close()
+                    staleConversation?.close()
                 } catch (_: Throwable) {
                 }
-                conversation = null
                 try {
-                    engine?.close()
+                    staleEngine?.close()
                 } catch (_: Throwable) {
                 }
-                engine = null
                 Log.d(TAG, "ActiveModelStore closed")
-            }.get(30, TimeUnit.SECONDS)
+            }
         } catch (e: Throwable) {
-            Log.w(TAG, "close() could not run cleanly", e)
-            conversation = null
-            engine = null
+            Log.w(TAG, "close() could not schedule cleanup", e)
         }
     }
 }

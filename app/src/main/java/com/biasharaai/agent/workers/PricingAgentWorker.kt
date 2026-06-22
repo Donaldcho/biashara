@@ -99,6 +99,7 @@ class PricingAgentWorker(
                 body = detail,
                 nowMillis = startWall,
             )
+            if (agentDecisionEngine.shouldSkipInserting(action)) continue
             agentActionDao.insertAction(action)
             inserted++
         }

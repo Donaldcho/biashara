@@ -29,6 +29,38 @@ interface AgentActionDao {
     )
     suspend fun countPendingWithExactHeadline(agentType: String, headline: String): Int
 
+    /** Owner already dismissed or approved a prior alert for this entity. */
+    @Query(
+        """
+        SELECT COUNT(*) FROM agent_actions
+        WHERE agent_type = :agentType
+          AND related_entity_id = :relatedEntityId
+          AND status IN ('DISMISSED', 'EXECUTED')
+          AND created_at >= :sinceMillis
+        """,
+    )
+    suspend fun countHandledForAgentAndEntitySince(
+        agentType: String,
+        relatedEntityId: Long,
+        sinceMillis: Long,
+    ): Int
+
+    /** Owner already dismissed or approved a prior headline-only alert. */
+    @Query(
+        """
+        SELECT COUNT(*) FROM agent_actions
+        WHERE agent_type = :agentType
+          AND headline = :headline
+          AND status IN ('DISMISSED', 'EXECUTED')
+          AND created_at >= :sinceMillis
+        """,
+    )
+    suspend fun countHandledWithHeadlineSince(
+        agentType: String,
+        headline: String,
+        sinceMillis: Long,
+    ): Int
+
     @Query("UPDATE agent_actions SET status = :status WHERE id = :id")
     suspend fun updateStatus(id: Long, status: String)
 

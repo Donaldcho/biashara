@@ -162,8 +162,14 @@ class VoiceSettingsViewModel @Inject constructor(
     }
 
     private fun hasUsableNetwork(): Boolean {
-        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
-            ?: return true
+        val cm = runCatching {
+            context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        }.getOrElse {
+            runCatching {
+                Log.w(TAG, "Connectivity check unavailable; allowing speech model preparation", it)
+            }
+            return true
+        } ?: return true
         val network = cm.activeNetwork ?: return false
         val caps = cm.getNetworkCapabilities(network) ?: return false
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&

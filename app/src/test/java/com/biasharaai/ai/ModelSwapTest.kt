@@ -162,9 +162,24 @@ class ModelSwapTest {
     }
 
     @Test
-    fun isDownloaded_whenFilePresent_returnsTrue() {
+    fun isDownloaded_whenPlaceholderFilePresent_returnsFalse() {
         val modelsDir = File(tempDir, ModelDownloadManager.MODELS_DIR).also { it.mkdirs() }
         File(modelsDir, "gemma-4-E2B-it.litertlm").writeText("placeholder")
+        assertFalse(registry.isDownloaded("gemma-4-e2b-it"))
+    }
+
+    @Test
+    fun isDownloaded_whenFileHasMatchingMetadata_returnsTrue() {
+        val modelsDir = File(tempDir, ModelDownloadManager.MODELS_DIR).also { it.mkdirs() }
+        val modelFile = File(modelsDir, "gemma-4-E2B-it.litertlm")
+        modelFile.writeText("placeholder")
+        File(modelsDir, "gemma-4-E2B-it.litertlm.download.properties").writeText(
+            """
+            modelId=gemma-4-e2b-it
+            fileName=gemma-4-E2B-it.litertlm
+            sizeBytes=${modelFile.length()}
+            """.trimIndent(),
+        )
         assertTrue(registry.isDownloaded("gemma-4-e2b-it"))
     }
 

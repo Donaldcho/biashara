@@ -19,6 +19,9 @@ class GemmaService @Inject constructor(
     val isAvailable: Boolean
         get() = activeModelStore.isAvailable
 
+    val runtimeStatus: AiRuntimeStatus
+        get() = activeModelStore.runtimeStatus()
+
     suspend fun generateStreaming(
         prompt: String,
         onPartial: (delta: String, done: Boolean) -> Unit,

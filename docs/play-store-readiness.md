@@ -34,7 +34,17 @@ Use sovereignty-safe wording:
 
 Avoid claiming direct money transfer until licensed payment-provider integrations are approved and live.
 
-## Play Console Items
+## Release checklist (v1.4.0)
+
+- [ ] Fresh install on Android 8+ (minSdk 26)
+- [ ] Upgrade install from v1.3.0 / DB v40 → v41 (Money Inbox)
+- [ ] Chat: no `<|channel|>`, `end_of_turn`, or fake `user:` turns in bubbles
+- [ ] Agent feed: dismiss/approve suppresses repeat alerts for 21 days
+- [ ] Money Inbox: scan/SMS/manual → draft → approve → ledger
+- [ ] Optional cloud AI disabled by default; gateway HTTPS in production
+- [ ] Release AAB signed with `keystore.properties`
+- [ ] Privacy policy URL live in Settings
+
 
 - Host `docs/privacy-policy.md` at the URL configured by `settings_privacy_policy_url`.
 - Complete Data Safety for business records, customer contact data, financial records, camera, microphone, optional cloud AI, optional enterprise upload, diagnostics, and support reports.

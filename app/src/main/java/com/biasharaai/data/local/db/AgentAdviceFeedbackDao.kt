@@ -15,6 +15,14 @@ interface AgentAdviceFeedbackDao {
     @Query("SELECT * FROM agent_advice_feedback WHERE created_at >= :sinceMillis ORDER BY created_at DESC")
     fun observeFeedbackSince(sinceMillis: Long): Flow<List<AgentAdviceFeedback>>
 
+    @Query(
+        """
+        SELECT COUNT(*) FROM agent_advice_feedback
+        WHERE content_hash = :contentHash AND created_at >= :sinceMillis
+        """,
+    )
+    suspend fun countReviewedHashSince(contentHash: String, sinceMillis: Long): Int
+
     @Query("DELETE FROM agent_advice_feedback WHERE created_at < :olderThanMillis")
     suspend fun deleteOlderThan(olderThanMillis: Long): Int
 }

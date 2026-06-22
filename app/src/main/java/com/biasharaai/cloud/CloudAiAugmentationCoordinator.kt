@@ -1,6 +1,7 @@
 package com.biasharaai.cloud
 
 import android.util.Log
+import com.biasharaai.ai.GemmaOutputSanitizer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -17,7 +18,7 @@ data class CloudAiAugmentationAnswer(
     val sources: List<CloudAiGatewaySource>,
 ) {
     fun toChatText(): String = buildString {
-        append(answer.trim())
+        append(GemmaOutputSanitizer.finalAnswer(answer))
         if (sources.isNotEmpty()) {
             append("\n\nSources:")
             sources.forEach { source ->

@@ -162,11 +162,19 @@ class ChatFragment : BaseFragment() {
         observeAssistantAutoRead()
     }
 
+    override fun onStop() {
+        if (viewModel.isGenerating.value) {
+            viewModel.stopGeneration()
+        }
+        super.onStop()
+    }
+
     private fun observeVoiceInputPreference() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 voiceInputPreferences.voiceInputEnabled.collect { enabled ->
-                    binding.btnMic.visibility = if (enabled) View.VISIBLE else View.GONE
+                    val b = _binding ?: return@collect
+                    b.btnMic.visibility = if (enabled) View.VISIBLE else View.GONE
                 }
             }
         }
@@ -178,11 +186,13 @@ class ChatFragment : BaseFragment() {
                 R.id.action_new_chat -> {
                     viewModel.startNewChat()
                     clearSendFlags()
-                    Snackbar.make(binding.root, R.string.chat_new_chat_started, Snackbar.LENGTH_SHORT).show()
+                    _binding?.root?.let { root ->
+                        Snackbar.make(root, R.string.chat_new_chat_started, Snackbar.LENGTH_SHORT).show()
+                    }
                     true
                 }
                 R.id.action_chat_history -> {
-                    findNavController().navigate(R.id.action_chatFragment_to_chatHistoryFragment)
+                    navigateToChatHistorySafely()
                     true
                 }
                 R.id.action_wikipedia -> {
@@ -206,6 +216,13 @@ class ChatFragment : BaseFragment() {
         chatAdapter = ChatAdapter(
             onAssistantFeedback = { messageId, vote ->
                 viewModel.submitAssistantFeedback(messageId, vote)
+                _binding?.root?.let { root ->
+                    Snackbar.make(
+                        root,
+                        R.string.chat_feedback_saved,
+                        Snackbar.LENGTH_SHORT,
+                    ).show()
+                }
             },
             onMessageMenu = { message ->
                 showMessageActions(message)
@@ -255,7 +272,9 @@ class ChatFragment : BaseFragment() {
         runCatching {
             startActivity(Intent.createChooser(send, getString(R.string.chat_report_ai_issue)))
         }.onFailure {
-            Snackbar.make(binding.root, R.string.chat_report_ai_issue_failed, Snackbar.LENGTH_LONG).show()
+            _binding?.root?.let { root ->
+                Snackbar.make(root, R.string.chat_report_ai_issue_failed, Snackbar.LENGTH_LONG).show()
+            }
         }
     }
 
@@ -266,12 +285,16 @@ class ChatFragment : BaseFragment() {
         clipboard.setPrimaryClip(
             ClipData.newPlainText(getString(R.string.chat_message_clip_label), text),
         )
-        Snackbar.make(binding.root, R.string.chat_message_copied, Snackbar.LENGTH_SHORT).show()
+        _binding?.root?.let { root ->
+            Snackbar.make(root, R.string.chat_message_copied, Snackbar.LENGTH_SHORT).show()
+        }
     }
 
     private fun showEditMessageDialog(message: ChatMessage) {
         if (message.stableId <= 0L) {
-            Snackbar.make(binding.root, R.string.chat_message_action_unavailable, Snackbar.LENGTH_SHORT).show()
+            _binding?.root?.let { root ->
+                Snackbar.make(root, R.string.chat_message_action_unavailable, Snackbar.LENGTH_SHORT).show()
+            }
             return
         }
         val input = EditText(requireContext()).apply {
@@ -310,7 +333,9 @@ class ChatFragment : BaseFragment() {
 
     private fun showDeleteMessageDialog(message: ChatMessage) {
         if (message.stableId <= 0L) {
-            Snackbar.make(binding.root, R.string.chat_message_action_unavailable, Snackbar.LENGTH_SHORT).show()
+            _binding?.root?.let { root ->
+                Snackbar.make(root, R.string.chat_message_action_unavailable, Snackbar.LENGTH_SHORT).show()
+            }
             return
         }
         MaterialAlertDialogBuilder(requireContext())
@@ -328,7 +353,8 @@ class ChatFragment : BaseFragment() {
     }
 
     private fun rebuildSuggestionChips() {
-        val group = binding.chipGroupSuggestions
+        val b = _binding ?: return
+        val group = b.chipGroupSuggestions
         group.removeAllViews()
         val seenLower = mutableSetOf<String>()
         fun addChip(fullText: String, onClick: () -> Unit) {
@@ -359,7 +385,8 @@ class ChatFragment : BaseFragment() {
                 isCheckable = false
                 setOnClickListener {
                     pendingRemoteSkillPrefix = rs.promptPrefix
-                    Snackbar.make(binding.root, R.string.chat_skill_hint_added, Snackbar.LENGTH_SHORT).show()
+                    val root = _binding?.root ?: return@setOnClickListener
+                    Snackbar.make(root, R.string.chat_skill_hint_added, Snackbar.LENGTH_SHORT).show()
                 }
             }
             group.addView(chip)
@@ -654,7 +681,8 @@ class ChatFragment : BaseFragment() {
             .setPositiveButton(android.R.string.ok) { _, _ ->
                 val q = input.text?.toString()?.trim().orEmpty()
                 if (q.isEmpty()) return@setPositiveButton
-                binding.editMessage.setText(q)
+                val b = _binding ?: return@setPositiveButton
+                b.editMessage.setText(q)
                 wikipediaAugmentNext = check.isChecked
             }
             .show()
@@ -710,6 +738,19 @@ class ChatFragment : BaseFragment() {
         val b = _binding ?: return
         val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.hideSoftInputFromWindow(b.editMessage.windowToken, 0)
+    }
+
+    private fun navigateToChatHistorySafely() {
+        val navController = runCatching { findNavController() }.getOrElse {
+            Log.w(TAG, "Chat history navigation controller unavailable", it)
+            return
+        }
+        if (navController.currentDestination?.id != R.id.chatFragment) return
+        runCatching {
+            navController.navigate(R.id.action_chatFragment_to_chatHistoryFragment)
+        }.onFailure {
+            Log.w(TAG, "Chat history navigation failed", it)
+        }
     }
 
     private fun observeMessages() {
