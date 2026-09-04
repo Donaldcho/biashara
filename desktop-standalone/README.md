@@ -61,7 +61,14 @@ Most USB barcode scanners work like a keyboard and press Enter after each scan.
 Current phone bridge endpoints:
 
 ```text
-POST /api/phone/pair   {"token":"PAIRING_CODE","deviceName":"Phone name"}
+GET  /api/phone/discovery
+GET  /api/phone/capabilities
+POST /api/phone/pair
+{
+  "token": "PAIRING_CODE",
+  "deviceName": "Phone name",
+  "supportedProtocolVersions": ["1.0"]
+}
 POST /api/phone/scan   {"sessionKey":"SESSION","rawValue":"600100000001","deviceName":"Phone name"}
 POST /api/phone/product-sync
 {
@@ -130,9 +137,11 @@ POST /api/phone/stock-intake
 }
 ```
 
-The bridge uses a short-lived pairing code and a per-session key. The Android-side "Connect Desktop" scanner screen should be added later as an additive mobile feature using the existing mobile barcode scanner and router.
+The bridge uses a one-time displayed pairing code and a per-session key. The pairing code rotates after a successful pairing. Android and desktop share protocol `1.0`. Protected requests from a capable pairing include protocol, request-ID, timestamp, nonce, and HMAC-SHA256 signature headers. The desktop rejects stale, modified, and replayed signed requests. See `docs/architecture/SYNC_PROTOCOL_V1.md` for the canonical request and compatibility behavior.
 
-Product sync updates matching products by barcode, creates missing products, saves mobile images locally, and replaces the desktop stock count with the mobile stock count.
+The mobile Desktop Link screen supports automatic LAN discovery, pairing, phone barcode scanning, catalogue and image transfer, transaction upload, and bidirectional reconciliation.
+
+Product sync updates matching products by barcode, creates missing products, and saves mobile images locally. Ongoing reconciliation sends identified stock changes so a phone snapshot does not overwrite desktop sales.
 
 Transaction sync records recent mobile receipts on desktop using `MOB-<mobileTransactionId>` ids so retries do not create duplicates. Reconciliation returns desktop-origin products, current stock, and desktop POS transactions with committed sale lines so the phone can import desktop sales as local receipts.
 

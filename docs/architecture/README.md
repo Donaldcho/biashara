@@ -9,7 +9,9 @@ This directory is the engineering entry point for Biashara AI architecture. Docu
 - [Current state](CURRENT_STATE.md): software that exists in this repository today, how it runs, and known limitations.
 - [Growth architecture](GROWTH_ARCHITECTURE.md): target design for small stores first and medium stores later.
 - [Voice agent architecture](VOICE_AGENT_ARCHITECTURE.md): safe natural conversation over the existing agent and tool platform.
+- [Phone sync protocol v1](SYNC_PROTOCOL_V1.md): implemented request contract, authentication, compatibility, and limits.
 - [ADR-0001](adr/0001-modular-monolith-deployment-profiles.md): decision to use one modular product with multiple deployment profiles.
+- [ADR-0002](adr/0002-versioned-signed-phone-sync.md): decision to share and sign the phone-desktop protocol.
 - [Security threat model](../security/THREAT_MODEL.md): assets, boundaries, threats, current controls, and required controls.
 
 ## Documentation Rules

@@ -17,3 +17,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "BiasharaAI"
 include(":app")
+include(":sync-contract")

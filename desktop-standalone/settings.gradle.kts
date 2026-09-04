@@ -13,3 +13,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "BiasharaAIDesktopStandalone"
+include(":sync-contract")
+project(":sync-contract").projectDir = file("../sync-contract")

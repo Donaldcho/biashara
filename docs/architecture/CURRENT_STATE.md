@@ -38,7 +38,12 @@ The local UI server binds to loopback ports starting at 8765. The phone bridge b
 
 Implemented bridge capabilities include:
 
-- Short-lived pairing code followed by a session key.
+- One-time pairing code followed by a session key; the displayed code rotates after successful pairing.
+- Pairing throttles for 30 seconds after five failed code attempts.
+- Shared protocol `1.0` contract used by Android and desktop.
+- HMAC-SHA256 request signatures over method, path, protocol version, request identity, timestamp, nonce, and body hash.
+- Five-minute request validity window and in-memory replay rejection on the desktop.
+- Session-scoped legacy compatibility: old sessions remain usable until an upgraded client sends a signed request; capable new pairings are signed-only immediately.
 - Product and service catalogue exchange.
 - Product images transferred to desktop file storage.
 - Phone barcode scans sent to the desktop POS.
@@ -48,9 +53,10 @@ Implemented bridge capabilities include:
 
 Current limitations:
 
-- The protocol is not yet a complete versioned operation log.
+- Protocol `1.0` authenticates requests but is not yet a complete operation log.
 - Several records still use snapshot-style reconciliation.
-- LAN pairing does not yet provide production-grade mutual device identity and transport encryption.
+- LAN pairing and request bodies still use HTTP and do not yet provide production-grade mutual device identity or transport confidentiality.
+- Session keys are stored in application preferences/files rather than Android Keystore and the Windows credential vault.
 - The desktop store rewrites flat files and returns the full application state to the UI.
 - The catalogue UI is not yet server-paginated or virtualized.
 - The desktop is suitable for one workstation, not concurrent cashier terminals.

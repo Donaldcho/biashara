@@ -93,6 +93,8 @@ dependencies {
     val hilt = "2.57.2"
     val camerax = "1.4.1"
 
+    implementation(project(":sync-contract"))
+
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:$material")

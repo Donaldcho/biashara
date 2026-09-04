@@ -1,4 +1,5 @@
 package com.biasharaai.desktop.v2;
+import com.biasharaai.sync.SyncProtocol;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
@@ -60,10 +61,13 @@ public final class BiasharaDesktopWebApp {
     private final AssistantAdvisor advisor = new AssistantAdvisor();
     private final LmStudioClient lmStudioClient = new LmStudioClient();
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final PhoneRequestAuthenticator phoneRequestAuthenticator = new PhoneRequestAuthenticator();
+    private final PairingAttemptLimiter pairingAttemptLimiter = new PairingAttemptLimiter();
     private final AgentApplicationService agentService;
-    private final String pairToken = UUID.randomUUID().toString().substring(0, 8).toUpperCase(Locale.ROOT);
-    private String sessionKey;
-    private String pairedDevice;
+    private volatile String pairToken = newPairToken();
+    private volatile String sessionKey;
+    private volatile String pairedDevice;
+    private volatile boolean signedPhoneRequestsRequired;
     private ScheduledExecutorService discoveryExecutor;
 
     private BiasharaDesktopWebApp(DesktopStore store, AppState state, int uiPort, int phonePort) {
@@ -74,6 +78,8 @@ public final class BiasharaDesktopWebApp {
         String[] bridgeSession = store.loadBridgeSession();
         this.sessionKey = bridgeSession[0];
         this.pairedDevice = bridgeSession[1];
+        this.signedPhoneRequestsRequired = bridgeSession.length >= 3
+            && SyncProtocol.CURRENT_VERSION.equals(bridgeSession[2]);
         this.agentService = new AgentApplicationService(
             new BusinessAgentToolCatalog(objectMapper),
             new LmStudioAgentModel(lmStudioClient, objectMapper),
@@ -152,6 +158,11 @@ public final class BiasharaDesktopWebApp {
                 sendJson(exchange, 200, pairingJsonRaw());
                 return;
             }
+            if (path.equals("/api/phone/capabilities")) {
+                requireMethod(exchange, "GET");
+                sendJson(exchange, 200, phoneCapabilitiesJson());
+                return;
+            }
             if (path.equals("/api/phone/scan")) {
                 requireMethod(exchange, "POST");
                 phoneScan(exchange);
@@ -178,6 +189,8 @@ public final class BiasharaDesktopWebApp {
                 return;
             }
             sendJson(exchange, 404, "{\"error\":\"Phone bridge route only\"}");
+        } catch (PhoneAuthenticationException ex) {
+            sendJson(exchange, ex.status(), "{\"error\":\"" + json(ex.getMessage()) + "\"}");
         } catch (Exception ex) {
             sendJson(exchange, 500, "{\"error\":\"" + json(ex.getMessage()) + "\"}");
         }
@@ -195,6 +208,8 @@ public final class BiasharaDesktopWebApp {
                 return;
             }
             serveAsset(exchange, path);
+        } catch (PhoneAuthenticationException ex) {
+            sendJson(exchange, ex.status(), "{\"error\":\"" + json(ex.getMessage()) + "\"}");
         } catch (Exception ex) {
             sendJson(exchange, 500, "{\"error\":\"" + json(ex.getMessage()) + "\"}");
         }
@@ -335,6 +350,11 @@ public final class BiasharaDesktopWebApp {
         if (path.equals("/api/phone/discovery")) {
             requireMethod(exchange, "GET");
             sendJson(exchange, 200, pairingJsonRaw());
+            return;
+        }
+        if (path.equals("/api/phone/capabilities")) {
+            requireMethod(exchange, "GET");
+            sendJson(exchange, 200, phoneCapabilitiesJson());
             return;
         }
         if (path.equals("/api/phone/scan")) {
@@ -1316,16 +1336,58 @@ public final class BiasharaDesktopWebApp {
         return value;
     }
 
-    private void pairPhone(HttpExchange exchange) throws IOException {
+    private synchronized void pairPhone(HttpExchange exchange) throws IOException {
         String body = readBody(exchange);
-        if (!pairToken.equalsIgnoreCase(str(body, "token"))) {
-            sendJson(exchange, 401, "{\"error\":\"Invalid pairing code\"}");
+        long retryAfterSeconds = pairingAttemptLimiter.retryAfterSeconds();
+        if (retryAfterSeconds > 0) {
+            exchange.getResponseHeaders().set("Retry-After", Long.toString(retryAfterSeconds));
+            sendJson(exchange, 429, "{\"error\":\"Too many failed pairing attempts. Try again shortly.\"}");
             return;
         }
+        if (!pairToken.equalsIgnoreCase(str(body, "token"))) {
+            boolean locked = pairingAttemptLimiter.recordFailure();
+            if (locked) {
+                exchange.getResponseHeaders().set("Retry-After", Long.toString(pairingAttemptLimiter.retryAfterSeconds()));
+            }
+            sendJson(
+                exchange,
+                locked ? 429 : 401,
+                "{\"error\":\"" + (locked
+                    ? "Too many failed pairing attempts. Try again shortly."
+                    : "Invalid pairing code") + "\"}"
+            );
+            return;
+        }
+        pairingAttemptLimiter.reset();
         sessionKey = UUID.randomUUID().toString().replace("-", "");
         pairedDevice = fallback(str(body, "deviceName"), "Mobile device");
-        store.saveBridgeSession(sessionKey, pairedDevice);
-        sendJson(exchange, 200, "{\"sessionKey\":\"" + json(sessionKey) + "\"}");
+        signedPhoneRequestsRequired = supportsSignedSync(body);
+        store.saveBridgeSession(
+            sessionKey,
+            pairedDevice,
+            signedPhoneRequestsRequired ? SyncProtocol.CURRENT_VERSION : ""
+        );
+        sendJson(exchange, 200, "{\"sessionKey\":\"" + json(sessionKey) + "\","
+            + "\"protocolVersion\":\"" + SyncProtocol.CURRENT_VERSION + "\","
+            + "\"authentication\":\"" + SyncProtocol.AUTHENTICATION + "\"}");
+        pairToken = newPairToken();
+    }
+
+    private static String newPairToken() {
+        return UUID.randomUUID().toString().substring(0, 8).toUpperCase(Locale.ROOT);
+    }
+
+    private boolean supportsSignedSync(String body) {
+        try {
+            for (var version : objectMapper.readTree(body).path("supportedProtocolVersions")) {
+                if (SyncProtocol.CURRENT_VERSION.equals(version.asText())) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     private void phoneScan(HttpExchange exchange) throws IOException {
@@ -1910,7 +1972,20 @@ public final class BiasharaDesktopWebApp {
             + "\"discoveryPort\":" + DISCOVERY_PORT + ","
             + "\"localUrl\":\"" + json(phoneUrl) + "\","
             + "\"uiUrl\":\"http://127.0.0.1:" + uiPort + "\","
+            + "\"protocolVersion\":\"" + SyncProtocol.CURRENT_VERSION + "\","
+            + "\"authentication\":\"" + SyncProtocol.AUTHENTICATION + "\","
             + "\"payload\":\"" + json(payload) + "\""
+            + "}";
+    }
+
+    private String phoneCapabilitiesJson() {
+        return "{"
+            + "\"protocolVersion\":\"" + SyncProtocol.CURRENT_VERSION + "\","
+            + "\"supportedVersions\":[\"" + SyncProtocol.CURRENT_VERSION + "\"],"
+            + "\"authentication\":\"" + SyncProtocol.AUTHENTICATION + "\","
+            + "\"legacySessionAuthentication\":true,"
+            + "\"maximumClockSkewSeconds\":" + (SyncProtocol.MAX_CLOCK_SKEW_MILLIS / 1000L) + ","
+            + "\"maximumBodyBytes\":" + SyncProtocol.MAX_BODY_BYTES
             + "}";
     }
 
@@ -2175,13 +2250,30 @@ public final class BiasharaDesktopWebApp {
         }
     }
 
-    private void requireSession(HttpExchange exchange, String body) {
-        String supplied = exchange.getRequestHeaders().getFirst("X-Biashara-Session");
+    private synchronized void requireSession(HttpExchange exchange, String body) {
+        String supplied = exchange.getRequestHeaders().getFirst(SyncProtocol.HEADER_SESSION);
         if (supplied == null || supplied.isBlank()) {
             supplied = str(body, "sessionKey");
         }
-        if (sessionKey.isBlank() || !sessionKey.equals(supplied)) {
-            throw new IllegalArgumentException("Pair phone first.");
+        PhoneRequestAuthenticator.Result result = phoneRequestAuthenticator.authenticate(
+            exchange.getRequestMethod(),
+            exchange.getRequestURI().getPath(),
+            body.getBytes(StandardCharsets.UTF_8),
+            supplied,
+            exchange.getRequestHeaders().getFirst(SyncProtocol.HEADER_PROTOCOL),
+            exchange.getRequestHeaders().getFirst(SyncProtocol.HEADER_REQUEST_ID),
+            exchange.getRequestHeaders().getFirst(SyncProtocol.HEADER_TIMESTAMP),
+            exchange.getRequestHeaders().getFirst(SyncProtocol.HEADER_NONCE),
+            exchange.getRequestHeaders().getFirst(SyncProtocol.HEADER_SIGNATURE),
+            sessionKey,
+            !signedPhoneRequestsRequired
+        );
+        if (!result.accepted()) {
+            throw new PhoneAuthenticationException(result.status(), result.message());
+        }
+        if (!result.legacy() && !signedPhoneRequestsRequired) {
+            signedPhoneRequestsRequired = true;
+            store.saveBridgeSession(sessionKey, pairedDevice, SyncProtocol.CURRENT_VERSION);
         }
     }
 
@@ -2199,7 +2291,7 @@ public final class BiasharaDesktopWebApp {
     }
 
     private String readBody(HttpExchange exchange) throws IOException {
-        return new String(exchange.getRequestBody().readNBytes(12 * 1024 * 1024), StandardCharsets.UTF_8);
+        return new String(exchange.getRequestBody().readNBytes(SyncProtocol.MAX_BODY_BYTES), StandardCharsets.UTF_8);
     }
 
     private void sendJson(HttpExchange exchange, int code, String json) throws IOException {

@@ -43,3 +43,30 @@ The failure reproduced under Android Studio JBR 21 and Temurin 17. This is a hos
 - `git diff --check`: no whitespace errors.
 - Credential-pattern scan over source: no credential-like values found.
 - Generated build directories, local assistant metadata, signing material, model files, and unrelated workspace documents are ignored.
+
+## Growth Increment Verification
+
+The signed phone-sync increment was verified on the same branch after the baseline checkpoint.
+
+Desktop command:
+
+```powershell
+.\gradlew.bat -p desktop-standalone clean test installDist --offline --no-daemon --console=plain
+```
+
+Result: passed. Seventeen tests completed with zero failures, including canonical request signing, body tamper rejection, clock expiry, replay rejection, signed-only downgrade rejection, pairing throttling, and legacy bridge-session loading. The standalone JAR and install distribution were rebuilt.
+
+Android command:
+
+```powershell
+.\gradlew.bat :app:assembleDebug --no-daemon --console=plain
+```
+
+Result: passed. Kotlin, Java, Hilt, DEX, packaging, and debug APK assembly completed with the shared `sync-contract` module.
+
+Live bridge smoke test:
+
+- Protocol capabilities returned `1.0` and `HMAC-SHA256`.
+- A capable mobile pairing selected protocol `1.0`.
+- A correctly signed scan was accepted.
+- Repeating the identical signed request returned HTTP `409`.

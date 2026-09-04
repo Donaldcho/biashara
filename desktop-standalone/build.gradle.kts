@@ -14,6 +14,7 @@ application {
 }
 
 dependencies {
+    implementation(project(":sync-contract"))
     implementation("com.fasterxml.jackson.core:jackson-databind:2.21.4")
     testImplementation(platform("org.junit:junit-bom:5.12.2"))
     testImplementation("org.junit.jupiter:junit-jupiter")
@@ -25,6 +26,7 @@ tasks.test {
 }
 
 tasks.jar {
+    dependsOn(project(":sync-contract").tasks.named("jar"))
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from({
         configurations.runtimeClasspath.get().map { dependency ->

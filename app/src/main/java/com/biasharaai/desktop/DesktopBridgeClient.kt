@@ -31,6 +31,8 @@ import com.biasharaai.data.local.db.TransactionType
 import com.biasharaai.media.ProductPhotoStore
 import com.biasharaai.money.RegionalDefaults
 import com.biasharaai.service.ServiceTokenCodec
+import com.biasharaai.sync.RequestSigner
+import com.biasharaai.sync.SyncProtocol
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -41,6 +43,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okio.Buffer
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -53,6 +56,7 @@ import java.net.NetworkInterface
 import java.security.MessageDigest
 import java.util.LinkedHashSet
 import java.util.Locale
+import java.util.UUID
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -65,6 +69,7 @@ data class DesktopBridgeSession(
     val sessionKey: String,
     val deviceName: String,
     val pairedAtMillis: Long,
+    val protocolVersion: String = SyncProtocol.CURRENT_VERSION,
 )
 
 data class DesktopBridgeActionResult(
@@ -158,6 +163,9 @@ class DesktopBridgeClient @Inject constructor(
             sessionKey = sessionKey,
             deviceName = prefs.getString(KEY_DEVICE_NAME, null).orEmpty().ifBlank { defaultDeviceName() },
             pairedAtMillis = prefs.getLong(KEY_PAIRED_AT, 0L),
+            protocolVersion = prefs.getString(KEY_PROTOCOL_VERSION, SyncProtocol.CURRENT_VERSION)
+                .orEmpty()
+                .ifBlank { SyncProtocol.CURRENT_VERSION },
         )
     }
 
@@ -290,6 +298,7 @@ class DesktopBridgeClient @Inject constructor(
             val payload = JSONObject()
                 .put("token", fields.token)
                 .put("deviceName", deviceName)
+                .put("supportedProtocolVersions", JSONArray(SyncProtocol.SUPPORTED_VERSIONS.toList()))
                 .toString()
                 .toRequestBody(DESKTOP_BRIDGE_JSON)
             val request = Request.Builder()
@@ -299,19 +308,28 @@ class DesktopBridgeClient @Inject constructor(
                 .header("User-Agent", userAgent())
                 .build()
             val text = execute(request)
-            val sessionKey = JSONObject(text).optString("sessionKey").trim()
+            val response = JSONObject(text)
+            val sessionKey = response.optString("sessionKey").trim()
             require(sessionKey.isNotBlank()) { "Desktop did not return a session key." }
+            val protocolVersion = response.optString("protocolVersion")
+                .trim()
+                .ifBlank { SyncProtocol.CURRENT_VERSION }
+            require(SyncProtocol.SUPPORTED_VERSIONS.contains(protocolVersion)) {
+                "Desktop sync protocol $protocolVersion is not supported by this mobile app."
+            }
             DesktopBridgeSession(
                 baseUrl = fields.baseUrl,
                 sessionKey = sessionKey,
                 deviceName = deviceName,
                 pairedAtMillis = System.currentTimeMillis(),
+                protocolVersion = protocolVersion,
             ).also { session ->
                 prefs.edit()
                     .putString(KEY_BASE_URL, session.baseUrl)
                     .putString(KEY_SESSION_KEY, session.sessionKey)
                     .putString(KEY_DEVICE_NAME, session.deviceName)
                     .putLong(KEY_PAIRED_AT, session.pairedAtMillis)
+                    .putString(KEY_PROTOCOL_VERSION, session.protocolVersion)
                     .apply()
             }
         }
@@ -1191,14 +1209,37 @@ class DesktopBridgeClient @Inject constructor(
         session: DesktopBridgeSession,
         path: String,
         body: okhttp3.RequestBody,
-    ): Request =
-        Request.Builder()
+    ): Request {
+        val requestId = UUID.randomUUID().toString()
+        val timestamp = System.currentTimeMillis().toString()
+        val nonce = UUID.randomUUID().toString()
+        val bodyBytes = Buffer().use { buffer ->
+            body.writeTo(buffer)
+            buffer.readByteArray()
+        }
+        val signature = RequestSigner.sign(
+            "POST",
+            path,
+            session.protocolVersion,
+            requestId,
+            timestamp,
+            nonce,
+            bodyBytes,
+            session.sessionKey,
+        )
+        return Request.Builder()
             .url("${session.baseUrl}$path")
             .post(body)
             .header("Accept", "application/json")
             .header("User-Agent", userAgent())
-            .header("X-Biashara-Session", session.sessionKey)
+            .header(SyncProtocol.HEADER_SESSION, session.sessionKey)
+            .header(SyncProtocol.HEADER_PROTOCOL, session.protocolVersion)
+            .header(SyncProtocol.HEADER_REQUEST_ID, requestId)
+            .header(SyncProtocol.HEADER_TIMESTAMP, timestamp)
+            .header(SyncProtocol.HEADER_NONCE, nonce)
+            .header(SyncProtocol.HEADER_SIGNATURE, signature)
             .build()
+    }
 
     private fun execute(request: Request, client: OkHttpClient = http): String {
         client.newCall(request).execute().use { response ->
@@ -1373,6 +1414,7 @@ class DesktopBridgeClient @Inject constructor(
         private const val KEY_SESSION_KEY = "session_key"
         private const val KEY_DEVICE_NAME = "device_name"
         private const val KEY_PAIRED_AT = "paired_at"
+        private const val KEY_PROTOCOL_VERSION = "protocol_version"
         private const val KEY_UPLOADED_TX_IDS = "uploaded_tx_ids"
         private const val KEY_LAST_AUTO_PRODUCT_PUSH_AT = "last_auto_product_push_at"
         private const val KEY_LAST_SETTINGS_FINGERPRINT = "last_settings_fingerprint"

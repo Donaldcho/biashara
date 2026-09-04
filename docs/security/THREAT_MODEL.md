@@ -46,6 +46,10 @@ A shared Wi-Fi network is not a trusted boundary.
 - Desktop UI API bound to loopback.
 - Restricted phone bridge route set.
 - Pairing code and session key.
+- One-time pairing-code rotation and failed-attempt throttling.
+- Versioned phone sync requests signed with HMAC-SHA256.
+- Timestamp, nonce, and request-ID validation with bounded replay rejection.
+- Signed-only promotion prevents a capable paired session from downgrading to legacy bearer authentication.
 - Idempotent identifiers for selected synchronization operations.
 - Read-only desktop agent tools with explicit allow-lists and bounded execution.
 - Local deterministic AI fallback.

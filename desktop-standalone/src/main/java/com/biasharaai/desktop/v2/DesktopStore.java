@@ -98,18 +98,19 @@ final class DesktopStore {
         try {
             List<String[]> rows = readRows(dataDir.resolve("bridge-session.tsv"));
             if (rows.isEmpty() || rows.get(0).length < 2) {
-                return new String[] {"", ""};
+                return new String[] {"", "", ""};
             }
-            return new String[] {rows.get(0)[0], rows.get(0)[1]};
+            String protocolVersion = rows.get(0).length >= 3 ? rows.get(0)[2] : "";
+            return new String[] {rows.get(0)[0], rows.get(0)[1], protocolVersion};
         } catch (IOException ex) {
             throw new UncheckedIOException("Could not load the desktop bridge session", ex);
         }
     }
 
-    void saveBridgeSession(String sessionKey, String pairedDevice) {
+    void saveBridgeSession(String sessionKey, String pairedDevice, String protocolVersion) {
         try {
             Files.createDirectories(dataDir);
-            writeLines(dataDir.resolve("bridge-session.tsv"), List.of(join(sessionKey, pairedDevice)));
+            writeLines(dataDir.resolve("bridge-session.tsv"), List.of(join(sessionKey, pairedDevice, protocolVersion)));
         } catch (IOException ex) {
             throw new UncheckedIOException("Could not save the desktop bridge session", ex);
         }
