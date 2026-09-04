@@ -90,13 +90,24 @@ Legacy compatibility is temporary release support, not the target security model
 
 ## Idempotency
 
-Transport replay rejection is not business idempotency. Sale, stock, ledger, and settings operations must also carry stable operation identifiers and be recorded in the planned transactional inbox before medium-store deployment.
+Transport replay rejection is separate from business idempotency. Current Android requests include `operationId` as follows:
+
+- Mobile transaction: stable for the source device and Room transaction ID.
+- Product catalogue record: stable for the product ID and synchronized content hash.
+- Scan and reconciliation request: a unique UUID for that user operation.
+- Stock reconciliation row: the existing deterministic `mutationId` remains the stock-change identity.
+
+The desktop stores the operation ID, operation type, source device, canonical business-payload hash, HTTP status, and original response in `sync_inbox`. JSON object keys are recursively sorted before hashing; array order is preserved. The inbox receipt and changed business state commit in one SQLite transaction. A retry with the same operation ID and semantically equivalent payload returns the original response. The same ID with a different operation type or payload receives HTTP `409`.
+
+`sessionKey` is excluded from the payload hash. This lets a valid operation retry after re-pairing without weakening payload conflict detection. Operation IDs are limited to 200 characters and a conservative ASCII identifier alphabet.
+
+Requests from a legacy client without `operationId` retain the earlier endpoint-specific duplicate checks during the compatibility period.
 
 ## Next Protocol Work
 
 1. Device public-key identity and explicit revocation.
 2. Authenticated encrypted LAN transport.
 3. Keystore and Windows credential-vault storage.
-4. Transactional inbox/outbox and monotonic sync cursors.
+4. Durable Android outbox and monotonic sync cursors. The desktop transactional inbox is implemented.
 5. Chunked, resumable media transfer.
 6. Contract fixtures shared across Android and desktop integration tests.

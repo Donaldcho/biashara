@@ -36,6 +36,7 @@ if ($VerifyRetryPersistence) {
     $persistedRetry = @{
         sessionKey = $pair.sessionKey
         deviceName = "Sync smoke phone"
+        operationId = "reconcile-stock-mutation-2"
         includeImages = $false
         stockChanges = @(@{
             mobileProductId = "101"
@@ -56,6 +57,7 @@ if ($VerifyRetryPersistence) {
 $catalog = @{
     sessionKey = $pair.sessionKey
     deviceName = "Sync smoke phone"
+    operationId = "catalog-sync-test-product-v1"
     mobileProductId = "101"
     name = "Sync Test Product"
     description = "Stock reconciliation smoke test"
@@ -82,6 +84,7 @@ Assert-Stock 8 "Stale phone catalog retry"
 $mobileSale = @{
     sessionKey = $pair.sessionKey
     deviceName = "Sync smoke phone"
+    operationId = "mobile-transaction-sync-smoke-1"
     mobileTransactionId = "mobile-sale-1"
     receiptNumber = "MOB-SMOKE-1"
     createdAtMillis = [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()
@@ -119,6 +122,7 @@ Assert-Stock 6 "Concurrent desktop sale"
 $reconcile = @{
     sessionKey = $pair.sessionKey
     deviceName = "Sync smoke phone"
+    operationId = "reconcile-stock-mutation-1"
     includeImages = $false
     stockChanges = @(@{
         mobileProductId = "101"
@@ -138,6 +142,7 @@ Assert-Stock 11 "Idempotent retry"
 
 $reconcile.stockChanges[0].stock = 13
 $reconcile.stockChanges[0].mutationId = "stock-mutation-2"
+$reconcile.operationId = "reconcile-stock-mutation-2"
 Invoke-JsonPost -Uri "$phoneBase/api/phone/reconcile" -Headers $headers -Body $reconcile | Out-Null
 Assert-Stock 12 "Superseding retry"
 

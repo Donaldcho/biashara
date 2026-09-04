@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Properties;
+import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -27,6 +28,7 @@ final class DesktopStore {
     private final Path stockSyncFile;
     private final Path productSyncFile;
     private final Path settingsFile;
+    private final DesktopStateRepository repository;
 
     DesktopStore(Path dataDir) {
         this.dataDir = dataDir;
@@ -40,9 +42,21 @@ final class DesktopStore {
         this.stockSyncFile = dataDir.resolve("stock-sync.tsv");
         this.productSyncFile = dataDir.resolve("product-sync.tsv");
         this.settingsFile = dataDir.resolve("settings.properties");
+        this.repository = new SqliteDesktopStateRepository(dataDir);
     }
 
-    AppState load() {
+    synchronized AppState load() {
+        if (repository.exists()) {
+            return repository.load(dataDir);
+        }
+        AppState state = loadLegacy();
+        createLegacyMigrationBackup();
+        repository.save(state);
+        saveLegacyMirror(state);
+        return state;
+    }
+
+    private AppState loadLegacy() {
         try {
             Files.createDirectories(dataDir);
             AppState state = new AppState(dataDir);
@@ -57,14 +71,18 @@ final class DesktopStore {
             loadStockSync(state);
             loadProductSync(state);
             removeDemoSeedIfPristine(state);
-            save(state);
             return state;
         } catch (IOException ex) {
             throw new UncheckedIOException("Could not load desktop data from " + dataDir, ex);
         }
     }
 
-    void save(AppState state) {
+    synchronized void save(AppState state) {
+        repository.save(state);
+        saveLegacyMirror(state);
+    }
+
+    private void saveLegacyMirror(AppState state) {
         try {
             Files.createDirectories(dataDir);
             saveSettings(state.settings);
@@ -78,7 +96,7 @@ final class DesktopStore {
             writeLines(stockSyncFile, state.stockSyncItems.stream().map(this::stockSyncLine).toList());
             writeLines(productSyncFile, state.productSyncItems.stream().map(this::productSyncLine).toList());
         } catch (IOException ex) {
-            throw new UncheckedIOException("Could not save desktop data to " + dataDir, ex);
+            System.err.println("SQLite commit succeeded but the rollback-compatible TSV mirror failed: " + ex.getMessage());
         }
     }
 
@@ -160,12 +178,15 @@ final class DesktopStore {
         }
     }
 
-    Path exportBackup(Path targetZip) {
+    synchronized Path exportBackup(Path targetZip) {
+        Path sqliteSnapshot = dataDir.resolve(".backup-" + UUID.randomUUID() + ".db");
         try {
             if (targetZip.getParent() != null) {
                 Files.createDirectories(targetZip.getParent());
             }
+            repository.backupTo(sqliteSnapshot);
             try (ZipOutputStream out = new ZipOutputStream(Files.newOutputStream(targetZip))) {
+                addAs(out, sqliteSnapshot, SqliteDesktopStateRepository.DATABASE_FILE);
                 addIfExists(out, productsFile);
                 addIfExists(out, servicesFile);
                 addIfExists(out, customersFile);
@@ -180,7 +201,41 @@ final class DesktopStore {
             return targetZip;
         } catch (IOException ex) {
             throw new UncheckedIOException("Could not export backup.", ex);
+        } finally {
+            try {
+                Files.deleteIfExists(sqliteSnapshot);
+            } catch (IOException ignored) {
+            }
         }
+    }
+
+    private void createLegacyMigrationBackup() {
+        Path backup = dataDir.resolve("legacy-tsv-before-sqlite.zip");
+        if (Files.exists(backup) || !hasLegacyData()) {
+            return;
+        }
+        try (ZipOutputStream out = new ZipOutputStream(Files.newOutputStream(backup, StandardOpenOption.CREATE_NEW))) {
+            addIfExists(out, productsFile);
+            addIfExists(out, servicesFile);
+            addIfExists(out, customersFile);
+            addIfExists(out, transactionsFile);
+            addIfExists(out, saleLinesFile);
+            addIfExists(out, serviceTicketsFile);
+            addIfExists(out, scansFile);
+            addIfExists(out, stockSyncFile);
+            addIfExists(out, productSyncFile);
+            addIfExists(out, settingsFile);
+        } catch (IOException ex) {
+            throw new UncheckedIOException("Could not create the pre-migration desktop backup", ex);
+        }
+    }
+
+    private boolean hasLegacyData() {
+        return Files.exists(productsFile)
+            || Files.exists(servicesFile)
+            || Files.exists(customersFile)
+            || Files.exists(transactionsFile)
+            || Files.exists(settingsFile);
     }
 
     private void loadSettings(Settings settings) throws IOException {
@@ -701,7 +756,11 @@ final class DesktopStore {
         if (!Files.exists(file)) {
             return;
         }
-        out.putNextEntry(new ZipEntry(file.getFileName().toString()));
+        addAs(out, file, file.getFileName().toString());
+    }
+
+    private void addAs(ZipOutputStream out, Path file, String entryName) throws IOException {
+        out.putNextEntry(new ZipEntry(entryName));
         Files.copy(file, out);
         out.closeEntry();
     }

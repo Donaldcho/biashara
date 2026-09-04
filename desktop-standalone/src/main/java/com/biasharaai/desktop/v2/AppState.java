@@ -21,6 +21,8 @@ final class AppState {
     final List<ScanEvent> scanEvents = new ArrayList<>();
     final List<StockSyncItem> stockSyncItems = new ArrayList<>();
     final List<ProductSyncItem> productSyncItems = new ArrayList<>();
+    final List<SyncInboxEntry> syncInboxEntries = new ArrayList<>();
+    final List<StockMovement> stockMovements = new ArrayList<>();
 
     AppState(Path dataDir) {
         this.dataDir = dataDir;
@@ -70,6 +72,68 @@ final class AppState {
 
     long creditOutstanding() {
         return customers.stream().mapToLong(customer -> customer.balanceCents).sum();
+    }
+}
+
+final class SyncInboxEntry {
+    String operationId;
+    String operationType;
+    String sourceDevice;
+    Instant receivedAt;
+    String payloadHash;
+    int httpStatus;
+    String responseJson;
+
+    SyncInboxEntry(
+        String operationId,
+        String operationType,
+        String sourceDevice,
+        Instant receivedAt,
+        String payloadHash,
+        int httpStatus,
+        String responseJson
+    ) {
+        this.operationId = operationId;
+        this.operationType = operationType;
+        this.sourceDevice = sourceDevice;
+        this.receivedAt = receivedAt;
+        this.payloadHash = payloadHash;
+        this.httpStatus = httpStatus;
+        this.responseJson = responseJson;
+    }
+}
+
+final class StockMovement {
+    String id;
+    String operationId;
+    Instant occurredAt;
+    String sourceDevice;
+    String productId;
+    int quantityDelta;
+    int resultingStock;
+    String reason;
+    String referenceId;
+
+    StockMovement(
+        String id,
+        String operationId,
+        Instant occurredAt,
+        String sourceDevice,
+        String productId,
+        int quantityDelta,
+        int resultingStock,
+        String reason,
+        String referenceId
+    ) {
+        this.id = id;
+        this.operationId = operationId;
+        this.occurredAt = occurredAt;
+        this.sourceDevice = sourceDevice;
+        this.productId = productId;
+        this.quantityDelta = quantityDelta;
+        this.resultingStock = resultingStock;
+        this.reason = reason;
+        this.referenceId = referenceId;
     }
 }
 

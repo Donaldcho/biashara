@@ -12,6 +12,7 @@ This directory is the engineering entry point for Biashara AI architecture. Docu
 - [Phone sync protocol v1](SYNC_PROTOCOL_V1.md): implemented request contract, authentication, compatibility, and limits.
 - [ADR-0001](adr/0001-modular-monolith-deployment-profiles.md): decision to use one modular product with multiple deployment profiles.
 - [ADR-0002](adr/0002-versioned-signed-phone-sync.md): decision to share and sign the phone-desktop protocol.
+- [ADR-0003](adr/0003-desktop-sqlite-and-transactional-sync-inbox.md): decision to migrate Solo desktop state to SQLite and deduplicate business operations transactionally.
 - [Security threat model](../security/THREAT_MODEL.md): assets, boundaries, threats, current controls, and required controls.
 
 ## Documentation Rules

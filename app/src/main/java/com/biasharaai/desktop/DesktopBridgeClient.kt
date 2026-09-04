@@ -346,6 +346,7 @@ class DesktopBridgeClient @Inject constructor(
                 val payload = JSONObject()
                     .put("sessionKey", session.sessionKey)
                     .put("deviceName", session.deviceName)
+                    .put("operationId", "scan:${UUID.randomUUID()}")
                     .put("rawValue", clean)
                     .toString()
                     .toRequestBody(DESKTOP_BRIDGE_JSON)
@@ -470,6 +471,7 @@ class DesktopBridgeClient @Inject constructor(
         val payload = JSONObject()
             .put("sessionKey", session.sessionKey)
             .put("deviceName", session.deviceName)
+            .put("operationId", "reconcile:${UUID.randomUUID()}")
             .put("includeImages", includeImages)
             .put("settings", mobileSettings.json)
             .put("settingsFingerprint", mobileSettings.fingerprint)
@@ -829,6 +831,7 @@ class DesktopBridgeClient @Inject constructor(
         return JSONObject()
             .put("sessionKey", session.sessionKey)
             .put("deviceName", session.deviceName)
+            .put("operationId", "mobile-transaction:${sha256(session.deviceName).take(12)}:$id")
             .put("mobileTransactionId", id.toString())
             .put("receiptNumber", receiptNumber.orEmpty())
             .put("createdAtMillis", date)
@@ -1188,10 +1191,24 @@ class DesktopBridgeClient @Inject constructor(
     private fun Product.toDesktopJson(
         session: DesktopBridgeSession,
         image: EncodedImage?,
-    ): JSONObject =
-        JSONObject()
+    ): JSONObject {
+        val contentFingerprint = sha256(
+            listOf(
+                id.toString(),
+                name,
+                description.orEmpty(),
+                barcodeValue.orEmpty(),
+                category.orEmpty(),
+                stockQuantity.toString(),
+                price.toCents().toString(),
+                cost.toCents().toString(),
+                image?.base64.orEmpty(),
+            ).joinToString("\n"),
+        )
+        return JSONObject()
             .put("sessionKey", session.sessionKey)
             .put("deviceName", session.deviceName)
+            .put("operationId", "mobile-product:$id:$contentFingerprint")
             .put("mobileProductId", id.toString())
             .put("name", name)
             .put("description", description.orEmpty())
@@ -1204,6 +1221,7 @@ class DesktopBridgeClient @Inject constructor(
             .put("imageFileName", image?.fileName.orEmpty())
             .put("imageBase64", image?.base64.orEmpty())
             .put("whatsappRetailerId", barcodeValue.orEmpty().ifBlank { "mobile-$id" })
+    }
 
     private fun authorizedRequest(
         session: DesktopBridgeSession,

@@ -95,3 +95,7 @@ The receiver acknowledges an operation only after committing it. Retrying the sa
 8. Add the Store deployment with PostgreSQL and concurrent transaction tests.
 
 Each step must preserve the Solo workflow and produce a reversible data migration.
+
+## Implementation Status
+
+As of 2026-09-04, delivery steps 1-3 are implemented for the Solo desktop boundary: the checkpoint branch exists, SQLite is behind a repository port, legacy migration and rollback backup are tested, new stock movements are recorded, and receiver-side operation idempotency is transactional. Step 4 is partial: signed protocol `1.0` and the desktop inbox are implemented, while a durable Android outbox and monotonic cursors remain planned. Pagination, incremental repositories, and virtualized catalogue rendering in step 5 remain planned.

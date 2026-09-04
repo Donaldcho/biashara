@@ -51,6 +51,9 @@ A shared Wi-Fi network is not a trusted boundary.
 - Timestamp, nonce, and request-ID validation with bounded replay rejection.
 - Signed-only promotion prevents a capable paired session from downgrading to legacy bearer authentication.
 - Idempotent identifiers for selected synchronization operations.
+- Transactional desktop sync inbox with payload-conflict detection and original-outcome replay.
+- SQLite atomic commits for desktop operational state, sync receipts, and new stock movements.
+- Consistent SQLite backup snapshots and an automatic pre-migration legacy backup.
 - Read-only desktop agent tools with explicit allow-lists and bounded execution.
 - Local deterministic AI fallback.
 - Git ignores signing material, model files, local environment files, and generated build output.
@@ -82,7 +85,7 @@ A shared Wi-Fi network is not a trusted boundary.
 ### Transaction Integrity
 
 - Use database transactions for sale, payment, stock, ledger, and receipt changes.
-- Require idempotency keys for retried commands.
+- Require idempotency keys for all retried commands; receiver-side support exists, but a general durable Android outbox is still required.
 - Make financial, stock, authentication, and permission events append-only and attributable.
 - Test concurrent checkout, power loss, migration failure, replay, and restore.
 

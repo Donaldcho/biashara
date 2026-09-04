@@ -61,6 +61,7 @@ public final class BiasharaDesktopWebApp {
     private final AssistantAdvisor advisor = new AssistantAdvisor();
     private final LmStudioClient lmStudioClient = new LmStudioClient();
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final SyncInboxService syncInboxService = new SyncInboxService(objectMapper);
     private final PhoneRequestAuthenticator phoneRequestAuthenticator = new PhoneRequestAuthenticator();
     private final PairingAttemptLimiter pairingAttemptLimiter = new PairingAttemptLimiter();
     private final AgentApplicationService agentService;
@@ -223,8 +224,11 @@ public final class BiasharaDesktopWebApp {
         }
         if (path.equals("/api/settings")) {
             requireMethod(exchange, "POST");
-            updateSettings(readBody(exchange));
-            persist();
+            String body = readBody(exchange);
+            synchronized (this) {
+                updateSettings(body);
+                persist();
+            }
             sendJson(exchange, 200, stateJson());
             return;
         }
@@ -255,29 +259,41 @@ public final class BiasharaDesktopWebApp {
         }
         if (path.equals("/api/product")) {
             requireMethod(exchange, "POST");
-            addProduct(readBody(exchange));
-            persist();
+            String body = readBody(exchange);
+            synchronized (this) {
+                addProduct(body);
+                persist();
+            }
             sendJson(exchange, 200, stateJson());
             return;
         }
         if (path.equals("/api/import/product-sync")) {
             requireMethod(exchange, "POST");
-            importProductSync(readBody(exchange));
-            persist();
+            String body = readBody(exchange);
+            synchronized (this) {
+                importProductSync(body);
+                persist();
+            }
             sendJson(exchange, 200, stateJson());
             return;
         }
         if (path.equals("/api/service")) {
             requireMethod(exchange, "POST");
-            addService(readBody(exchange));
-            persist();
+            String body = readBody(exchange);
+            synchronized (this) {
+                addService(body);
+                persist();
+            }
             sendJson(exchange, 200, stateJson());
             return;
         }
         if (path.equals("/api/service-ticket/book")) {
             requireMethod(exchange, "POST");
-            bookServiceTicket(readBody(exchange));
-            persist();
+            String body = readBody(exchange);
+            synchronized (this) {
+                bookServiceTicket(body);
+                persist();
+            }
             sendJson(exchange, 200, stateJson());
             return;
         }
@@ -289,15 +305,21 @@ public final class BiasharaDesktopWebApp {
         }
         if (path.equals("/api/service-ticket/start")) {
             requireMethod(exchange, "POST");
-            startServiceTicket(readBody(exchange));
-            persist();
+            String body = readBody(exchange);
+            synchronized (this) {
+                startServiceTicket(body);
+                persist();
+            }
             sendJson(exchange, 200, stateJson());
             return;
         }
         if (path.equals("/api/service-ticket/complete")) {
             requireMethod(exchange, "POST");
-            completeServiceTicket(readBody(exchange));
-            persist();
+            String body = readBody(exchange);
+            synchronized (this) {
+                completeServiceTicket(body);
+                persist();
+            }
             sendJson(exchange, 200, stateJson());
             return;
         }
@@ -318,22 +340,32 @@ public final class BiasharaDesktopWebApp {
         }
         if (path.equals("/api/sale")) {
             requireMethod(exchange, "POST");
-            Transaction receipt = completeSale(readBody(exchange));
-            persist();
+            String body = readBody(exchange);
+            Transaction receipt;
+            synchronized (this) {
+                receipt = completeSale(body);
+                persist();
+            }
             sendJson(exchange, 200, stateJsonWithReceipt(receipt));
             return;
         }
         if (path.equals("/api/customer")) {
             requireMethod(exchange, "POST");
-            addCustomer(readBody(exchange));
-            persist();
+            String body = readBody(exchange);
+            synchronized (this) {
+                addCustomer(body);
+                persist();
+            }
             sendJson(exchange, 200, stateJson());
             return;
         }
         if (path.equals("/api/ledger/manual")) {
             requireMethod(exchange, "POST");
-            addManualLedgerEntry(readBody(exchange));
-            persist();
+            String body = readBody(exchange);
+            synchronized (this) {
+                addManualLedgerEntry(body);
+                persist();
+            }
             sendJson(exchange, 200, stateJson());
             return;
         }
@@ -745,6 +777,7 @@ public final class BiasharaDesktopWebApp {
                     throw new IllegalArgumentException(product.name + " does not have enough stock.");
                 }
                 product.stock -= line.quantity;
+                recordStockMovement("desktop-sale:" + transactionId, "Desktop POS", product, -line.quantity, "DESKTOP_SALE", transactionId);
             }
         }
         if (customer != null) {
@@ -1390,19 +1423,31 @@ public final class BiasharaDesktopWebApp {
         }
     }
 
-    private void phoneScan(HttpExchange exchange) throws IOException {
+    private synchronized void phoneScan(HttpExchange exchange) throws IOException {
         String body = readBody(exchange);
         requireSession(exchange, body);
+        SyncInboxService.Operation operation = syncOperation(body, "SCAN");
+        if (operation.replay() != null) {
+            sendJson(exchange, operation.replay().httpStatus, operation.replay().responseJson);
+            return;
+        }
         String raw = fallback(str(body, "rawValue"), str(body, "raw"));
         ScanEvent event = new ScanEvent(state.nextId("SCN"), Instant.now(), fallback(str(body, "deviceName"), pairedDevice), scanKind(raw), raw, "Received");
         state.scanEvents.add(0, event);
+        String response = "{\"accepted\":true}";
+        recordSyncOutcome(operation, 200, response);
         persist();
-        sendJson(exchange, 200, "{\"accepted\":true}");
+        sendJson(exchange, 200, response);
     }
 
-    private void productSync(HttpExchange exchange) throws IOException {
+    private synchronized void productSync(HttpExchange exchange) throws IOException {
         String body = readBody(exchange);
         requireSession(exchange, body);
+        SyncInboxService.Operation operation = syncOperation(body, "PRODUCT_SYNC");
+        if (operation.replay() != null) {
+            sendJson(exchange, operation.replay().httpStatus, operation.replay().responseJson);
+            return;
+        }
         ProductSyncItem item = new ProductSyncItem(
             state.nextId("PSY"),
             Instant.now(),
@@ -1426,17 +1471,27 @@ public final class BiasharaDesktopWebApp {
         );
         applyProductSync(item);
         state.productSyncItems.add(0, item);
+        String response = "{\"accepted\":true}";
+        recordSyncOutcome(operation, 200, response);
         persist();
-        sendJson(exchange, 200, "{\"accepted\":true}");
+        sendJson(exchange, 200, response);
     }
 
-    private void transactionSync(HttpExchange exchange) throws IOException {
+    private synchronized void transactionSync(HttpExchange exchange) throws IOException {
         String body = readBody(exchange);
         requireSession(exchange, body);
+        SyncInboxService.Operation operation = syncOperation(body, "TRANSACTION_SYNC");
+        if (operation.replay() != null) {
+            sendJson(exchange, operation.replay().httpStatus, operation.replay().responseJson);
+            return;
+        }
         String mobileTransactionId = str(body, "mobileTransactionId");
         String transactionId = "MOB-" + safeExternalId(fallback(mobileTransactionId, str(body, "receiptNumber")));
         if (state.transactions.stream().anyMatch(transaction -> transaction.id.equals(transactionId))) {
-            sendJson(exchange, 200, "{\"accepted\":true,\"duplicate\":true,\"stockApplied\":false}");
+            String response = "{\"accepted\":true,\"duplicate\":true,\"stockApplied\":false}";
+            recordSyncOutcome(operation, 200, response);
+            persist();
+            sendJson(exchange, 200, response);
             return;
         }
         long total = num(body, "totalCents", 0);
@@ -1479,21 +1534,30 @@ public final class BiasharaDesktopWebApp {
         state.saleLines.addAll(mobileLines);
         boolean stockApplied = transactionType == TransactionType.SALE;
         if (stockApplied) {
-            applyMobileSaleStockImpact(mobileLines);
+            applyMobileSaleStockImpact(mobileLines, syncOperationId(operation, "mobile-transaction:" + transactionId), fallback(str(body, "deviceName"), pairedDevice));
         }
+        String response = "{\"accepted\":true,\"duplicate\":false,\"stockApplied\":" + stockApplied + "}";
+        recordSyncOutcome(operation, 200, response);
         persist();
-        sendJson(exchange, 200, "{\"accepted\":true,\"duplicate\":false,\"stockApplied\":" + stockApplied + "}");
+        sendJson(exchange, 200, response);
     }
 
-    private void phoneReconcile(HttpExchange exchange) throws IOException {
+    private synchronized void phoneReconcile(HttpExchange exchange) throws IOException {
         String body = readBody(exchange);
         requireSession(exchange, body);
+        SyncInboxService.Operation operation = syncOperation(body, "RECONCILE");
+        if (operation.replay() != null) {
+            sendJson(exchange, operation.replay().httpStatus, operation.replay().responseJson);
+            return;
+        }
         mergeSettingsFromPhone(body);
         int serviceChangesApplied = applyPhoneServices(body);
         int stockChangesApplied = applyPhoneStockChanges(body);
         state.settings.settingsSyncFingerprint = settingsSyncFingerprint(state.settings);
+        String response = reconcileJson(bool(body, "includeImages"), stockChangesApplied, serviceChangesApplied);
+        recordSyncOutcome(operation, 200, response);
         persist();
-        sendJson(exchange, 200, reconcileJson(bool(body, "includeImages"), stockChangesApplied, serviceChangesApplied));
+        sendJson(exchange, 200, response);
     }
 
     private int applyPhoneServices(String body) {
@@ -1632,6 +1696,7 @@ public final class BiasharaDesktopWebApp {
             event.sourceStock = sourceStock;
             event.mutationId = mutationId;
             state.stockSyncItems.add(0, event);
+            recordStockMovement(mutationId, sourceDevice, product, actualDelta, "PHONE_RECONCILIATION", event.id);
             applied++;
         }
         return applied;
@@ -1759,9 +1824,14 @@ public final class BiasharaDesktopWebApp {
         state.productSyncItems.add(0, item);
     }
 
-    private void stockIntake(HttpExchange exchange) throws IOException {
+    private synchronized void stockIntake(HttpExchange exchange) throws IOException {
         String body = readBody(exchange);
         requireSession(exchange, body);
+        SyncInboxService.Operation operation = syncOperation(body, "STOCK_INTAKE");
+        if (operation.replay() != null) {
+            sendJson(exchange, operation.replay().httpStatus, operation.replay().responseJson);
+            return;
+        }
         StockSyncItem item = new StockSyncItem(
             state.nextId("STK"),
             Instant.now(),
@@ -1780,8 +1850,11 @@ public final class BiasharaDesktopWebApp {
         );
         applyStockIntake(item);
         state.stockSyncItems.add(0, item);
+        recordStockMovement(syncOperationId(operation, item.id), item.sourceDevice, productById(item.productId), item.quantity, "STOCK_INTAKE", item.id);
+        String response = "{\"accepted\":true}";
+        recordSyncOutcome(operation, 200, response);
         persist();
-        sendJson(exchange, 200, "{\"accepted\":true}");
+        sendJson(exchange, 200, response);
     }
 
     private void applyProductSync(ProductSyncItem item) {
@@ -1848,6 +1921,37 @@ public final class BiasharaDesktopWebApp {
             return Optional.empty();
         }
         return state.products.stream().filter(product -> product.name.equalsIgnoreCase(name)).findFirst();
+    }
+
+    private Product productById(String productId) {
+        return state.products.stream()
+            .filter(product -> product.id.equals(productId))
+            .findFirst()
+            .orElse(null);
+    }
+
+    private void recordStockMovement(
+        String operationId,
+        String sourceDevice,
+        Product product,
+        int quantityDelta,
+        String reason,
+        String referenceId
+    ) {
+        if (product == null || quantityDelta == 0) {
+            return;
+        }
+        state.stockMovements.add(new StockMovement(
+            state.nextId("MOV"),
+            fallback(operationId, state.nextId("OP")),
+            Instant.now(),
+            fallback(sourceDevice, "Unknown device"),
+            product.id,
+            quantityDelta,
+            product.stock,
+            reason,
+            fallback(referenceId, "")
+        ));
     }
 
     private Optional<Customer> findCustomer(String name, String phone) {
@@ -1921,7 +2025,7 @@ public final class BiasharaDesktopWebApp {
         return lines;
     }
 
-    private void applyMobileSaleStockImpact(List<DesktopSaleLine> lines) {
+    private void applyMobileSaleStockImpact(List<DesktopSaleLine> lines, String operationId, String sourceDevice) {
         for (DesktopSaleLine line : lines) {
             if (line.kind != CartLine.Kind.PRODUCT || line.quantity <= 0) {
                 continue;
@@ -1929,7 +2033,11 @@ public final class BiasharaDesktopWebApp {
             state.products.stream()
                 .filter(product -> product.id.equals(line.itemId))
                 .findFirst()
-                .ifPresent(product -> product.stock = Math.max(0, product.stock - line.quantity));
+                .ifPresent(product -> {
+                    int previous = product.stock;
+                    product.stock = Math.max(0, product.stock - line.quantity);
+                    recordStockMovement(operationId, sourceDevice, product, product.stock - previous, "MOBILE_SALE", line.transactionId);
+                });
         }
     }
 
@@ -1984,6 +2092,7 @@ public final class BiasharaDesktopWebApp {
             + "\"supportedVersions\":[\"" + SyncProtocol.CURRENT_VERSION + "\"],"
             + "\"authentication\":\"" + SyncProtocol.AUTHENTICATION + "\","
             + "\"legacySessionAuthentication\":true,"
+            + "\"operationIdempotency\":true,"
             + "\"maximumClockSkewSeconds\":" + (SyncProtocol.MAX_CLOCK_SKEW_MILLIS / 1000L) + ","
             + "\"maximumBodyBytes\":" + SyncProtocol.MAX_BODY_BYTES
             + "}";
@@ -2275,6 +2384,21 @@ public final class BiasharaDesktopWebApp {
             signedPhoneRequestsRequired = true;
             store.saveBridgeSession(sessionKey, pairedDevice, SyncProtocol.CURRENT_VERSION);
         }
+    }
+
+    private SyncInboxService.Operation syncOperation(String body, String operationType) {
+        return syncInboxService.inspect(state.syncInboxEntries, body, operationType, pairedDevice);
+    }
+
+    private void recordSyncOutcome(SyncInboxService.Operation operation, int httpStatus, String responseJson) {
+        SyncInboxEntry entry = syncInboxService.outcome(operation, httpStatus, responseJson);
+        if (entry != null) {
+            state.syncInboxEntries.add(entry);
+        }
+    }
+
+    private String syncOperationId(SyncInboxService.Operation operation, String fallbackId) {
+        return fallback(operation.id(), fallbackId);
     }
 
     private void persist() {

@@ -69,11 +69,12 @@ POST /api/phone/pair
   "deviceName": "Phone name",
   "supportedProtocolVersions": ["1.0"]
 }
-POST /api/phone/scan   {"sessionKey":"SESSION","rawValue":"600100000001","deviceName":"Phone name"}
+POST /api/phone/scan   {"sessionKey":"SESSION","operationId":"scan:UUID","rawValue":"600100000001","deviceName":"Phone name"}
 POST /api/phone/product-sync
 {
   "sessionKey": "SESSION",
   "deviceName": "Phone name",
+  "operationId": "mobile-product:42:CONTENT_HASH",
   "mobileProductId": "mobile-room-product-id",
   "name": "Hair oil 100ml",
   "sku": "HAIR-OIL-100",
@@ -90,6 +91,7 @@ POST /api/phone/transaction-sync
 {
   "sessionKey": "SESSION",
   "deviceName": "Phone name",
+  "operationId": "mobile-transaction:DEVICE_HASH:123",
   "mobileTransactionId": "123",
   "receiptNumber": "RCP-123",
   "createdAtMillis": 1788256000000,
@@ -120,12 +122,14 @@ POST /api/phone/reconcile
 {
   "sessionKey": "SESSION",
   "deviceName": "Phone name",
+  "operationId": "reconcile:UUID",
   "includeImages": false
 }
 POST /api/phone/stock-intake
 {
   "sessionKey": "SESSION",
   "deviceName": "Phone name",
+  "operationId": "stock-intake:UUID",
   "productName": "Hair oil 100ml",
   "barcode": "600100000001",
   "category": "Beauty",
@@ -138,6 +142,8 @@ POST /api/phone/stock-intake
 ```
 
 The bridge uses a one-time displayed pairing code and a per-session key. The pairing code rotates after a successful pairing. Android and desktop share protocol `1.0`. Protected requests from a capable pairing include protocol, request-ID, timestamp, nonce, and HMAC-SHA256 signature headers. The desktop rejects stale, modified, and replayed signed requests. See `docs/architecture/SYNC_PROTOCOL_V1.md` for the canonical request and compatibility behavior.
+
+Mobile protected requests also carry an `operationId`. The desktop persists accepted operation outcomes in its SQLite sync inbox. A retry of the same business operation returns the original result; reusing the ID with different data is rejected.
 
 The mobile Desktop Link screen supports automatic LAN discovery, pairing, phone barcode scanning, catalogue and image transfer, transaction upload, and bidirectional reconciliation.
 
@@ -190,7 +196,11 @@ The app stores local files under:
 %USERPROFILE%\.biasharaai-desktop-pro
 ```
 
-Files:
+Authoritative database:
+
+- `biashara-desktop.db`
+
+Compatibility and recovery files:
 
 - `products.tsv`
 - `services.tsv`
@@ -201,5 +211,8 @@ Files:
 - `product-sync.tsv`
 - `stock-sync.tsv`
 - `settings.properties`
+- `legacy-tsv-before-sqlite.zip` after a legacy migration
 - `incoming-images\`
 - `models\`
+
+SQLite is authoritative. TSV and properties files are best-effort mirrors retained so an earlier application branch can read current Solo data during rollback. Do not place the database on a network share or open it from multiple desktop processes.

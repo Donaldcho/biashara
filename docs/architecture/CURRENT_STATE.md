@@ -25,7 +25,11 @@ The desktop product has two runtime parts:
 - `desktop-standalone/`: Java application server, local persistence, POS, phone bridge, LM Studio integration, agent tools, and bundled HTML/CSS/JavaScript UI.
 - `desktop-shell-windows/`: Windows WebView2 shell that starts the Java server and presents it as a standalone application.
 
-The local UI server binds to loopback ports starting at 8765. The phone bridge binds to LAN ports starting at 8865 and exposes a restricted set of mobile routes. Operational desktop records currently use TSV and properties files below `%USERPROFILE%/.biasharaai-desktop-pro`; product images are stored as files.
+The local UI server binds to loopback ports starting at 8765. The phone bridge binds to LAN ports starting at 8865 and exposes a restricted set of mobile routes. SQLite file `%USERPROFILE%/.biasharaai-desktop-pro/biashara-desktop.db` is the authoritative operational store. Product images remain local files. TSV and properties files are written only as a rollback-compatible mirror.
+
+On first start after this migration, the desktop imports existing TSV data, creates `legacy-tsv-before-sqlite.zip`, and commits the imported state to SQLite. Backup export includes a consistent SQLite snapshot and the compatibility files.
+
+Desktop UI commands and phone synchronization commands share one process-level write lock. This prevents a phone reconciliation from interleaving with a desktop checkout between mutation and commit. Long AI calls do not hold that lock.
 
 ## Local AI And Agents
 
@@ -49,15 +53,17 @@ Implemented bridge capabilities include:
 - Phone barcode scans sent to the desktop POS.
 - Mobile transaction upload and desktop transaction reconciliation.
 - Business settings exchange.
-- Retry protection for selected transaction identifiers.
+- Stable operation IDs for mobile transaction and catalogue upload, plus unique IDs for scans and reconciliation requests.
+- Durable sync inbox receipts stored atomically with accepted desktop state.
+- Append-only stock movements for new desktop sales, mobile sales, phone reconciliation, and stock intake.
 
 Current limitations:
 
-- Protocol `1.0` authenticates requests but is not yet a complete operation log.
+- Protocol `1.0` authenticates requests and supports receiver-side operation idempotency, but Android does not yet have a general durable desktop-sync outbox or monotonic cursor.
 - Several records still use snapshot-style reconciliation.
 - LAN pairing and request bodies still use HTTP and do not yet provide production-grade mutual device identity or transport confidentiality.
 - Session keys are stored in application preferences/files rather than Android Keystore and the Windows credential vault.
-- The desktop store rewrites flat files and returns the full application state to the UI.
+- The desktop compatibility facade rewrites a complete SQLite snapshot and TSV mirror, and returns the full application state to the UI.
 - The catalogue UI is not yet server-paginated or virtualized.
 - The desktop is suitable for one workstation, not concurrent cashier terminals.
 
@@ -91,4 +97,4 @@ The current desktop release is a `Solo` deployment:
 - Local-first operation.
 - Local LM Studio is optional and never required for checkout.
 
-Do not deploy the current flat-file desktop store as a shared network database. Do not run independent cashier databases and attempt to reconcile absolute stock totals.
+Do not place the SQLite file on a shared network drive. Do not run independent cashier databases and attempt to reconcile absolute stock totals.
