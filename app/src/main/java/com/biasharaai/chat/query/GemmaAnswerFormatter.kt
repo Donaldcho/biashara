@@ -3,6 +3,7 @@ package com.biasharaai.chat.query
 import android.util.Log
 import com.biasharaai.ai.CapabilityTier
 import com.biasharaai.ai.GemmaService
+import com.biasharaai.ai.GemmaOutputSanitizer
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -80,18 +81,19 @@ class GemmaAnswerFormatter @Inject constructor(
                 Log.w(TAG, "structured_polish_skip reason=timeout ms=$POLISH_TIMEOUT_MS")
                 return factualAnswer
             }
+            val sanitized = GemmaOutputSanitizer.finalAnswer(polished)
             val out = when {
-                polished.isBlank() -> {
+                sanitized.isBlank() -> {
                     Log.d(TAG, "structured_polish_skip reason=blank_model_output")
                     factualAnswer
                 }
-                !digitMassPreserved(factualAnswer, polished) -> {
-                    Log.w(TAG, "structured_polish_revert reason=digit_mass lenIn=${factualAnswer.length} lenOut=${polished.length}")
+                !digitMassPreserved(factualAnswer, sanitized) -> {
+                    Log.w(TAG, "structured_polish_revert reason=digit_mass lenIn=${factualAnswer.length} lenOut=${sanitized.length}")
                     factualAnswer
                 }
                 else -> {
-                    Log.d(TAG, "structured_polish_ok lenIn=${factualAnswer.length} lenOut=${polished.length}")
-                    polished
+                    Log.d(TAG, "structured_polish_ok lenIn=${factualAnswer.length} lenOut=${sanitized.length}")
+                    sanitized
                 }
             }
             out

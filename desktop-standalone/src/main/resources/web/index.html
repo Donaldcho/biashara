@@ -1,0 +1,989 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Biashara AI Pro Desktop</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <div class="app-shell" id="appShell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">B</div>
+        <div class="brand-text">
+          <div class="brand-name">Biashara AI</div>
+          <div class="brand-subtitle">Pro Desktop</div>
+        </div>
+        <button class="sidebar-toggle" id="sidebarToggle" type="button" aria-label="Collapse sidebar" title="Collapse sidebar">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+      </div>
+      <div class="sidebar-kicker">Workstation</div>
+      <nav class="nav" id="nav"></nav>
+      <div class="sidebar-status">
+        <strong>Offline-first</strong>
+        <span>Local data, phone sync, desktop POS</span>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <h1 id="pageTitle">Today</h1>
+          <p id="pageSubtitle">Business command center</p>
+        </div>
+        <div class="top-actions">
+          <span class="pill status-pill" id="workspaceStatus">Offline workspace</span>
+          <span class="pill clock-pill" id="topClock">--:--</span>
+          <span class="pill" id="pairStatus">Phone not paired</span>
+          <button class="button secondary" data-screen="phone" data-icon="smartphone">Phone Link</button>
+          <button class="button primary" data-screen="pos" data-icon="shopping-cart">Open POS</button>
+        </div>
+      </header>
+
+      <section class="screen active" id="screen-dashboard">
+        <section class="hero-band">
+          <div>
+            <span class="eyebrow">Retail control center</span>
+            <h2>Stock, scanner sales, customer credit, and mobile sync in one desktop workspace.</h2>
+            <p>The computer handles the large-screen POS and catalog. The phone stays useful as the camera scanner and offline stock capture device.</p>
+          </div>
+          <div class="hero-actions">
+            <button class="button primary" data-screen="pos" data-icon="shopping-cart">Start sale</button>
+            <button class="button secondary" data-screen="inventory" data-icon="package">Review stock</button>
+          </div>
+        </section>
+
+        <div class="metric-grid">
+          <article class="metric-card">
+            <span>Today revenue</span>
+            <strong id="metricRevenue">0.00</strong>
+            <small>Desktop sales recorded today</small>
+          </article>
+          <article class="metric-card">
+            <span>Products</span>
+            <strong id="metricProducts">0</strong>
+            <small id="metricImages">0 with images</small>
+          </article>
+          <article class="metric-card">
+            <span>Stock alerts</span>
+            <strong id="metricLowStock">0</strong>
+            <small>Products with low stock</small>
+          </article>
+          <article class="metric-card">
+            <span>Credit due</span>
+            <strong id="metricCredit">0.00</strong>
+            <small>Customer balances</small>
+          </article>
+        </div>
+
+        <div class="dashboard-grid">
+          <section class="workspace-section">
+            <div class="section-title">
+              <div>
+                <h2>Catalog preview</h2>
+                <p>Real synced products appear here with their mobile images.</p>
+              </div>
+              <button class="button secondary" data-screen="inventory" data-icon="package">View catalog</button>
+            </div>
+            <div class="stock-strip" id="dashboardProducts"></div>
+          </section>
+
+          <article class="panel">
+            <div class="section-title">
+              <div>
+                <h2>Mobile sync</h2>
+                <p>Use the mobile app as a scanner and catalog source.</p>
+              </div>
+            </div>
+            <div class="sync-summary" id="syncSummary"></div>
+          </article>
+        </div>
+
+        <div class="dashboard-ops-grid">
+          <section class="panel">
+            <div class="section-title">
+              <div>
+                <h2>Business signals</h2>
+                <p>Fast desktop telemetry from recent sales, services, and catalog records.</p>
+              </div>
+              <button class="button secondary" data-screen="telemetry" data-icon="chart">Open telemetry</button>
+            </div>
+            <div class="mini-signal-grid" id="dashboardTelemetry"></div>
+          </section>
+
+          <section class="panel">
+            <div class="section-title">
+              <div>
+                <h2>Agent watchlist</h2>
+                <p>Local agents surface stock, credit, sync, and pricing work.</p>
+              </div>
+              <button class="button secondary" data-screen="agents" data-icon="bot">Open agents</button>
+            </div>
+            <div class="agent-list compact" id="dashboardAgents"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-inventory">
+        <div class="section-title">
+          <div>
+            <h2>Product catalog</h2>
+            <p>Image cards for stocked products, synced from mobile or entered on desktop.</p>
+          </div>
+          <button class="button primary" data-screen="phone" data-icon="refresh">Sync from phone</button>
+        </div>
+        <div class="toolbar">
+          <label class="search-field">Search catalog<input id="catalogSearch" placeholder="Name, barcode, category"></label>
+          <div class="toolbar-summary" id="catalogSummary">0 products</div>
+        </div>
+        <div class="catalog-grid" id="inventoryGrid"></div>
+        <section class="manual-entry">
+          <div class="section-title">
+            <div>
+              <h2>Add product manually</h2>
+              <p>For desktop setup when the mobile catalog has not been synced yet.</p>
+            </div>
+          </div>
+          <form id="productForm" class="product-entry">
+            <label class="image-drop">
+              <input id="productImageInput" type="file" accept="image/png,image/jpeg,image/webp">
+              <input name="imageFileName" type="hidden">
+              <input name="imageBase64" type="hidden">
+              <span id="productImagePreview">Add product image</span>
+            </label>
+            <div class="form-grid">
+              <label>Product name<input name="name" required></label>
+              <label class="wide">Description<input name="description" placeholder="Short customer-facing product description"></label>
+              <label>Barcode<input name="barcode"></label>
+              <label>Category<input name="category"></label>
+              <label>Price<input name="price" inputmode="decimal"></label>
+              <label>Cost<input name="cost" inputmode="decimal"></label>
+              <label>Stock<input name="stock" inputmode="numeric"></label>
+              <label>WhatsApp retailer ID<input name="whatsappRetailerId" placeholder="SKU or barcode"></label>
+              <label>Public image URL<input name="whatsappImageUrl" placeholder="https://..."></label>
+              <label>Public product URL<input name="whatsappProductUrl" placeholder="https://..."></label>
+              <button class="button primary" type="submit" data-icon="plus">Add product</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="manual-entry">
+          <div class="section-title">
+            <div>
+              <h2>Services</h2>
+              <p>Desktop service items are available in POS service and mixed-cart modes.</p>
+            </div>
+            <div class="toolbar-summary" id="serviceSummary">0 services</div>
+          </div>
+          <div class="catalog-grid service-grid" id="serviceGrid"></div>
+          <form id="serviceForm" class="form-grid service-entry">
+            <label>Service name<input name="name" required></label>
+            <label>Category<input name="category"></label>
+            <label>Price<input name="price" inputmode="decimal"></label>
+            <label>Duration minutes<input name="durationMinutes" inputmode="numeric"></label>
+            <label>Warranty days<input name="warrantyDays" inputmode="numeric"></label>
+            <button class="button primary" type="submit" data-icon="plus">Add service</button>
+          </form>
+        </section>
+      </section>
+
+      <section class="screen" id="screen-pos">
+        <div class="pos-layout">
+          <section class="workspace-section pos-catalog">
+            <div class="section-title">
+              <div>
+                <h2>Sell products</h2>
+                <p>Image-first selling with USB barcode input and phone scanner events.</p>
+              </div>
+              <select id="posMode">
+                <option value="products">Products</option>
+                <option value="services">Services</option>
+                <option value="both">Both</option>
+              </select>
+            </div>
+            <div class="scan-row">
+              <input id="barcodeInput" placeholder="Focus here for USB scanner or type barcode">
+              <button class="button secondary" id="applyBarcode" data-icon="scan">Apply scan</button>
+              <button class="button secondary" data-screen="phone" data-icon="smartphone">Pair phone scanner</button>
+            </div>
+            <div class="toolbar compact">
+              <label class="search-field">Search POS<input id="posSearch" placeholder="Find item to sell"></label>
+              <div class="toolbar-summary" id="posSummary">0 items</div>
+            </div>
+            <div class="scanner-note" id="scannerNote"></div>
+            <div class="camera-scanner">
+              <video id="cameraPreview" autoplay muted playsinline></video>
+              <div>
+                <h3>Laptop camera scanner</h3>
+                <p id="cameraStatus">Camera scanner idle</p>
+                <button class="button secondary" id="cameraToggle" data-icon="camera">Start camera scanner</button>
+              </div>
+            </div>
+            <div class="catalog-grid pos-grid" id="posGrid"></div>
+          </section>
+
+          <aside class="panel cart-panel">
+            <div class="section-title">
+              <div>
+                <h2>Cart</h2>
+                <p>Fast checkout for products and services.</p>
+              </div>
+            </div>
+            <div id="cartLines" class="cart-lines"></div>
+            <div class="checkout">
+              <label>Customer<select id="customerSelect"></select></label>
+              <label>Payment method<select id="paymentMethod">
+                <option>Cash</option>
+                <option>Mobile money</option>
+                <option>Split</option>
+                <option>Credit</option>
+                <option>Deposit</option>
+              </select></label>
+              <label>Paid now<input id="paidNow" inputmode="decimal"></label>
+              <div class="totals">
+                <span>Subtotal</span><strong id="subtotal">0.00</strong>
+                <span>Tax</span><strong id="tax">0.00</strong>
+                <span>Total</span><strong id="total">0.00</strong>
+              </div>
+              <button class="button primary full" id="completeSale" data-icon="check">Complete sale</button>
+              <button class="button ghost full" id="clearCart" data-icon="trash">Clear cart</button>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-serviceDesk">
+        <div class="page-tabs" role="tablist" aria-label="Service Desk workflow">
+          <button class="tab-button active" data-service-tab="booking" type="button" data-icon="clipboard">
+            <strong>Book service</strong>
+            <span id="serviceBookingCount">New job slip</span>
+          </button>
+          <button class="tab-button" data-service-tab="technician" type="button" data-icon="scan">
+            <strong>Technician station</strong>
+            <span id="serviceTechnicianCount">0 open</span>
+          </button>
+          <button class="tab-button" data-service-tab="registry" type="button" data-icon="list">
+            <strong>Job registry</strong>
+            <span id="serviceRegistryCount">0 tickets</span>
+          </button>
+        </div>
+
+        <div class="service-tab-panel active" data-service-panel="booking">
+          <div class="service-booking-grid">
+            <section class="panel service-booking-panel">
+              <div class="section-title">
+                <div>
+                  <h2>Secretary service booking</h2>
+                  <p>Register the service, collect payment or deposit, then hand the printed slip to the customer.</p>
+                </div>
+              </div>
+              <form id="ticketForm" class="service-ticket-form">
+                <label class="wide">Service<select id="ticketService" name="serviceId"></select></label>
+                <label>Customer name<input name="customerName" placeholder="Walk-in customer"></label>
+                <label>Customer phone<input name="customerPhone" placeholder="Customer phone number"></label>
+                <label>Quantity<input id="ticketQuantity" name="quantity" inputmode="numeric" value="1"></label>
+                <label>Unit price<input id="ticketUnitPrice" name="unitPrice" inputmode="decimal"></label>
+                <label>Paid now<input id="ticketPaidAmount" name="paidAmount" inputmode="decimal"></label>
+                <label>Payment method<select name="paymentMethod">
+                  <option>Cash</option>
+                  <option>Mobile money</option>
+                  <option>Card</option>
+                  <option>Bank</option>
+                  <option>Credit</option>
+                  <option>Deposit</option>
+                </select></label>
+                <label>Assigned technician<input name="assignedTechnician" placeholder="Technician name"></label>
+                <label class="wide">Service requirements<textarea name="requirements" placeholder="Example: Paint truck cabin blue, prepare surface, customer supplied primer, warranty inspection required."></textarea></label>
+                <button class="button primary wide" type="submit" data-icon="clipboard">Book service and generate slip</button>
+              </form>
+            </section>
+
+            <aside class="panel service-slip-panel">
+              <div class="section-title">
+                <div>
+                  <h2>Customer slip</h2>
+                  <p>Print this slip after payment so the technician can scan it.</p>
+                </div>
+              </div>
+              <div id="ticketSlipPreview" class="service-slip-preview"></div>
+              <div class="button-row">
+                <button class="button secondary" id="printServiceSlip" type="button" data-icon="printer">Print slip</button>
+                <button class="button ghost" id="copyServiceToken" type="button" data-icon="copy">Copy token</button>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <div class="service-tab-panel" data-service-panel="technician">
+          <div class="technician-workbench">
+            <section class="panel technician-panel">
+              <div class="section-title">
+                <div>
+                  <h2>Technician station</h2>
+                  <p>Scan the slip, review the requirements, start the job, and complete the service when work is done.</p>
+                </div>
+              </div>
+              <div class="scan-row">
+                <input id="ticketScanInput" placeholder="Scan service slip barcode or enter JOB token">
+                <button class="button secondary" id="lookupServiceTicket" type="button" data-icon="search">Lookup</button>
+              </div>
+              <div id="technicianTicket" class="technician-ticket"></div>
+              <div class="service-complete-form">
+                <label>Technician name<input id="technicianName" placeholder="Name shown on completed job"></label>
+                <label>Completion notes<textarea id="ticketCompletionNotes" placeholder="Work completed, materials used, customer notes, warranty note."></textarea></label>
+                <div class="button-row">
+                  <button class="button secondary" id="startServiceTicket" type="button" data-icon="play">Start work</button>
+                  <button class="button primary" id="completeServiceTicket" type="button" data-icon="check">Complete service</button>
+                </div>
+              </div>
+            </section>
+
+            <aside class="panel technician-queue-panel">
+              <div class="section-title">
+                <div>
+                  <h2>Open queue</h2>
+                  <p>Jobs waiting for technicians or already in progress.</p>
+                </div>
+                <span class="pill" id="serviceTicketCount">0 tickets</span>
+              </div>
+              <div class="ticket-board queue-board" id="serviceOpenQueue"></div>
+            </aside>
+          </div>
+        </div>
+
+        <div class="service-tab-panel" data-service-panel="registry">
+          <section class="panel service-jobs-panel">
+            <div class="section-title">
+              <div>
+                <h2>Service job registry</h2>
+                <p>Booked, in-progress, and completed service tickets from this desktop.</p>
+              </div>
+              <span class="pill" id="serviceRegistryPill">0 tickets</span>
+            </div>
+            <div class="ticket-kanban" id="serviceTicketBoard"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-ledger">
+        <div class="section-title">
+          <div>
+            <h2>Business ledger</h2>
+            <p>Sales, mobile imports, customer balances, expenses, and manual entries in one offline record.</p>
+          </div>
+          <div class="toolbar-summary" id="ledgerCount">0 records</div>
+        </div>
+
+        <div class="metric-grid ledger-metrics">
+          <article class="metric-card">
+            <span>Money in</span>
+            <strong id="ledgerMoneyIn">0.00</strong>
+            <small>Sales, payments, and income</small>
+          </article>
+          <article class="metric-card">
+            <span>Money out</span>
+            <strong id="ledgerMoneyOut">0.00</strong>
+            <small>Expenses and outflow entries</small>
+          </article>
+          <article class="metric-card">
+            <span>Net</span>
+            <strong id="ledgerNet">0.00</strong>
+            <small>Filtered cash movement</small>
+          </article>
+          <article class="metric-card">
+            <span>Customer credit</span>
+            <strong id="metricCreditLedger">Tracked</strong>
+            <small>Use customer payment to reduce balances</small>
+          </article>
+        </div>
+
+        <div class="ledger-layout">
+          <section class="panel">
+            <div class="toolbar">
+              <label>Period<select id="ledgerQuickFilter">
+                <option value="today">Today</option>
+                <option value="week">Last 7 days</option>
+                <option value="all">All records</option>
+              </select></label>
+              <label class="search-field">Search ledger<input id="ledgerSearch" placeholder="Receipt, customer, payment method, description"></label>
+            </div>
+            <div class="ledger-header">
+              <span>Description</span>
+              <span>Type</span>
+              <span>Customer</span>
+              <span>Method</span>
+              <span>Amount</span>
+              <span>Balance</span>
+            </div>
+            <div class="ledger-rows" id="ledgerRows"></div>
+            <div class="ledger-pagination" id="ledgerPagination">
+              <span id="ledgerPageStatus">Page 1 of 1</span>
+              <div class="ledger-page-actions">
+                <button class="icon-button" id="ledgerPagePrevious" type="button" aria-label="Previous ledger page" title="Previous page" data-icon="chevron-left" data-icon-only="true">Previous</button>
+                <button class="icon-button" id="ledgerPageNext" type="button" aria-label="Next ledger page" title="Next page" data-icon="chevron-right" data-icon-only="true">Next</button>
+              </div>
+            </div>
+          </section>
+
+          <aside class="ledger-side">
+            <section class="panel">
+              <div class="section-title">
+                <div>
+                  <h2>Manual entry</h2>
+                  <p>Record expenses, owner money, and customer credit payments.</p>
+                </div>
+              </div>
+              <form id="ledgerForm" class="ledger-form">
+                <label>Entry type<select id="ledgerEntryType" name="entryType">
+                  <option value="EXPENSE">Expense</option>
+                  <option value="INCOME">Money in</option>
+                  <option value="CUSTOMER_PAYMENT">Customer payment</option>
+                  <option value="ADJUSTMENT_IN">Cash adjustment in</option>
+                  <option value="ADJUSTMENT_OUT">Cash adjustment out</option>
+                </select></label>
+                <label>Customer<select id="ledgerCustomer" name="customerId"></select></label>
+                <p class="form-hint" id="ledgerCreditHint">Use customer only when the entry belongs to a specific account.</p>
+                <label>Description<input name="description" placeholder="Rent, supplier transport, debt payment"></label>
+                <label>Amount<input name="amount" inputmode="decimal" required placeholder="0.00"></label>
+                <label>Payment method<input name="paymentMethod" placeholder="Cash, M-Pesa, bank"></label>
+                <button class="button primary full" type="submit" data-icon="save">Record entry</button>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="section-title">
+                <div>
+                  <h2>Credit follow-up</h2>
+                  <p>Customers with balances from desktop and synced sales.</p>
+                </div>
+              </div>
+              <div class="customer-list" id="ledgerCustomerSummary"></div>
+            </section>
+          </aside>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-telemetry">
+        <div class="section-title">
+          <div>
+            <h2>Business telemetry</h2>
+            <p>Operational signals calculated locally from desktop and synced mobile records.</p>
+          </div>
+        </div>
+        <div class="metric-grid telemetry-kpis" id="telemetryKpis"></div>
+        <div class="telemetry-layout">
+          <section class="panel">
+            <div class="section-title"><h2>Seven-day sales trend</h2></div>
+            <div class="trend-chart" id="salesTrend"></div>
+          </section>
+          <section class="panel">
+            <div class="section-title"><h2>Payment mix</h2></div>
+            <div class="bar-list" id="paymentMix"></div>
+          </section>
+          <section class="panel">
+            <div class="section-title"><h2>Category revenue</h2></div>
+            <div class="bar-list" id="categoryRevenue"></div>
+          </section>
+          <section class="panel">
+            <div class="section-title"><h2>Sync health</h2></div>
+            <div class="sync-summary" id="syncTelemetry"></div>
+          </section>
+          <section class="panel telemetry-wide">
+            <div class="section-title"><h2>Recent activity timeline</h2></div>
+            <div class="activity-list" id="telemetryTimeline"></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-agents">
+        <div class="section-title">
+          <div>
+            <h2>Agent center</h2>
+            <p>Run permissioned business agents against a current, read-only snapshot of your local data.</p>
+          </div>
+          <div class="button-row">
+            <span class="pill success" id="agentRuntimeStatus">Read-only tools</span>
+            <button class="button secondary" id="agentRun" data-icon="refresh">Refresh</button>
+          </div>
+        </div>
+
+        <div class="page-tabs" role="tablist" aria-label="Agent center views">
+          <button class="tab-button active" type="button" data-agent-tab="workbench" data-icon="bot">
+            <strong>Workbench</strong><span>Select, inspect, and run an agent</span>
+          </button>
+          <button class="tab-button" type="button" data-agent-tab="activity" data-icon="list">
+            <strong>Activity</strong><span>Audited run and tool history</span>
+          </button>
+          <button class="tab-button" type="button" data-agent-tab="signals" data-icon="chart">
+            <strong>Signals</strong><span>Fast deterministic watchlist</span>
+          </button>
+        </div>
+
+        <div class="agent-tab-panel active" data-agent-panel="workbench">
+          <div class="agent-runtime-layout">
+            <section class="panel agent-catalog-panel">
+              <div class="section-title compact-title">
+                <div><h2>Available agents</h2><p id="agentCount">Loading local agents...</p></div>
+              </div>
+              <div class="agent-selector-list" id="agentCatalog"></div>
+            </section>
+
+            <section class="panel agent-console-panel">
+              <div class="agent-console-head">
+                <div>
+                  <span class="eyebrow">Selected agent</span>
+                  <h2 id="agentSelectedName">Choose an agent</h2>
+                  <p id="agentSelectedDescription">Select an agent to review its purpose and approved tools.</p>
+                </div>
+                <button class="button primary" id="agentExecute" type="button" data-icon="play" disabled>Run agent</button>
+              </div>
+              <div class="agent-tool-strip" id="agentAllowedTools"></div>
+              <div class="agent-result" id="agentResult">
+                <div class="empty-state compact"><strong>No run selected</strong><p>Agent findings and recommended actions will appear here.</p></div>
+              </div>
+              <div class="agent-trace" id="agentTrace"></div>
+            </section>
+          </div>
+        </div>
+
+        <div class="agent-tab-panel" data-agent-panel="activity">
+          <section class="panel">
+            <div class="section-title">
+              <div><h2>Agent activity</h2><p>Every model run and approved tool call is recorded locally.</p></div>
+              <span class="pill" id="agentRunCount">0 runs</span>
+            </div>
+            <div class="agent-activity-list" id="agentActivity"></div>
+          </section>
+        </div>
+
+        <div class="agent-tab-panel" data-agent-panel="signals">
+          <div class="section-title compact-title">
+            <div><h2>Live signal cards</h2><p>Immediate checks that do not require the AI model.</p></div>
+            <span class="pill" id="agentSignalCount">0 active cards</span>
+          </div>
+          <div class="mini-signal-grid agent-summary" id="agentSummary"></div>
+          <div class="agent-board" id="agentBoard"></div>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-tools">
+        <div class="section-title">
+          <div>
+            <h2>Shop tools</h2>
+            <p>Desktop utilities for restocking, pricing, WhatsApp sharing, and scanner readiness.</p>
+          </div>
+        </div>
+        <div class="tools-layout">
+          <section class="panel">
+            <div class="section-title">
+              <div>
+                <h2>Reorder planner</h2>
+                <p>Uses current stock after mobile and desktop sales reconcile.</p>
+              </div>
+              <button class="button secondary" data-screen="inventory" data-icon="package">Review stock</button>
+            </div>
+            <div class="tool-list" id="toolReorderList"></div>
+          </section>
+
+          <section class="panel">
+            <div class="section-title">
+              <div>
+                <h2>Catalog handout</h2>
+                <p>Copy a stocked product list for WhatsApp, SMS, or a shop notice.</p>
+              </div>
+              <button class="button secondary" id="copyToolCatalog" data-icon="copy">Copy catalog</button>
+            </div>
+            <div class="tool-catalog-preview" id="toolCatalogPreview"></div>
+          </section>
+
+          <section class="panel">
+            <div class="section-title">
+              <div>
+                <h2>Margin calculator</h2>
+                <p>Check whether a price leaves enough room before discounting.</p>
+              </div>
+            </div>
+            <div class="margin-tool">
+              <label>Cost<input id="toolMarginCost" inputmode="decimal" placeholder="0.00"></label>
+              <label>Selling price<input id="toolMarginPrice" inputmode="decimal" placeholder="0.00"></label>
+              <div class="margin-result" id="toolMarginResult"><strong>Enter cost and price</strong><span>Margin guidance appears here.</span></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="section-title">
+              <div>
+                <h2>Scanner readiness</h2>
+                <p>Phone scanner, laptop camera, and USB scanner options for checkout.</p>
+              </div>
+              <button class="button secondary" data-screen="pos" data-icon="shopping-cart">Open POS</button>
+            </div>
+            <div class="sync-summary" id="toolSyncChecklist"></div>
+          </section>
+
+          <section class="panel">
+            <div class="section-title">
+              <div>
+                <h2>Tool permissions</h2>
+                <p>Choose which desktop actions ask for confirmation before they open devices, share data, or write records.</p>
+              </div>
+            </div>
+            <div class="permission-list">
+              <label class="permission-toggle">
+                <input id="permLedgerWrites" type="checkbox">
+                <span><strong>Confirm ledger writes</strong><small>Ask before manual expenses, income, and credit payments are saved.</small></span>
+              </label>
+              <label class="permission-toggle">
+                <input id="permCatalogCopy" type="checkbox">
+                <span><strong>Confirm catalog copy</strong><small>Ask before copying product lists to the clipboard.</small></span>
+              </label>
+              <label class="permission-toggle">
+                <input id="permWhatsAppOpen" type="checkbox">
+                <span><strong>Confirm WhatsApp launch</strong><small>Ask before opening WhatsApp with prepared catalog text.</small></span>
+              </label>
+              <label class="permission-toggle">
+                <input id="permCameraScanner" type="checkbox">
+                <span><strong>Confirm camera scanner</strong><small>Ask before using the laptop camera as a barcode scanner.</small></span>
+              </label>
+            </div>
+          </section>
+
+          <section class="panel tools-wide">
+            <div class="section-title">
+              <div>
+                <h2>Business memory</h2>
+                <p>Local notes that are added to assistant requests so LM Studio understands shop goals, policies, and operating context.</p>
+              </div>
+            </div>
+            <textarea id="businessMemory" class="memory-textarea" placeholder="Example: Monthly goal, preferred suppliers, pricing rules, service warranty policy, products to promote, credit rules."></textarea>
+            <div class="button-row memory-actions">
+              <button class="button primary" id="saveBusinessMemory" type="button" data-icon="save">Save memory</button>
+              <button class="button ghost" id="clearBusinessMemory" type="button" data-icon="trash">Clear memory</button>
+              <span class="memory-status" id="businessMemoryStatus">Local only</span>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-phone">
+        <div class="phone-layout">
+          <article class="panel">
+            <div class="section-title">
+              <div>
+                <h2>Connect mobile scanner</h2>
+                <p>Pair Biashara AI mobile, then scan products into the desktop POS or sync the product catalog with images.</p>
+              </div>
+            </div>
+            <div class="pair-card">
+              <div class="pair-code" id="pairCode">----</div>
+              <div>
+                <strong id="pairUrl">http://127.0.0.1:8765</strong>
+                <p id="pairPayload"></p>
+              </div>
+            </div>
+            <div class="sync-console">
+              <div><strong>Scanner events</strong><span>/api/phone/scan</span></div>
+              <div><strong>Catalog with images</strong><span>/api/phone/product-sync</span></div>
+              <div><strong>Stock intake</strong><span>/api/phone/stock-intake</span></div>
+            </div>
+          </article>
+          <article class="panel">
+            <div class="section-title">
+              <div>
+                <h2>Mobile catalog import</h2>
+                <p>Import exported mobile JSON while the direct mobile sender is being connected.</p>
+              </div>
+            </div>
+            <div class="import-box">
+              <input id="mobileCatalogFile" type="file" accept="application/json,.json">
+              <button class="button secondary full" id="importCatalog" data-icon="upload">Import catalog JSON</button>
+              <span id="importStatus">No import selected</span>
+            </div>
+          </article>
+          <article class="panel phone-activity-panel">
+            <div class="section-title"><h2>Recent mobile activity</h2></div>
+            <div id="mobileActivity" class="activity-list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-whatsapp">
+        <div class="section-title">
+          <div>
+            <h2>WhatsApp selling</h2>
+            <p>Prepare customer messages or export stocked products to a connected WhatsApp Business catalog.</p>
+          </div>
+          <div class="button-row">
+            <button class="button primary" id="openWhatsApp" type="button" data-icon="message">Open WhatsApp</button>
+          </div>
+        </div>
+
+        <div class="page-tabs" role="tablist" aria-label="WhatsApp workflow">
+          <button class="tab-button active" data-whatsapp-tab="messages" type="button" data-icon="message">
+            <strong>Message studio</strong>
+            <span>AI customer messages</span>
+          </button>
+          <button class="tab-button" data-whatsapp-tab="catalog" type="button" data-icon="package">
+            <strong>Catalog export</strong>
+            <span id="whatsappReadyCount">0 ready</span>
+          </button>
+        </div>
+
+        <div class="whatsapp-tab-panel active" data-whatsapp-panel="messages">
+          <div class="whatsapp-message-layout">
+            <section class="panel message-studio-panel">
+              <div class="section-title">
+                <div>
+                  <h2>AI message generator</h2>
+                  <p>Create customer-ready WhatsApp messages using local business data and LM Studio when enabled.</p>
+                </div>
+              </div>
+              <div class="message-generator-grid">
+                <label>Customer<select id="messageCustomer"></select></label>
+                <label>Message type<select id="messageIntent">
+                  <option value="marketing">Marketing offer</option>
+                  <option value="sales">Sales follow-up</option>
+                  <option value="thank_you">Thank you after purchase</option>
+                  <option value="credit_reminder">Credit reminder</option>
+                  <option value="service_aftercare">Service aftercare</option>
+                </select></label>
+                <label>Product or service<select id="messageSubject"></select></label>
+                <label>Tone<select id="messageTone">
+                  <option value="warm and professional">Warm and professional</option>
+                  <option value="short and direct">Short and direct</option>
+                  <option value="premium and polished">Premium and polished</option>
+                  <option value="friendly neighbourhood shop">Friendly neighbourhood shop</option>
+                </select></label>
+                <label class="wide">Extra instruction<textarea id="messageInstruction" placeholder="Example: mention free pickup today, promote shampoo stock, remind about balance politely."></textarea></label>
+              </div>
+              <div class="button-row">
+                <button class="button primary" id="generateCustomerMessage" type="button" data-icon="sparkles">Generate with AI</button>
+                <button class="button secondary" id="refreshWhatsApp" type="button" data-icon="file">Use catalog template</button>
+                <span class="message-status" id="messageGenerationStatus">Ready</span>
+              </div>
+            </section>
+
+            <aside class="panel message-preview-panel">
+              <div class="section-title">
+                <div>
+                  <h2>Customer message</h2>
+                  <p>Copy it or open WhatsApp when the wording is ready.</p>
+                </div>
+              </div>
+              <textarea id="whatsappMessage"></textarea>
+              <div class="button-row">
+                <button class="button secondary" id="copyWhatsApp" type="button" data-icon="copy">Copy message</button>
+                <button class="button primary" id="openWhatsAppMessage" type="button" data-icon="send">Open for customer</button>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <div class="whatsapp-tab-panel" data-whatsapp-panel="catalog">
+          <div class="whatsapp-layout">
+            <section class="panel">
+              <div class="section-title">
+                <div>
+                  <h2>Catalog products</h2>
+                  <p>Only products with stock, price, retailer ID, public product URL, and public image URL can upload to Meta catalog.</p>
+                </div>
+              </div>
+              <div class="catalog-grid whatsapp-catalog" id="whatsappProducts"></div>
+            </section>
+            <aside class="panel">
+              <div class="section-title">
+                <div>
+                  <h2>Meta catalog export</h2>
+                  <p>Preview the payload first, then upload when Meta settings are configured.</p>
+                </div>
+              </div>
+              <div class="button-row">
+                <button class="button secondary" id="downloadCatalogCsv" type="button" data-icon="download">Download Meta CSV</button>
+                <button class="button secondary" id="previewCatalogExport" type="button" data-icon="eye">Preview catalog export</button>
+                <button class="button primary" id="uploadCatalogExport" type="button" data-icon="upload">Upload to catalog</button>
+              </div>
+              <div class="catalog-export-status" id="catalogExportStatus"></div>
+              <pre class="catalog-export-preview" id="catalogExportPreview"></pre>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-assistant">
+        <div class="assistant-layout">
+          <aside class="panel assistant-history-panel">
+            <div class="section-title compact-title">
+              <div>
+                <h2>Chats</h2>
+                <p>Local desktop history</p>
+              </div>
+            </div>
+            <button class="button primary full" id="assistantNewChat" type="button" data-icon="plus">New chat</button>
+            <div class="assistant-session-list" id="assistantSessions"></div>
+            <button class="button ghost full" id="assistantClearChat" type="button" data-icon="trash">Delete current chat</button>
+          </aside>
+
+          <section class="panel assistant-chat-panel">
+            <div class="section-title">
+              <div>
+                <h2>Business assistant</h2>
+                <p>Ask LM Studio for offline reports using the desktop catalog, sales, credit, stock, and sync history.</p>
+              </div>
+              <div class="button-row">
+                <button class="button secondary" id="assistantReport" type="button" data-icon="file">Business report</button>
+                <button class="button ghost" id="assistantCopyChat" type="button" data-icon="copy">Copy chat</button>
+              </div>
+            </div>
+            <div class="assistant-transcript" id="assistantTranscript"></div>
+            <form class="assistant-compose" id="assistantForm">
+              <div class="assistant-input-tools">
+                <label class="button secondary attachment-button">
+                  Add images
+                  <input id="assistantImageInput" type="file" accept="image/png,image/jpeg,image/webp" multiple>
+                </label>
+                <button class="button ghost" id="assistantVoice" type="button" data-icon="mic" disabled>Voice ready later</button>
+                <button class="button ghost" id="assistantClearImages" type="button" data-icon="trash">Clear images</button>
+                <span id="assistantAttachmentSummary">No images attached</span>
+              </div>
+              <textarea id="assistantInput" placeholder="Ask about stock, sales, credit, services, or what to do next"></textarea>
+              <button class="button primary" type="submit" data-icon="send">Ask</button>
+            </form>
+          </section>
+
+          <aside class="panel assistant-side">
+            <div class="section-title">
+              <div>
+                <h2>Local AI status</h2>
+                <p>Connects to the LM Studio server running on this laptop.</p>
+              </div>
+            </div>
+            <div class="ai-status-list">
+              <div><span>Provider</span><strong id="assistantProvider">Rule-based</strong></div>
+              <div><span>Endpoint</span><strong id="assistantEndpoint">Local rules</strong></div>
+              <div><span>Model</span><strong id="assistantModel">Automatic</strong></div>
+            </div>
+            <button class="button secondary full" id="testLmStudio" data-icon="plug">Test LM Studio</button>
+            <p class="assistant-note" id="assistantStatus">Open Settings to select LM Studio and save the endpoint.</p>
+          </aside>
+        </div>
+      </section>
+
+      <section class="screen" id="screen-settings">
+        <article class="panel">
+          <div class="section-title"><h2>Business settings</h2></div>
+          <form id="settingsForm" class="form-grid settings-grid">
+            <label>Business name<input name="businessName"></label>
+            <label>Owner<input name="ownerName"></label>
+            <label>Currency<select name="currency">
+              <option value="">Choose currency</option>
+              <option value="XAF">Central African CFA franc (XAF / FCFA)</option>
+              <option value="XOF">West African CFA franc (XOF / FCFA)</option>
+              <option value="DZD">Algerian dinar (DZD)</option>
+              <option value="AOA">Angolan kwanza (AOA)</option>
+              <option value="BWP">Botswana pula (BWP)</option>
+              <option value="BIF">Burundian franc (BIF)</option>
+              <option value="CVE">Cape Verdean escudo (CVE)</option>
+              <option value="KMF">Comorian franc (KMF)</option>
+              <option value="CDF">Congolese franc (CDF)</option>
+              <option value="DJF">Djiboutian franc (DJF)</option>
+              <option value="EGP">Egyptian pound (EGP)</option>
+              <option value="ERN">Eritrean nakfa (ERN)</option>
+              <option value="SZL">Eswatini lilangeni (SZL)</option>
+              <option value="ETB">Ethiopian birr (ETB)</option>
+              <option value="GMD">Gambian dalasi (GMD)</option>
+              <option value="GHS">Ghanaian cedi (GHS)</option>
+              <option value="GNF">Guinean franc (GNF)</option>
+              <option value="KES">Kenyan shilling (KES)</option>
+              <option value="LSL">Lesotho loti (LSL)</option>
+              <option value="LRD">Liberian dollar (LRD)</option>
+              <option value="LYD">Libyan dinar (LYD)</option>
+              <option value="MGA">Malagasy ariary (MGA)</option>
+              <option value="MWK">Malawian kwacha (MWK)</option>
+              <option value="MUR">Mauritian rupee (MUR)</option>
+              <option value="MRU">Mauritanian ouguiya (MRU)</option>
+              <option value="MAD">Moroccan dirham (MAD)</option>
+              <option value="MZN">Mozambican metical (MZN)</option>
+              <option value="NAD">Namibian dollar (NAD)</option>
+              <option value="NGN">Nigerian naira (NGN)</option>
+              <option value="RWF">Rwandan franc (RWF)</option>
+              <option value="STN">Sao Tome and Principe dobra (STN)</option>
+              <option value="SCR">Seychellois rupee (SCR)</option>
+              <option value="SLE">Sierra Leonean leone (SLE)</option>
+              <option value="SOS">Somali shilling (SOS)</option>
+              <option value="ZAR">South African rand (ZAR)</option>
+              <option value="SSP">South Sudanese pound (SSP)</option>
+              <option value="SDG">Sudanese pound (SDG)</option>
+              <option value="TZS">Tanzanian shilling (TZS)</option>
+              <option value="TND">Tunisian dinar (TND)</option>
+              <option value="UGX">Ugandan shilling (UGX)</option>
+              <option value="ZMW">Zambian kwacha (ZMW)</option>
+              <option value="ZWG">Zimbabwe Gold (ZWG)</option>
+            </select></label>
+            <label>Tax %<input name="taxPercent"></label>
+            <label>WhatsApp phone-number ID<input name="whatsappPhoneNumberId"></label>
+            <label>WhatsApp catalog ID<input name="whatsappCatalogId"></label>
+            <label>Default country code<input name="whatsappDefaultCountryCode"></label>
+            <label>Meta Graph API version<input name="whatsappGraphVersion" placeholder="Enter API version"></label>
+            <label>Meta access token<input name="whatsappAccessToken" type="password" placeholder="Paste token to update; blank keeps current token"></label>
+            <label class="wide">Receipt footer<input name="receiptFooter"></label>
+            <div class="settings-subsection wide">
+              <span>Local AI</span>
+              <p>Use LM Studio as the desktop assistant when its local server is running. Rule-based mode stays available as a fast fallback.</p>
+            </div>
+            <label>AI provider<select name="aiProvider">
+              <option value="RULES">Rule-based local assistant</option>
+              <option value="LM_STUDIO">LM Studio local server</option>
+            </select></label>
+            <label>LM Studio base URL<input name="lmStudioBaseUrl" placeholder="Enter local server URL"></label>
+            <label class="wide">LM Studio model ID<input name="lmStudioModel" placeholder="Leave empty to use the first loaded model"></label>
+            <label class="wide">Built-in model path<input name="modelPath" placeholder="Optional second AI option"></label>
+            <button class="button primary" type="submit" data-icon="save">Save settings</button>
+          </form>
+        </article>
+      </section>
+    </main>
+  </div>
+  <div class="receipt-modal" id="receiptModal" hidden>
+    <div class="receipt-backdrop" data-receipt-close></div>
+    <section class="receipt-dialog" role="dialog" aria-modal="true" aria-labelledby="receiptModalTitle">
+      <div class="receipt-dialog-head">
+        <div>
+          <span class="eyebrow">Payment complete</span>
+          <h2 id="receiptModalTitle">Customer receipt</h2>
+        </div>
+        <button class="icon-button" id="receiptClose" type="button" aria-label="Close receipt" title="Close receipt" data-icon="x" data-icon-only="true">Close</button>
+      </div>
+      <div class="receipt-paper" id="receiptPaper">
+        <div class="receipt-brand">
+          <strong id="receiptBusiness">Business</strong>
+          <span id="receiptNumber">Receipt</span>
+        </div>
+        <div class="receipt-info">
+          <span id="receiptDate"></span>
+          <span id="receiptCustomer"></span>
+        </div>
+        <div class="receipt-lines" id="receiptLines"></div>
+        <div class="receipt-totals">
+          <span>Subtotal</span><strong id="receiptSubtotal">0.00</strong>
+          <span>Tax</span><strong id="receiptTax">0.00</strong>
+          <span>Total</span><strong id="receiptTotal">0.00</strong>
+          <span>Paid</span><strong id="receiptPaid">0.00</strong>
+          <span>Balance</span><strong id="receiptBalance">0.00</strong>
+        </div>
+        <p class="receipt-footer" id="receiptFooter"></p>
+      </div>
+      <label class="receipt-phone">Customer WhatsApp number<input id="receiptPhone" placeholder="Use selected customer phone or enter number"></label>
+      <div class="receipt-actions">
+        <button class="button secondary" id="receiptPrint" type="button" data-icon="printer">Print receipt</button>
+        <button class="button primary" id="receiptWhatsapp" type="button" data-icon="send">Send through WhatsApp</button>
+        <span class="receipt-status" id="receiptWhatsappStatus">Ready</span>
+      </div>
+    </section>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

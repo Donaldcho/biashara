@@ -496,7 +496,7 @@ class AppDatabaseMigrationTest {
 
         db = helper.runMigrationsAndValidate(
             TEST_DB,
-            28,
+            30,
             true,
             DatabaseMigrations.MIGRATION_28_29,
             DatabaseMigrations.MIGRATION_29_30,
@@ -540,6 +540,85 @@ class AppDatabaseMigrationTest {
         db.query(
             "SELECT name FROM sqlite_master WHERE type='index' AND name='idx_apt_scheduled'",
         ).use { c -> assertFalse("idx_apt_scheduled should not exist", c.moveToFirst()) }
+
+        db.close()
+    }
+
+    @Test
+    fun migrate40To41_createsMoneyDraftsTable() {
+        helper.createDatabase(TEST_DB, 40).close()
+
+        val db = helper.runMigrationsAndValidate(
+            TEST_DB,
+            41,
+            true,
+            DatabaseMigrations.MIGRATION_40_41,
+        )
+
+        db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='money_drafts'")
+            .use { assertTrue("money_drafts table missing", it.moveToFirst()) }
+
+        db.query("PRAGMA table_info(money_drafts)").use { c ->
+            val cols = mutableMapOf<String, String>()
+            while (c.moveToNext()) {
+                cols[c.getString(1)] = c.getString(2)
+            }
+            assertTrue(cols.containsKey("direction"))
+            assertTrue(cols.containsKey("type"))
+            assertTrue(cols.containsKey("amount"))
+            assertTrue(cols.containsKey("description"))
+            assertTrue(cols.containsKey("capture_method"))
+            assertTrue(cols.containsKey("proof_type"))
+            assertTrue(cols.containsKey("parser_confidence"))
+            assertTrue(cols.containsKey("parser_engine"))
+            assertTrue(cols.containsKey("status"))
+            assertTrue(cols.containsKey("thumbnail_bytes"))
+            assertTrue(cols.containsKey("thumbnail_size_bytes"))
+            assertTrue(cols.containsKey("occurred_at"))
+            assertTrue(cols.containsKey("created_at"))
+            assertTrue(cols.containsKey("approved_at"))
+            assertTrue(cols.containsKey("ledger_entry_id"))
+            assertTrue(cols.containsKey("device_id"))
+        }
+
+        db.query(
+            "SELECT name FROM sqlite_master WHERE type='index' AND name='index_money_drafts_status_created_at'",
+        ).use { assertTrue("status/created_at index missing", it.moveToFirst()) }
+        db.query(
+            "SELECT name FROM sqlite_master WHERE type='index' AND name='index_money_drafts_direction'",
+        ).use { assertTrue("direction index missing", it.moveToFirst()) }
+        db.query(
+            "SELECT name FROM sqlite_master WHERE type='index' AND name='index_money_drafts_ledger_entry_id'",
+        ).use { assertTrue("ledger_entry_id index missing", it.moveToFirst()) }
+        db.query(
+            "SELECT name FROM sqlite_master WHERE type='index' AND name='index_money_drafts_parsed_reference'",
+        ).use { assertTrue("parsed_reference index missing", it.moveToFirst()) }
+
+        db.execSQL(
+            """
+            INSERT INTO money_drafts (
+                direction, type, amount, description, occurred_at, created_at
+            ) VALUES (
+                'MONEY_IN', 'SALE_PRODUCT', 250.0, 'Till payment', 1700000000000, 1700000000100
+            )
+            """.trimIndent(),
+        )
+        db.query(
+            """
+            SELECT capture_method, proof_type, parser_confidence, parser_engine, status,
+                   thumbnail_size_bytes, device_id
+            FROM money_drafts
+            """.trimIndent(),
+        ).use { c ->
+            assertTrue(c.moveToFirst())
+            assertEquals("MANUAL", c.getString(0))
+            assertEquals("UNKNOWN", c.getString(1))
+            assertEquals(0.0, c.getDouble(2), 0.001)
+            assertEquals("MANUAL", c.getString(3))
+            assertEquals("NEEDS_REVIEW", c.getString(4))
+            assertEquals(0, c.getInt(5))
+            assertEquals("device", c.getString(6))
+        }
 
         db.close()
     }

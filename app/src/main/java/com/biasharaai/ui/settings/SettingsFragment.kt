@@ -92,6 +92,7 @@ class SettingsFragment : BaseFragment() {
         setupCloudAnalysis()
         setupOrderParserFromClipboard()
         setupWhatsappIntegration()
+        setupDesktopLinkNav()
         setupVoiceSettingsNav()
         setupLedgerNav()
         setupPlayReadinessControls()
@@ -461,6 +462,12 @@ class SettingsFragment : BaseFragment() {
                 .setMessage(R.string.settings_whatsapp_help_body)
                 .setPositiveButton(android.R.string.ok, null)
                 .show()
+        }
+    }
+
+    private fun setupDesktopLinkNav() {
+        binding.btnDesktopLink.setOnClickListener {
+            navigateSafely { navigate(R.id.action_settingsFragment_to_desktopLinkFragment) }
         }
     }
 

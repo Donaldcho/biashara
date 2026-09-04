@@ -87,6 +87,23 @@ class ProductPhotoStore @Inject constructor(
         }
     }
 
+    fun saveScaledJpegBytes(bytes: ByteArray, maxEdgePx: Int = 1024, quality: Int = 82): String? {
+        val decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+        val scaled = scaleDown(decoded, maxEdgePx)
+        if (scaled !== decoded) decoded.recycle()
+        return try {
+            val out = File(photoDir, "product_${System.currentTimeMillis()}.jpg")
+            FileOutputStream(out).use { fos ->
+                scaled.compress(Bitmap.CompressFormat.JPEG, quality, fos)
+            }
+            out.absolutePath
+        } catch (_: Exception) {
+            null
+        } finally {
+            if (!scaled.isRecycled) scaled.recycle()
+        }
+    }
+
     fun deleteIfAppStored(path: String?) {
         if (path.isNullOrBlank()) return
         if (!isAppStoredAbsolutePath(path)) return

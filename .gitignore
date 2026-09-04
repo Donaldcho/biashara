@@ -10,6 +10,8 @@ captures/
 # IDE
 .idea/
 *.iml
+*.user
+*.suo
 
 # OS / misc
 .DS_Store
@@ -38,6 +40,21 @@ Donald_Cho_Resume.pdf
 
 # Local reference clone (Google AI Edge Gallery source) — not part of app releases
 _gallery_ref/
+.gallery-ref/
+
+# Local agent/editor state
+.claude/
+
+# Windows desktop build and publish output
+desktop-shell-windows/bin/
+desktop-shell-windows/obj/
+desktop-shell-windows/publish/
+
+# Temporary Office files and unrelated workspace documents
+~$*.docx
+SkillJobs_Design_Document.pdf
+docs/Biashara_AI_Pro_User_Manual.docx
+docs/water-refill-proposal/
 
 # Python (reference enterprise sync server)
 **/__pycache__/

@@ -1,6 +1,7 @@
 package com.biasharaai.ui.language
 
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -41,14 +42,29 @@ class LanguageSelectionFragment : BaseFragment() {
         val context = requireContext().applicationContext
         LanguagePreferences.persistLocale(context, languageTag)
         AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(languageTag))
-        val options = NavOptions.Builder()
-            .setPopUpTo(R.id.languageSelectionFragment, true)
-            .build()
-        findNavController().navigate(R.id.agentFeedFragment, null, options)
+        binding.root.post {
+            if (_binding == null || !isAdded) return@post
+            runCatching {
+                val navController = findNavController()
+                if (navController.currentDestination?.id != R.id.languageSelectionFragment) {
+                    return@runCatching
+                }
+                val options = NavOptions.Builder()
+                    .setPopUpTo(R.id.languageSelectionFragment, true)
+                    .build()
+                navController.navigate(R.id.agentFeedFragment, null, options)
+            }.onFailure {
+                Log.w(TAG, "Language selection navigation failed", it)
+            }
+        }
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    companion object {
+        private const val TAG = "LanguageSelectionFragment"
     }
 }

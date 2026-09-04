@@ -33,7 +33,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:stepSize="16"
-            android:value="4000"
+            android:value="2048"
             android:valueFrom="512"
             android:valueTo="4000"
             app:tickVisible="false" />
@@ -43,7 +43,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textAppearance="?attr/textAppearanceBodyMedium"
-            tools:text="4000" />
+            tools:text="2048" />
 
         <TextView
             android:layout_width="match_parent"

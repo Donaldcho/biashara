@@ -1,6 +1,7 @@
 package com.biasharaai.money
 
 import com.biasharaai.pos.cart.CartRepository
+import java.text.DecimalFormat
 import java.text.NumberFormat
 import java.util.Currency
 import java.util.Locale
@@ -15,6 +16,7 @@ import javax.inject.Singleton
 class MoneyFormatter @Inject constructor(
     private val cartRepository: CartRepository,
 ) {
+    private val zeroDecimalCurrencies = setOf("XAF", "XOF", "BIF", "DJF", "GNF", "KMF", "MGA", "RWF", "UGX")
 
     private fun resolvedCurrencyCode(): String =
         cartRepository.activeSettings.value?.currencyCode?.trim()?.takeIf { it.isNotEmpty() }
@@ -22,13 +24,17 @@ class MoneyFormatter @Inject constructor(
 
     /** Currency-aware formatter (reflects latest [activeSettings] each call). */
     fun numberFormat(): NumberFormat {
-        val code = resolvedCurrencyCode()
-        return NumberFormat.getCurrencyInstance(Locale.getDefault()).apply {
-            try {
-                currency = Currency.getInstance(code)
-            } catch (_: IllegalArgumentException) {
-                currency = Currency.getInstance(RegionalDefaults.CURRENCY_CODE)
+        val code = resolvedCurrencyCode().uppercase(Locale.ROOT)
+        val currency = runCatching { Currency.getInstance(code) }.getOrNull()
+        if (currency != null) {
+            return NumberFormat.getCurrencyInstance(Locale.getDefault()).apply {
+                this.currency = currency
             }
+        }
+        val pattern = if (zeroDecimalCurrencies.contains(code)) "#,##0" else "#,##0.00"
+        return DecimalFormat(pattern).apply {
+            positivePrefix = "$code "
+            negativePrefix = "-$code "
         }
     }
 

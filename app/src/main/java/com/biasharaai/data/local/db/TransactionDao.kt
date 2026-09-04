@@ -38,6 +38,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions WHERE id = :id LIMIT 1")
     suspend fun getTransactionById(id: Long): Transaction?
 
+    @Query("SELECT * FROM transactions WHERE receipt_number = :receiptNumber LIMIT 1")
+    suspend fun getTransactionByReceiptNumber(receiptNumber: String): Transaction?
+
     @Query("SELECT * FROM transactions WHERE id = :id LIMIT 1")
     fun observeTransactionById(id: Long): Flow<Transaction?>
 

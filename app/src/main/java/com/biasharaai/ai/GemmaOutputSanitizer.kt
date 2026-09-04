@@ -42,6 +42,7 @@ object GemmaOutputSanitizer {
         cleaned = cleaned.replace(roleOnlyLine, "\n")
         cleaned = collapseRepetitionLoops(cleaned)
         cleaned = cleaned.replace(excessBlankLines, "\n\n")
+        cleaned = formatSpacingBetweenLettersAndNumbers(cleaned)
         return cleaned.trim()
     }
 
@@ -56,6 +57,7 @@ object GemmaOutputSanitizer {
         cleaned = cleaned.replace(roleOnlyLine, "\n")
         cleaned = collapseRepetitionLoops(cleaned)
         cleaned = cleaned.replace(excessBlankLines, "\n\n")
+        cleaned = formatSpacingBetweenLettersAndNumbers(cleaned)
         return cleaned.trim()
     }
 
@@ -64,6 +66,21 @@ object GemmaOutputSanitizer {
         out = repeatedPhraseLoop.replace(out) { match ->
             match.groupValues[1].substringBefore(' ').ifBlank { match.value }
         }
+        return out
+    }
+
+    /**
+     * Inserts spaces between letters/currency symbols and numbers (e.g. FCFA45,000 -> FCFA 45,000, 100units -> 100 units).
+     * Keeps common ordinals intact (e.g. 1st, 2nd, 3rd, 4th).
+     */
+    private fun formatSpacingBetweenLettersAndNumbers(text: String): String {
+        if (text.isBlank()) return text
+        // 1. Specific currency symbols followed by a digit
+        var out = text.replace(Regex("""([$₦€£¥])(\d)"""), "$1 $2")
+        // 2. Alphabetic words of length >= 2 followed by a digit (e.g. FCFA45,000, KES100)
+        out = out.replace(Regex("""([a-zA-Z]{2,})(\d)"""), "$1 $2")
+        // 3. Digit followed by letters, excluding ordinals like 1st, 2nd, 3rd, 4th
+        out = out.replace(Regex("""(\d)(?!(?:st|nd|rd|th)\b)([a-zA-Z]+)"""), "$1 $2")
         return out
     }
 }

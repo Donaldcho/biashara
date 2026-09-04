@@ -382,7 +382,17 @@
         <action
             android:id="@+id/action_settingsFragment_to_businessProfileEditFragment"
             app:destination="@id/businessProfileEditFragment" />
+
+        <action
+            android:id="@+id/action_settingsFragment_to_desktopLinkFragment"
+            app:destination="@id/desktopLinkFragment" />
     </fragment>
+
+    <fragment
+        android:id="@+id/desktopLinkFragment"
+        android:name="com.biasharaai.ui.desktop.DesktopLinkFragment"
+        android:label="@string/desktop_link_title"
+        tools:layout="@layout/fragment_desktop_link" />
 
     <fragment
         android:id="@+id/businessProfileEditFragment"

@@ -28,9 +28,9 @@ class InferenceRuntimeSpecTest {
     )
 
     @Test
-    fun `FULL_AI uses Edge defaults unchanged`() {
+    fun `FULL_AI uses stable mobile defaults`() {
         val r = InferenceRuntimeSpec.resolve(CapabilityTier.FULL_AI, InferenceSettingsStore.DEFAULTS)
-        assertEquals(4000, r.engineMaxTokens)
+        assertEquals(2048, r.engineMaxTokens)
         assertEquals(64, r.engineMaxTopK)
         assertEquals(64, r.sessionTopK)
         assertEquals(0.95f, r.sessionTopP, 0.001f)

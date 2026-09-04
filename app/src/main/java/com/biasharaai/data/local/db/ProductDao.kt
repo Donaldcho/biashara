@@ -59,6 +59,12 @@ interface ProductDao {
     @Query("SELECT * FROM products WHERE barcode_value = :barcodeValue LIMIT 1")
     fun getProductByBarcode(barcodeValue: String): Flow<Product?>
 
+    @Query("SELECT * FROM products WHERE barcode_value = :barcodeValue LIMIT 1")
+    suspend fun getProductByBarcodeOnce(barcodeValue: String): Product?
+
+    @Query("SELECT * FROM products WHERE LOWER(name) = LOWER(:name) LIMIT 1")
+    suspend fun findProductByExactName(name: String): Product?
+
     /**
      * POS search — name or barcode contains query (case-insensitive). Max 50 rows.
      */

@@ -3,52 +3,90 @@
     <!-- ISO 4217 codes and labels (same order). Shown in Settings → Currency. -->
     <string-array name="supported_currency_codes">
         <item>XAF</item>
-        <item>KES</item>
-        <item>NGN</item>
-        <item>GHS</item>
-        <item>ZAR</item>
-        <item>UGX</item>
-        <item>TZS</item>
-        <item>RWF</item>
         <item>XOF</item>
-        <item>MAD</item>
-        <item>EGP</item>
-        <item>ETB</item>
-        <item>ZMW</item>
-        <item>MWK</item>
-        <item>MZN</item>
-        <item>SOS</item>
         <item>DZD</item>
-        <item>TND</item>
-        <item>CVE</item>
-        <item>SCR</item>
-        <item>XPF</item>
-        <item>LSL</item>
+        <item>AOA</item>
         <item>BWP</item>
+        <item>BIF</item>
+        <item>CVE</item>
+        <item>KMF</item>
+        <item>CDF</item>
+        <item>DJF</item>
+        <item>EGP</item>
+        <item>ERN</item>
+        <item>SZL</item>
+        <item>ETB</item>
+        <item>GMD</item>
+        <item>GHS</item>
+        <item>GNF</item>
+        <item>KES</item>
+        <item>LSL</item>
+        <item>LRD</item>
+        <item>LYD</item>
+        <item>MGA</item>
+        <item>MWK</item>
+        <item>MUR</item>
+        <item>MRU</item>
+        <item>MAD</item>
+        <item>MZN</item>
+        <item>NAD</item>
+        <item>NGN</item>
+        <item>RWF</item>
+        <item>STN</item>
+        <item>SCR</item>
+        <item>SLE</item>
+        <item>SOS</item>
+        <item>ZAR</item>
+        <item>SSP</item>
+        <item>SDG</item>
+        <item>TZS</item>
+        <item>TND</item>
+        <item>UGX</item>
+        <item>ZMW</item>
+        <item>ZWG</item>
     </string-array>
     <string-array name="supported_currency_names">
         <item>Central African CFA franc (XAF / FCFA)</item>
-        <item>Kenyan Shilling (KES)</item>
-        <item>Nigerian Naira (NGN)</item>
-        <item>Ghanaian Cedi (GHS)</item>
-        <item>South African Rand (ZAR)</item>
-        <item>Ugandan Shilling (UGX)</item>
-        <item>Tanzanian Shilling (TZS)</item>
-        <item>Rwandan Franc (RWF)</item>
-        <item>West African CFA franc (XOF)</item>
-        <item>Moroccan Dirham (MAD)</item>
-        <item>Egyptian Pound (EGP)</item>
-        <item>Ethiopian Birr (ETB)</item>
-        <item>Zambian Kwacha (ZMW)</item>
-        <item>Malawian Kwacha (MWK)</item>
-        <item>Mozambican Metical (MZN)</item>
-        <item>Somali Shilling (SOS)</item>
-        <item>Algerian Dinar (DZD)</item>
-        <item>Tunisian Dinar (TND)</item>
-        <item>Cape Verdean Escudo (CVE)</item>
-        <item>Seychellois Rupee (SCR)</item>
-        <item>CFP Franc (XPF)</item>
-        <item>Lesotho Loti (LSL)</item>
-        <item>Botswana Pula (BWP)</item>
+        <item>West African CFA franc (XOF / FCFA)</item>
+        <item>Algerian dinar (DZD)</item>
+        <item>Angolan kwanza (AOA)</item>
+        <item>Botswana pula (BWP)</item>
+        <item>Burundian franc (BIF)</item>
+        <item>Cape Verdean escudo (CVE)</item>
+        <item>Comorian franc (KMF)</item>
+        <item>Congolese franc (CDF)</item>
+        <item>Djiboutian franc (DJF)</item>
+        <item>Egyptian pound (EGP)</item>
+        <item>Eritrean nakfa (ERN)</item>
+        <item>Eswatini lilangeni (SZL)</item>
+        <item>Ethiopian birr (ETB)</item>
+        <item>Gambian dalasi (GMD)</item>
+        <item>Ghanaian cedi (GHS)</item>
+        <item>Guinean franc (GNF)</item>
+        <item>Kenyan shilling (KES)</item>
+        <item>Lesotho loti (LSL)</item>
+        <item>Liberian dollar (LRD)</item>
+        <item>Libyan dinar (LYD)</item>
+        <item>Malagasy ariary (MGA)</item>
+        <item>Malawian kwacha (MWK)</item>
+        <item>Mauritian rupee (MUR)</item>
+        <item>Mauritanian ouguiya (MRU)</item>
+        <item>Moroccan dirham (MAD)</item>
+        <item>Mozambican metical (MZN)</item>
+        <item>Namibian dollar (NAD)</item>
+        <item>Nigerian naira (NGN)</item>
+        <item>Rwandan franc (RWF)</item>
+        <item>Sao Tome and Principe dobra (STN)</item>
+        <item>Seychellois rupee (SCR)</item>
+        <item>Sierra Leonean leone (SLE)</item>
+        <item>Somali shilling (SOS)</item>
+        <item>South African rand (ZAR)</item>
+        <item>South Sudanese pound (SSP)</item>
+        <item>Sudanese pound (SDG)</item>
+        <item>Tanzanian shilling (TZS)</item>
+        <item>Tunisian dinar (TND)</item>
+        <item>Ugandan shilling (UGX)</item>
+        <item>Zambian kwacha (ZMW)</item>
+        <item>Zimbabwe Gold (ZWG)</item>
     </string-array>
 </resources>

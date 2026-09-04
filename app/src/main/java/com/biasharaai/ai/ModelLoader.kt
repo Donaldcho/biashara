@@ -11,6 +11,7 @@ import com.google.ai.edge.litertlm.ExperimentalApi
 import com.google.ai.edge.litertlm.ExperimentalFlags
 import com.google.ai.edge.litertlm.SamplerConfig
 import com.google.ai.edge.litertlm.ToolProvider
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -42,9 +43,11 @@ class ModelLoader @Inject constructor() {
     ): Engine {
         val spec = InferenceRuntimeSpec.resolve(tier, cfg, forFunctionToolModel)
         val backend: Backend = if (spec.userForcesCpu) Backend.CPU() else Backend.GPU()
-        Log.d(
+        val modelBytes = File(modelPath).length()
+        Log.i(
             TAG,
-            "Building LiteRT-LM engine (tier=$tier, backend=$backend, maxTokens=${spec.engineMaxTokens})",
+            "Building LiteRT-LM engine (tier=$tier, backend=$backend, " +
+                "maxTokens=${spec.engineMaxTokens}, modelBytes=$modelBytes, path=$modelPath)",
         )
         val engineConfig = EngineConfig(
             modelPath = modelPath,
@@ -65,11 +68,23 @@ class ModelLoader @Inject constructor() {
     }
 
     private fun createInitializedEngine(config: EngineConfig): Engine {
+        val startedAt = System.currentTimeMillis()
         val created = Engine(config)
         return try {
             created.initialize()
+            Log.i(
+                TAG,
+                "LiteRT-LM engine initialized in ${System.currentTimeMillis() - startedAt}ms " +
+                    "(backend=${config.backend}, maxTokens=${config.maxNumTokens})",
+            )
             created
         } catch (t: Throwable) {
+            Log.e(
+                TAG,
+                "LiteRT-LM engine initialization failed after " +
+                    "${System.currentTimeMillis() - startedAt}ms (backend=${config.backend})",
+                t,
+            )
             try {
                 created.close()
             } catch (_: Throwable) {
@@ -93,10 +108,11 @@ class ModelLoader @Inject constructor() {
             topP = spec.sessionTopP.toDouble(),
             temperature = spec.sessionTemperature.toDouble(),
         )
+        val startedAt = System.currentTimeMillis()
         return try {
             ExperimentalFlags.enableConversationConstrainedDecoding =
                 enableConversationConstrainedDecoding
-            engine.createConversation(
+            val conversation = engine.createConversation(
                 ConversationConfig(
                     samplerConfig = sampler,
                     systemInstruction = Contents.of(systemInstruction),
@@ -104,6 +120,8 @@ class ModelLoader @Inject constructor() {
                     automaticToolCalling = automaticToolCalling,
                 ),
             )
+            Log.i(TAG, "LiteRT-LM conversation created in ${System.currentTimeMillis() - startedAt}ms")
+            conversation
         } finally {
             ExperimentalFlags.enableConversationConstrainedDecoding = false
         }

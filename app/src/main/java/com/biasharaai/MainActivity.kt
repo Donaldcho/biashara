@@ -91,7 +91,6 @@ class MainActivity : AppCompatActivity() {
                 R.id.manualEntryFragment,
                 R.id.smsImportFragment,
                 R.id.qrCardGeneratorFragment,
-                R.id.chatFragment,
                 R.id.chatHistoryFragment,
                 R.id.lessonFragment -> View.GONE
                 else -> View.VISIBLE

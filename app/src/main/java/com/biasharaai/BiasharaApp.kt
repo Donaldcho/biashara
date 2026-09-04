@@ -102,18 +102,19 @@ class BiasharaApp : Application(), Configuration.Provider {
             runCatching { knowledgeIngestor.ingestAll() }
                 .onFailure { Log.e(TAG, "knowledgeIngestor.ingestAll failed", it) }
         }
-        runCatching { lossAlertScheduler.schedule(this) }
-            .onFailure { Log.e(TAG, "lossAlertScheduler.schedule failed", it) }
         runCatching { agentOrchestrator.scheduleAll() }
             .onFailure { Log.e(TAG, "agentOrchestrator.scheduleAll failed", it) }
         appScope.launch(Dispatchers.IO) {
+            delay(STARTUP_SCHEDULER_DEFER_MS)
+            runCatching { lossAlertScheduler.schedule(this@BiasharaApp) }
+                .onFailure { Log.e(TAG, "lossAlertScheduler.schedule failed", it) }
             runCatching { scheduleLedgerWorkers() }
                 .onFailure { Log.e(TAG, "scheduleLedgerWorkers failed", it) }
             runCatching { scheduleEnterpriseSyncWorkers() }
                 .onFailure { Log.e(TAG, "scheduleEnterpriseSyncWorkers failed", it) }
+            runCatching { registerFraudSentinelInvalidationObserver() }
+                .onFailure { Log.e(TAG, "Fraud invalidation observer failed", it) }
         }
-        runCatching { registerFraudSentinelInvalidationObserver() }
-            .onFailure { Log.e(TAG, "Fraud invalidation observer failed", it) }
     }
 
     private fun scheduleLedgerWorkers() {
@@ -206,5 +207,6 @@ class BiasharaApp : Application(), Configuration.Provider {
         private const val TAG = "BiasharaApp"
         /** Defer heavy IO so cold start and first frame stay responsive. */
         private const val STARTUP_DEFER_MS = 4_000L
+        private const val STARTUP_SCHEDULER_DEFER_MS = 1_500L
     }
 }

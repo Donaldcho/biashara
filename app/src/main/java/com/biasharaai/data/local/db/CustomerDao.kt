@@ -20,6 +20,12 @@ interface CustomerDao {
     @Query("SELECT * FROM customers WHERE id = :id LIMIT 1")
     suspend fun getCustomerById(id: Long): Customer?
 
+    @Query("SELECT * FROM customers WHERE phone = :phone LIMIT 1")
+    suspend fun findByPhone(phone: String): Customer?
+
+    @Query("SELECT * FROM customers WHERE LOWER(name) = LOWER(:name) LIMIT 1")
+    suspend fun findByExactName(name: String): Customer?
+
     @Query("SELECT * FROM customers WHERE id = :id LIMIT 1")
     fun getCustomerByIdFlow(id: Long): Flow<Customer?>
 

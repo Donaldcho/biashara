@@ -27,9 +27,9 @@ class InferenceSettingsStore @Inject constructor(
         private const val KEY_ENABLE_THINKING = "enable_thinking"
         private const val KEY_ENABLE_SPECULATIVE = "enable_speculative"
 
-        /** Edge Gallery defaults when sliders are at maximum (screenshots reference). */
+        /** Stable mobile defaults. The UI still allows higher token budgets for stronger devices. */
         val DEFAULTS = InferenceUiConfig(
-            maxTokens = 4000,
+            maxTokens = 2048,
             topK = 64,
             topP = 0.95f,
             temperature = 1.0f,

@@ -146,18 +146,30 @@ class SettingsViewModel @Inject constructor(
     fun setShopCurrency(isoCode: String) {
         launchSafe {
             val code = isoCode.trim().uppercase(Locale.ROOT)
-            val currency = runCatching { Currency.getInstance(code) }.getOrNull() ?: return@launchSafe
+            if (!code.matches(Regex("[A-Z]{3}"))) return@launchSafe
+            val symbol = africanCurrencySymbol(code)
+                ?: runCatching { Currency.getInstance(code).getSymbol(Locale.getDefault()) }.getOrNull()
+                ?: code
             // Room forbids synchronous DAO reads on the main thread (no allowMainThreadQueries).
             withContext(Dispatchers.IO) {
                 val row = appSettingsDao.getSettingsSync() ?: AppSettings()
                 appSettingsDao.updateSettings(
                     row.copy(
                         currencyCode = code,
-                        currencySymbol = currency.getSymbol(Locale.getDefault()),
+                        currencySymbol = symbol,
                     ),
                 )
             }
         }
+    }
+
+    private fun africanCurrencySymbol(code: String): String? = when (code.uppercase(Locale.ROOT)) {
+        "XAF", "XOF" -> "FCFA"
+        "KES" -> "KSh"
+        "TZS" -> "TSh"
+        "UGX" -> "USh"
+        "RWF" -> "RF"
+        else -> null
     }
 
     fun refreshLicenceState() {

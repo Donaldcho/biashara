@@ -51,8 +51,9 @@ class ActiveModelStore @Inject constructor(
     companion object {
         private const val TAG = "ActiveModelStore"
 
-        private const val INIT_TIMEOUT_MS = 30_000L
-        private const val GENERATION_TIMEOUT_MS = 90_000L
+        private const val MODEL_OPEN_TIMEOUT_MS = 180_000L
+        private const val GENERATION_TIMEOUT_MS = 120_000L
+        private const val AGENT_LOOP_TIMEOUT_MS = 180_000L
         private const val RUNTIME_FAILURE_COOLDOWN_MS = 30_000L
 
         private const val SYSTEM_PROMPT =
@@ -141,10 +142,23 @@ class ActiveModelStore @Inject constructor(
             "ActiveModelStore is not available (tier=${effectiveTier()}, " +
                 "modelExists=${hasUsablePrimaryModel()})"
         }
-        val tier = effectiveTier()
+        val capability = DeviceCapabilityChecker.evaluate(
+            context,
+            modelPresentOnDisk = hasUsablePrimaryModel(),
+        )
+        val tier = capability.tier
         val cfg = inferenceSettingsStore.load()
-        val path = modelDownloadManager.modelFilePath.absolutePath
+        val modelFile = modelDownloadManager.modelFilePath
+        val path = modelFile.absolutePath
+        val startedAt = System.currentTimeMillis()
+        Log.i(
+            TAG,
+            "Opening primary model (tier=$tier, totalRamMb=${capability.totalRamMb}, " +
+                "freeStorageMb=${capability.freeStorageMb}, modelBytes=${modelFile.length()}, " +
+                "maxTokens=${cfg.maxTokens}, preferCpu=${cfg.preferCpu})",
+        )
         val e = modelLoader.buildEngine(path, tier, cfg)
+        Log.i(TAG, "Primary engine opened in ${System.currentTimeMillis() - startedAt}ms")
         engine = e
         return e
     }
@@ -190,13 +204,15 @@ class ActiveModelStore @Inject constructor(
     ) = withContext(Dispatchers.IO) {
         generationMutex.withLock {
             try {
+                val openStartedAt = System.currentTimeMillis()
                 val conversationFuture = inferenceExecutor.submit(Callable { ensureConversationOnGateThread() })
                 val convo = try {
-                    conversationFuture.get(INIT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                    conversationFuture.get(MODEL_OPEN_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                 } catch (t: Throwable) {
                     conversationFuture.cancel(true)
                     throw t
                 }
+                Log.i(TAG, "Conversation ready in ${System.currentTimeMillis() - openStartedAt}ms")
 
                 withTimeout(GENERATION_TIMEOUT_MS) {
                     suspendCancellableCoroutine<Unit> { cont ->
@@ -261,6 +277,9 @@ class ActiveModelStore @Inject constructor(
                 throw ModelRuntimeException("On-device AI timed out; using local fallback.", timeout)
             } catch (cancelled: CancellationException) {
                 throw cancelled
+            } catch (timeout: java.util.concurrent.TimeoutException) {
+                handleRuntimeFailure("openConversation timeout", timeout)
+                throw ModelRuntimeException("On-device AI is still loading; try again in a moment.", timeout)
             } catch (t: Throwable) {
                 handleRuntimeFailure("generateStreaming", t)
                 throw ModelRuntimeException("On-device AI failed; using local fallback.", rootCause(t))
@@ -304,11 +323,7 @@ class ActiveModelStore @Inject constructor(
 
     private tailrec fun rootCause(throwable: Throwable): Throwable {
         val cause = throwable.cause ?: return throwable
-        return if (throwable is java.util.concurrent.ExecutionException) {
-            rootCause(cause)
-        } else {
-            throwable
-        }
+        return rootCause(cause)
     }
 
     private fun isRuntimeCoolingDown(): Boolean = runtimeCooldownReasonOrNull() != null
@@ -499,7 +514,7 @@ class ActiveModelStore @Inject constructor(
                     },
                 )
                 try {
-                    loopFuture.get(INIT_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                    loopFuture.get(AGENT_LOOP_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                 } catch (t: Throwable) {
                     loopFuture.cancel(true)
                     throw t
